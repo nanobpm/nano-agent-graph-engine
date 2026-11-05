@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
-    "test": "node --test test/",
+    "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

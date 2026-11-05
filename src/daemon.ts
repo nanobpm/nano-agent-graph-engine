@@ -293,12 +293,12 @@ export class Host {
   state() {
     const snap = this.snapshot();
     const instances = (snap.instances ?? []).map((i: any) => ({
+      ...this.instanceMeta[i.key],
       key: i.key,
       flowId: i.processId,
       state: i.state,
       completed: i.completed,
       activeElements: (i.activeElements ?? []).map((a: any) => a.elementId),
-      ...this.instanceMeta[i.key],
     }));
     return {
       project: this.project,
