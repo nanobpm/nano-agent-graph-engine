@@ -2,11 +2,14 @@
 // Claude Code agent tools to author, run and inspect flows, answer user tasks (asking
 // the person through an MCP elicitation dialog when the client supports it) and take
 // "session" jobs a flow hands to the live agent.
+import fs from "node:fs";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { checkProject, formatProblems } from "./compile.ts";
+import { checkFile, checkProject, flowsDir, formatProblems, listFlowFiles } from "./compile.ts";
+import { appHtml } from "./explorer-html.ts";
 import { api, ensureDaemon } from "./paths.ts";
 import { summarize } from "./summary.ts";
 
@@ -14,8 +17,22 @@ type Result = { content: { type: "text"; text: string }[]; isError?: boolean };
 const text = (t: string, isError = false): Result => ({ content: [{ type: "text", text: t }], ...(isError ? { isError } : {}) });
 const json = (v: unknown) => text(JSON.stringify(v, null, 2));
 
+const UI_URI = "ui://agent-graph/explorer.html";
+
+const INSTRUCTIONS = `Agent Graph Engine: durable workflows ("flows") that orchestrate scripts, AI agent steps, the user (forms) and timers; they run in a local background engine and survive restarts.
+Before writing or changing a flow, call flow_guide once. Write flows with flow_write, then fix every problem it reports. Start with flow_start and show progress with show_explorer.
+When a flow waits for the user (task_list), use task_ask or show_explorer — never answer a user task yourself. When session_job_next has work (agent steps assigned to you), do it and hand back the result with session_job_complete.`;
+
+function guideText(): string {
+  for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
+    const u = new URL(rel, import.meta.url);
+    if (fs.existsSync(u)) return fs.readFileSync(u, "utf8").replace(/^---[\s\S]*?---\n/, "");
+  }
+  return "guide not found";
+}
+
 export function createServer(project: string): McpServer {
-  const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" });
+  const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   const daemon = () => ensureDaemon(project);
   const guard =
     <A,>(fn: (a: A) => Promise<Result>) =>
@@ -51,6 +68,111 @@ export function createServer(project: string): McpServer {
       return text(formatProblems(r) + reload, bad);
     }),
   );
+
+  server.registerTool(
+    "flow_guide",
+    {
+      title: "How to write flows",
+      description: "The flow authoring guide: defineFlow steps, forms, agent tasks, examples. Read it before writing or changing a flow.",
+      inputSchema: {},
+    },
+    guard(async () => text(`Project folder: ${project}\n\n${guideText()}`)),
+  );
+
+  server.registerTool(
+    "flow_write",
+    {
+      title: "Write a flow",
+      description:
+        "Create or replace flows/<name>.flow.ts (TypeScript, see flow_guide) and any prompt files for its agent steps (flows/prompts/<file>), then compile + lint it. If it passes it is deployed at once. Fix every reported error and write again.",
+      inputSchema: {
+        name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('File name without extension, e.g. "release-notes"'),
+        source: z.string().describe("The full TypeScript source of the flow file"),
+        prompts: z.record(z.string().regex(/^[\w.-]+$/), z.string()).optional().describe('Prompt files for agent steps: { "summarize.md": "…" }'),
+      },
+    },
+    guard(async ({ name, source, prompts }) => {
+      const dir = flowsDir(project);
+      fs.mkdirSync(path.join(dir, "prompts"), { recursive: true });
+      for (const [f, body] of Object.entries(prompts ?? {})) fs.writeFileSync(path.join(dir, "prompts", f), body);
+      const file = path.join(dir, `${name}.flow.ts`);
+      fs.writeFileSync(file, source);
+      const r = await checkFile(file);
+      const bad = r.problems.some((p) => p.severity === "error");
+      let tail = "";
+      if (!bad) {
+        const info = await daemon();
+        await api(info, "/api/reload", {});
+        tail = `\n\nDeployed: ${r.flows.map((f) => f.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
+      }
+      return text(`${formatProblems([r])}\nwritten ${path.relative(project, file)}${tail}`, bad);
+    }),
+  );
+
+  server.registerTool(
+    "flow_read",
+    {
+      title: "Read flow files",
+      description: "List the flow files, or return the source of one (by file name without .flow.ts) and its prompt files.",
+      inputSchema: { name: z.string().optional() },
+    },
+    guard(async ({ name }) => {
+      const files = listFlowFiles(project);
+      if (!name) return text(files.length ? files.map((f) => path.basename(f)).join("\n") : `No flows yet in ${flowsDir(project)}.`);
+      const f = files.find((x) => path.basename(x).replace(/\.flow\.\w+$/, "") === name);
+      if (!f) return text(`No flow file ${name}.flow.ts`, true);
+      const pdir = path.join(flowsDir(project), "prompts");
+      const prompts = fs.existsSync(pdir) ? fs.readdirSync(pdir).map((p) => `--- prompts/${p}\n${fs.readFileSync(path.join(pdir, p), "utf8")}`) : [];
+      return text([`--- ${path.basename(f)}`, fs.readFileSync(f, "utf8"), ...prompts].join("\n"));
+    }),
+  );
+
+  registerAppTool(
+    server,
+    "show_explorer",
+    {
+      title: "Show the flow explorer",
+      description:
+        "Show the user the live flow explorer: diagrams with where each run is, the task inbox with forms they can fill in, incidents, variables. Optionally focus a flow, an instance or a user task.",
+      inputSchema: {
+        flowId: z.string().optional(),
+        instanceKey: z.string().optional(),
+        taskKey: z.string().optional(),
+      },
+      _meta: { ui: { resourceUri: UI_URI } },
+    },
+    guard(async ({ flowId, instanceKey, taskKey }: { flowId?: string; instanceKey?: string; taskKey?: string }) => {
+      const info = await daemon();
+      const hash = taskKey ? `task=${taskKey}` : instanceKey ? `instance=${instanceKey}` : flowId ? `flow=${flowId}` : "";
+      const r: any = text(`${summarize(await api(info, "/api/state"))}\n\nShowing the explorer${hash ? ` (${hash})` : ""}. Also in a browser: ${info.url}/${hash ? `#${hash}` : ""}`);
+      r.structuredContent = { hash, url: info.url };
+      return r;
+    }),
+  );
+
+  registerAppTool(
+    server,
+    "ui_api",
+    {
+      title: "Explorer API proxy",
+      description: "Used by the explorer view to reach the engine.",
+      inputSchema: { path: z.string(), body: z.any().optional() },
+      _meta: { ui: { resourceUri: UI_URI, visibility: ["app"] } },
+    },
+    async ({ path: p, body }: { path: string; body?: unknown }) => {
+      try {
+        if (!/^\/api\/[\w/.-]*$/.test(p) || p === "/api/shutdown") throw new Error("not allowed");
+        const data = await api(await daemon(), p, body);
+        return { content: [{ type: "text" as const, text: "ok" }], structuredContent: { data } };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: String(e?.message ?? e) }], structuredContent: { error: String(e?.message ?? e) }, isError: true };
+      }
+    },
+  );
+
+  registerAppResource(server, "Agent Graph explorer", UI_URI, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
+    contents: [{ uri: UI_URI, mimeType: RESOURCE_MIME_TYPE, text: appHtml(), _meta: { ui: { prefersBorder: true } } }],
+  }));
 
   server.registerTool(
     "flow_status",
@@ -148,11 +270,11 @@ export function createServer(project: string): McpServer {
     {
       title: "Take a job meant for this session",
       description:
-        'Claim the next job a flow assigned to the live Claude Code session (steps declared w.task(name, { jobType: "session" })). Returns the job\'s prompt and variables; do the work, then call session_job_complete with the result variables (or session_job_fail).',
-      inputSchema: { jobType: z.string().optional().describe('Default "session"') },
+        'Claim the next agent step a flow assigned to you, the live assistant: w.task steps with jobType "session", and jobType "claude" steps when no Claude Code CLI is installed. Returns the step\'s prompt, variables and (if any) outputSchema; do the work, then call session_job_complete with the result as variables (matching outputSchema), or session_job_fail.',
+      inputSchema: { jobType: z.string().optional().describe("Default: every job type meant for you") },
     },
     guard(async ({ jobType }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType ?? "session", max: 1 });
+      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType, max: 1 });
       if (!jobs.length) return text("No session jobs waiting.");
       return json(jobs[0]);
     }),
@@ -223,4 +345,31 @@ export function createServer(project: string): McpServer {
 export async function runMcp(project: string) {
   const server = createServer(project);
   await server.connect(new StdioServerTransport());
+}
+
+/** Streamable HTTP (stateless) for MCP Apps hosts and inspectors: `age mcp --http 3001`. */
+export async function runMcpHttp(project: string, port: number) {
+  const http = await import("node:http");
+  const { StreamableHTTPServerTransport } = await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
+  http
+    .createServer(async (req, res) => {
+      res.setHeader("access-control-allow-origin", "*");
+      res.setHeader("access-control-allow-headers", "*");
+      res.setHeader("access-control-allow-methods", "GET,POST,DELETE,OPTIONS");
+      res.setHeader("access-control-expose-headers", "mcp-session-id");
+      if (req.method === "OPTIONS") return res.end();
+      if (!req.url?.startsWith("/mcp")) return res.writeHead(404).end();
+      const chunks: Buffer[] = [];
+      for await (const c of req) chunks.push(c as Buffer);
+      const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : undefined;
+      const server = createServer(project);
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+      res.on("close", () => {
+        transport.close();
+        server.close();
+      });
+      await server.connect(transport);
+      await transport.handleRequest(req, res, body);
+    })
+    .listen(port, "127.0.0.1", () => console.error(`agent-graph MCP on http://127.0.0.1:${port}/mcp`));
 }

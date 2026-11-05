@@ -17,7 +17,7 @@ const HELP = `age — Agent Graph Engine
   age complete <task> [json]    complete a user task
   age open                      print the explorer URL
   age daemon                    run the daemon in the foreground
-  age mcp                       run the MCP server (stdio)
+  age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
 
   Options: --project <dir> (default: nearest dir with flows/ or .agent-graph/)`;
@@ -94,8 +94,10 @@ async function main() {
       return;
     }
     case "mcp": {
-      const { runMcp } = await import("./mcp.ts");
-      await runMcp(project);
+      const { runMcp, runMcpHttp } = await import("./mcp.ts");
+      const i = process.argv.indexOf("--http");
+      if (i > 0) await runMcpHttp(project, Number(process.argv[i + 1] ?? 3001));
+      else await runMcp(project);
       return;
     }
     case "hook": {

@@ -29,8 +29,10 @@ fs.chmodSync(path.join(dist, "cli.js"), 0o755);
 const wasm = require.resolve("@nanobpm/engine-wasm").replace(/nanobpmn_engine\.js$/, "nanobpmn_engine_bg.wasm");
 fs.copyFileSync(wasm, path.join(dist, "nanobpmn_engine_bg.wasm"));
 
-// Explorer: one self-contained HTML file.
+// Explorer: one self-contained HTML file, built for the browser and for MCP Apps.
+for (const [isApp, out] of [[false, "explorer.html"], [true, "explorer-app.html"]]) {
 const ui = await build({
+  define: { __APP__: String(isApp) },
   entryPoints: ["ui/explorer.ts"],
   bundle: true,
   format: "esm",
@@ -51,6 +53,8 @@ const html = fs
   .readFileSync("ui/explorer.html", "utf8")
   .replace("/*CSS*/", () => css)
   .replace("/*JS*/", () => js);
-fs.writeFileSync(path.join(dist, "explorer.html"), html);
+fs.writeFileSync(path.join(dist, out), html);
+}
+fs.copyFileSync("skills/agent-graph/SKILL.md", path.join(dist, "guide.md"));
 
 for (const f of fs.readdirSync(dist)) console.log(`dist/${f}  ${(fs.statSync(path.join(dist, f)).size / 1024).toFixed(0)} kB`);

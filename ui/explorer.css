@@ -40,3 +40,15 @@ button.ghost { background: transparent; color: var(--bad); border: 1px solid #e6
 .djs-element.active .djs-visual > :first-child { stroke: var(--accent) !important; stroke-width: 3px !important; fill: #e3efff !important; }
 .djs-element.incident .djs-visual > :first-child { stroke: var(--bad) !important; stroke-width: 3px !important; fill: #fde7e7 !important; }
 .djs-connection.taken .djs-visual > path { stroke: var(--ok) !important; stroke-width: 2.5px !important; }
+
+html.app body { height: auto; }
+html.app main { height: 600px; }
+@media (max-width: 900px) { html.app main { height: auto; } html.app aside { max-height: none; overflow: visible; } }
+html.app header { display: none; }
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 300px auto; overflow: auto; }
+  nav { border-right: 0; border-bottom: 1px solid var(--line); max-height: 180px; }
+  #canvas { min-height: 300px; }
+  aside { border-left: 0; }
+}
+.hint { margin: 6px 12px; padding: 6px 8px; background: #eef4ff; border-radius: 6px; font-size: 12px; }

@@ -6,6 +6,12 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 var __esm = (fn, res, err) => function __init() {
   if (err) throw err[0];
   try {
@@ -14,7 +20,7 @@ var __esm = (fn, res, err) => function __init() {
     throw err = [e], e;
   }
 };
-var __commonJS = (cb, mod) => function __require() {
+var __commonJS = (cb, mod) => function __require2() {
   try {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   } catch (e) {
@@ -56,23 +62,23 @@ function assertJobType(kind, value) {
     throw new Error(`${kind} "${value}" is not a valid job type (expected a non-empty token of letters, digits, and _ . : + -)`);
   }
 }
-function isIsoDuration(v) {
-  if (!ISO_DURATION.test(v) || v === "P" || v === "PT" || v.endsWith("T"))
+function isIsoDuration(v2) {
+  if (!ISO_DURATION.test(v2) || v2 === "P" || v2 === "PT" || v2.endsWith("T"))
     return false;
-  return /\d/.test(v);
+  return /\d/.test(v2);
 }
-function isFeel(v) {
-  return v.startsWith("=") && v.length > 1;
+function isFeel(v2) {
+  return v2.startsWith("=") && v2.length > 1;
 }
 function assertTimerDuration(kind, value) {
-  const v = typeof value === "string" ? value.trim() : "";
-  if (v === "" || !isFeel(v) && !isIsoDuration(v)) {
+  const v2 = typeof value === "string" ? value.trim() : "";
+  if (v2 === "" || !isFeel(v2) && !isIsoDuration(v2)) {
     throw new Error(`${kind} "${value}" is not an ISO-8601 duration (e.g. PT1M30S, P1DT6H) or a FEEL expression (=...)`);
   }
 }
 function assertTimerDate(kind, value) {
-  const v = typeof value === "string" ? value.trim() : "";
-  if (v === "" || !isFeel(v) && !ISO_DATE.test(v)) {
+  const v2 = typeof value === "string" ? value.trim() : "";
+  if (v2 === "" || !isFeel(v2) && !ISO_DATE.test(v2)) {
     throw new Error(`${kind} "${value}" is not an ISO-8601 instant (e.g. 2026-01-01T09:00:00Z) or a FEEL expression (=...)`);
   }
 }
@@ -111,11 +117,11 @@ function isKind(node2, kind) {
   return node2.kind === kind;
 }
 function requireNodeKind(kind) {
-  const h = kinds.get(kind);
-  if (!h) {
+  const h2 = kinds.get(kind);
+  if (!h2) {
     throw new Error(`no handler registered for flow-node kind "${kind}" \u2014 did its module under src/nodes/ import and call registerNodeKind()?`);
   }
-  return h;
+  return h2;
 }
 var kinds;
 var init_registry = __esm({
@@ -301,8 +307,8 @@ var init_continue = __esm({
 });
 
 // node_modules/@nanobpm/workflow/dist/io-mapping.js
-function isNonBlankString(v) {
-  return typeof v === "string" && v.trim() !== "";
+function isNonBlankString(v2) {
+  return typeof v2 === "string" && v2.trim() !== "";
 }
 function isEntry(e) {
   if (e === null || typeof e !== "object")
@@ -959,8 +965,8 @@ function declarativeToBpmn(flow) {
   return new Compiler(flow).compile();
 }
 function incomingOutgoing(inc, outg) {
-  return inc.map((f) => `      <bpmn:incoming>${f}</bpmn:incoming>
-`).join("") + outg.map((f) => `      <bpmn:outgoing>${f}</bpmn:outgoing>
+  return inc.map((f2) => `      <bpmn:incoming>${f2}</bpmn:incoming>
+`).join("") + outg.map((f2) => `      <bpmn:outgoing>${f2}</bpmn:outgoing>
 `).join("");
 }
 function sequenceFlow(e) {
@@ -1239,10 +1245,10 @@ ${envelopeProp("in", n.payload.name)}
         if (this.envelopes.size === 0)
           return "";
         const shapes = [...this.envelopes.entries()].map(([name2, fields]) => {
-          const exts = fields.map((f) => {
-            const opt = f.optional ? ` optional="true"` : "";
-            const list = f.list ? ` list="true"` : "";
-            return `        <nano:extend name="${escapeXml(f.name)}" type="${escapeXml(f.type)}"${opt}${list} />`;
+          const exts = fields.map((f2) => {
+            const opt = f2.optional ? ` optional="true"` : "";
+            const list = f2.list ? ` list="true"` : "";
+            return `        <nano:extend name="${escapeXml(f2.name)}" type="${escapeXml(f2.type)}"${opt}${list} />`;
           });
           return `      <nano:shape id="${escapeXml(name2)}">
 ${exts.join("\n")}
@@ -1258,8 +1264,8 @@ ${shapes.join("\n")}
     envelopeProp = (dir, value) => `          <zeebe:property name="io.nanobpm.dataEnvelope.${dir}" value="${escapeXml(value)}" />`;
     feel = (expr) => `=${expr}`;
     feelEquals = (subject, value) => `=${subject} = "${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-    incomingOnly = (inc) => inc.map((f) => `<bpmn:incoming>${f}</bpmn:incoming>`).join("");
-    outgoingOnly = (outg) => outg.map((f) => `<bpmn:outgoing>${f}</bpmn:outgoing>`).join("");
+    incomingOnly = (inc) => inc.map((f2) => `<bpmn:incoming>${f2}</bpmn:incoming>`).join("");
+    outgoingOnly = (outg) => outg.map((f2) => `<bpmn:outgoing>${f2}</bpmn:outgoing>`).join("");
   }
 });
 
@@ -1505,9 +1511,9 @@ var init_dist2 = __esm({
     Factory.prototype.createType = function(descriptor) {
       var model = this.model;
       var props = this.properties, prototype = Object.create(Base.prototype);
-      forEach(descriptor.properties, function(p) {
-        if (!p.isMany && p.default !== void 0) {
-          prototype[p.name] = p.default;
+      forEach(descriptor.properties, function(p2) {
+        if (!p2.isMany && p2.default !== void 0) {
+          prototype[p2.name] = p2.default;
         }
       });
       props.defineModel(prototype, model);
@@ -1560,17 +1566,17 @@ var init_dist2 = __esm({
         "idProperty"
       ]);
     };
-    DescriptorBuilder.prototype.addProperty = function(p, idx, validate2) {
+    DescriptorBuilder.prototype.addProperty = function(p2, idx, validate2) {
       if (typeof idx === "boolean") {
         validate2 = idx;
         idx = void 0;
       }
-      this.addNamedProperty(p, validate2 !== false);
+      this.addNamedProperty(p2, validate2 !== false);
       var properties = this.properties;
       if (idx !== void 0) {
-        properties.splice(idx, 0, p);
+        properties.splice(idx, 0, p2);
       } else {
-        properties.push(p);
+        properties.push(p2);
       }
     };
     DescriptorBuilder.prototype.replaceProperty = function(oldProperty, newProperty, replace) {
@@ -1600,8 +1606,8 @@ var init_dist2 = __esm({
       this.addProperty(newProperty, replace ? void 0 : idx, rename);
       propertiesByName[oldNameNs.name] = propertiesByName[oldNameNs.localName] = newProperty;
     };
-    DescriptorBuilder.prototype.redefineProperty = function(p, targetPropertyName, replace) {
-      var nsPrefix = p.ns.prefix;
+    DescriptorBuilder.prototype.redefineProperty = function(p2, targetPropertyName, replace) {
+      var nsPrefix = p2.ns.prefix;
       var parts = targetPropertyName.split("#");
       var name2 = parseName(parts[0], nsPrefix);
       var attrName = parseName(parts[1], name2.prefix).name;
@@ -1609,38 +1615,38 @@ var init_dist2 = __esm({
       if (!redefinedProperty) {
         throw new Error("refined property <" + attrName + "> not found");
       } else {
-        this.replaceProperty(redefinedProperty, p, replace);
+        this.replaceProperty(redefinedProperty, p2, replace);
       }
-      delete p.redefines;
+      delete p2.redefines;
     };
-    DescriptorBuilder.prototype.addNamedProperty = function(p, validate2) {
-      var ns = p.ns, propsByName = this.propertiesByName;
+    DescriptorBuilder.prototype.addNamedProperty = function(p2, validate2) {
+      var ns = p2.ns, propsByName = this.propertiesByName;
       if (validate2) {
-        this.assertNotDefined(p, ns.name);
-        this.assertNotDefined(p, ns.localName);
+        this.assertNotDefined(p2, ns.name);
+        this.assertNotDefined(p2, ns.localName);
       }
-      propsByName[ns.name] = propsByName[ns.localName] = p;
+      propsByName[ns.name] = propsByName[ns.localName] = p2;
     };
-    DescriptorBuilder.prototype.removeNamedProperty = function(p) {
-      var ns = p.ns, propsByName = this.propertiesByName;
+    DescriptorBuilder.prototype.removeNamedProperty = function(p2) {
+      var ns = p2.ns, propsByName = this.propertiesByName;
       delete propsByName[ns.name];
       delete propsByName[ns.localName];
     };
-    DescriptorBuilder.prototype.setBodyProperty = function(p, validate2) {
+    DescriptorBuilder.prototype.setBodyProperty = function(p2, validate2) {
       if (validate2 && this.bodyProperty) {
         throw new Error(
-          "body property defined multiple times (<" + this.bodyProperty.ns.name + ">, <" + p.ns.name + ">)"
+          "body property defined multiple times (<" + this.bodyProperty.ns.name + ">, <" + p2.ns.name + ">)"
         );
       }
-      this.bodyProperty = p;
+      this.bodyProperty = p2;
     };
-    DescriptorBuilder.prototype.setIdProperty = function(p, validate2) {
+    DescriptorBuilder.prototype.setIdProperty = function(p2, validate2) {
       if (validate2 && this.idProperty) {
         throw new Error(
-          "id property defined multiple times (<" + this.idProperty.ns.name + ">, <" + p.ns.name + ">)"
+          "id property defined multiple times (<" + this.idProperty.ns.name + ">, <" + p2.ns.name + ">)"
         );
       }
-      this.idProperty = p;
+      this.idProperty = p2;
     };
     DescriptorBuilder.prototype.assertNotTrait = function(typeDescriptor) {
       const _extends = typeDescriptor.extends || [];
@@ -1650,11 +1656,11 @@ var init_dist2 = __esm({
         );
       }
     };
-    DescriptorBuilder.prototype.assertNotDefined = function(p, name2) {
-      var propertyName = p.name, definedProperty = this.propertiesByName[propertyName];
+    DescriptorBuilder.prototype.assertNotDefined = function(p2, name2) {
+      var propertyName = p2.name, definedProperty = this.propertiesByName[propertyName];
       if (definedProperty) {
         throw new Error(
-          "property <" + propertyName + "> already defined; override of <" + definedProperty.definedBy.ns.name + "#" + definedProperty.ns.name + "> by <" + p.definedBy.ns.name + "#" + p.ns.name + "> not allowed without redefines"
+          "property <" + propertyName + "> already defined; override of <" + definedProperty.definedBy.ns.name + "#" + definedProperty.ns.name + "> by <" + p2.definedBy.ns.name + "#" + p2.ns.name + "> not allowed without redefines"
         );
       }
     };
@@ -1670,25 +1676,25 @@ var init_dist2 = __esm({
       if (typeName in typesByName) {
         return;
       }
-      forEach(t.properties, bind(function(p) {
-        p = assign({}, p, {
-          name: p.ns.localName,
+      forEach(t.properties, bind(function(p2) {
+        p2 = assign({}, p2, {
+          name: p2.ns.localName,
           inherited
         });
-        Object.defineProperty(p, "definedBy", {
+        Object.defineProperty(p2, "definedBy", {
           value: t
         });
-        var replaces = p.replaces, redefines = p.redefines;
+        var replaces = p2.replaces, redefines = p2.redefines;
         if (replaces || redefines) {
-          this.redefineProperty(p, replaces || redefines, replaces);
+          this.redefineProperty(p2, replaces || redefines, replaces);
         } else {
-          if (p.isBody) {
-            this.setBodyProperty(p);
+          if (p2.isBody) {
+            this.setBodyProperty(p2);
           }
-          if (p.isId) {
-            this.setIdProperty(p);
+          if (p2.isId) {
+            this.setIdProperty(p2);
           }
-          this.addProperty(p);
+          this.addProperty(p2);
         }
       }, this));
       types2.push(t);
@@ -1719,16 +1725,16 @@ var init_dist2 = __esm({
         meta: assign({}, type.meta || {})
       });
       var ns = parseName(type.name, pkg.prefix), name2 = ns.name, propertiesByName = /* @__PURE__ */ Object.create(null);
-      forEach(type.properties, bind(function(p) {
-        var propertyNs = parseName(p.name, ns.prefix), propertyName = propertyNs.name;
-        if (!isBuiltIn(p.type)) {
-          p.type = parseName(p.type, propertyNs.prefix).name;
+      forEach(type.properties, bind(function(p2) {
+        var propertyNs = parseName(p2.name, ns.prefix), propertyName = propertyNs.name;
+        if (!isBuiltIn(p2.type)) {
+          p2.type = parseName(p2.type, propertyNs.prefix).name;
         }
-        assign(p, {
+        assign(p2, {
           ns: propertyNs,
           name: propertyName
         });
-        propertiesByName[propertyName] = p;
+        propertiesByName[propertyName] = p2;
       }, this));
       assign(type, {
         ns,
@@ -1932,7 +1938,7 @@ var init_dist2 = __esm({
 });
 
 // node_modules/saxen/dist/index.js
-function replaceEntities(_, d, x, z2) {
+function replaceEntities(_2, d2, x, z2) {
   if (z2) {
     if (hasOwnProperty.call(ENTITY_MAPPING, z2)) {
       return ENTITY_MAPPING[z2];
@@ -1940,8 +1946,8 @@ function replaceEntities(_, d, x, z2) {
       return "&" + z2 + ";";
     }
   }
-  if (d) {
-    return fromCharCode(d);
+  if (d2) {
+    return fromCharCode(d2);
   }
   return fromCharCode(parseInt(x, 16));
 }
@@ -2076,9 +2082,9 @@ function Parser(options) {
     if (typeof nsMap !== "object") {
       throw error("required args <nsMap={}>");
     }
-    var _nsUriToPrefix = /* @__PURE__ */ Object.create(null), k;
-    for (k in nsMap) {
-      _nsUriToPrefix[k] = nsMap[k];
+    var _nsUriToPrefix = /* @__PURE__ */ Object.create(null), k2;
+    for (k2 in nsMap) {
+      _nsUriToPrefix[k2] = nsMap[k2];
     }
     isNamespace = true;
     nsUriToPrefix = _nsUriToPrefix;
@@ -2138,76 +2144,76 @@ function Parser(options) {
   };
   function parse3(xml2, streaming2 = false) {
     var elNameCache = null;
-    var nsChanges, nsSnapshot, anonymousNsCount = 0, tagStart = false, tagEnd = false, i = 0, j = 0, x, y, q, w, v, xmlns, elementName, _elementName, elementProxy;
+    var nsChanges, nsSnapshot, anonymousNsCount = 0, tagStart = false, tagEnd = false, i = 0, j2 = 0, x, y, q, w2, v2, xmlns, elementName, _elementName, elementProxy;
     var attrsString = "", attrsStart = 0, cachedAttrs;
     function normalizeAttrName(name2, defaultAlias) {
-      var w2 = name2.indexOf(":");
-      if (w2 === -1) {
+      var w3 = name2.indexOf(":");
+      if (w3 === -1) {
         return name2;
       }
-      var nsName2 = nsMatrix[name2.substring(0, w2)];
+      var nsName2 = nsMatrix[name2.substring(0, w3)];
       if (!nsName2) {
-        handleWarning(missingNamespaceForPrefix(name2.substring(0, w2)));
+        handleWarning(missingNamespaceForPrefix(name2.substring(0, w3)));
         return null;
       }
-      return defaultAlias === nsName2 ? name2.substr(w2 + 1) : nsName2 + name2.substr(w2);
+      return defaultAlias === nsName2 ? name2.substr(w3 + 1) : nsName2 + name2.substr(w3);
     }
     function getAttrs() {
       if (cachedAttrs !== null) {
         return cachedAttrs;
       }
-      var nsUri, nsUriPrefix, defaultAlias = isNamespace && nsMatrix["xmlns"], attrList = isNamespace && maybeNS ? [] : null, i2 = attrsStart, s = attrsString, l = s.length, newalias, value, alias, name2, attrs = {}, seenAttrs = /* @__PURE__ */ new Set(), skipAttr, w2, j2;
+      var nsUri, nsUriPrefix, defaultAlias = isNamespace && nsMatrix["xmlns"], attrList = isNamespace && maybeNS ? [] : null, i2 = attrsStart, s = attrsString, l = s.length, newalias, value, alias, name2, attrs = {}, seenAttrs = /* @__PURE__ */ new Set(), skipAttr, w3, j3;
       parseAttr:
         for (; i2 < l; i2++) {
           skipAttr = false;
-          w2 = s.charCodeAt(i2);
-          if (w2 === 32 || w2 < 14 && w2 > 8) {
+          w3 = s.charCodeAt(i2);
+          if (w3 === 32 || w3 < 14 && w3 > 8) {
             continue;
           }
-          if (w2 < 65 || w2 > 122 || w2 > 90 && w2 < 97) {
-            if (w2 !== 95 && w2 !== 58) {
+          if (w3 < 65 || w3 > 122 || w3 > 90 && w3 < 97) {
+            if (w3 !== 95 && w3 !== 58) {
               handleWarning("illegal first char attribute name");
               skipAttr = true;
             }
           }
-          for (j2 = i2 + 1; j2 < l; j2++) {
-            w2 = s.charCodeAt(j2);
-            if (w2 > 96 && w2 < 123 || w2 > 64 && w2 < 91 || w2 > 47 && w2 < 59 || w2 === 46 || // '.'
-            w2 === 45 || // '-'
-            w2 === 95) {
+          for (j3 = i2 + 1; j3 < l; j3++) {
+            w3 = s.charCodeAt(j3);
+            if (w3 > 96 && w3 < 123 || w3 > 64 && w3 < 91 || w3 > 47 && w3 < 59 || w3 === 46 || // '.'
+            w3 === 45 || // '-'
+            w3 === 95) {
               continue;
             }
-            if (w2 === 32 || w2 < 14 && w2 > 8) {
+            if (w3 === 32 || w3 < 14 && w3 > 8) {
               handleWarning("missing attribute value");
-              i2 = j2;
+              i2 = j3;
               continue parseAttr;
             }
-            if (w2 === 61) {
+            if (w3 === 61) {
               break;
             }
             handleWarning("illegal attribute name char");
             skipAttr = true;
           }
-          name2 = s.substring(i2, j2);
+          name2 = s.substring(i2, j3);
           if (name2 === "xmlns:xmlns") {
             handleWarning("illegal declaration of xmlns");
             skipAttr = true;
           }
-          w2 = s.charCodeAt(j2 + 1);
-          if (w2 === 34) {
-            j2 = s.indexOf('"', i2 = j2 + 2);
-            if (j2 === -1) {
-              j2 = s.indexOf("'", i2);
-              if (j2 !== -1) {
+          w3 = s.charCodeAt(j3 + 1);
+          if (w3 === 34) {
+            j3 = s.indexOf('"', i2 = j3 + 2);
+            if (j3 === -1) {
+              j3 = s.indexOf("'", i2);
+              if (j3 !== -1) {
                 handleWarning("attribute value quote missmatch");
                 skipAttr = true;
               }
             }
-          } else if (w2 === 39) {
-            j2 = s.indexOf("'", i2 = j2 + 2);
-            if (j2 === -1) {
-              j2 = s.indexOf('"', i2);
-              if (j2 !== -1) {
+          } else if (w3 === 39) {
+            j3 = s.indexOf("'", i2 = j3 + 2);
+            if (j3 === -1) {
+              j3 = s.indexOf('"', i2);
+              if (j3 !== -1) {
                 handleWarning("attribute value quote missmatch");
                 skipAttr = true;
               }
@@ -2215,36 +2221,36 @@ function Parser(options) {
           } else {
             handleWarning("missing attribute value quotes");
             skipAttr = true;
-            for (j2 = j2 + 1; j2 < l; j2++) {
-              w2 = s.charCodeAt(j2 + 1);
-              if (w2 === 32 || w2 < 14 && w2 > 8) {
+            for (j3 = j3 + 1; j3 < l; j3++) {
+              w3 = s.charCodeAt(j3 + 1);
+              if (w3 === 32 || w3 < 14 && w3 > 8) {
                 break;
               }
             }
           }
-          if (j2 === -1) {
+          if (j3 === -1) {
             handleWarning("missing closing quotes");
-            j2 = l;
+            j3 = l;
             skipAttr = true;
           }
           if (!skipAttr) {
-            value = s.substring(i2, j2);
+            value = s.substring(i2, j3);
           }
           if (name2 === "xmlns:xml" && value !== "http://www.w3.org/XML/1998/namespace") {
             handleError("illegal value of xmlns:xml");
           }
-          i2 = j2;
-          for (; j2 + 1 < l; j2++) {
-            w2 = s.charCodeAt(j2 + 1);
-            if (w2 === 32 || w2 < 14 && w2 > 8) {
+          i2 = j3;
+          for (; j3 + 1 < l; j3++) {
+            w3 = s.charCodeAt(j3 + 1);
+            if (w3 === 32 || w3 < 14 && w3 > 8) {
               break;
             }
-            if (i2 === j2) {
+            if (i2 === j3) {
               handleWarning("illegal character after attribute end");
               skipAttr = true;
             }
           }
-          i2 = j2 + 1;
+          i2 = j3 + 1;
           if (skipAttr) {
             continue parseAttr;
           }
@@ -2315,7 +2321,7 @@ function Parser(options) {
       var line = 0;
       var column = 0;
       var startOfLine = 0;
-      var endOfLine = j;
+      var endOfLine = j2;
       var match;
       var data;
       while (i >= startOfLine) {
@@ -2332,12 +2338,12 @@ function Parser(options) {
       }
       if (i == -1) {
         column = endOfLine;
-        data = xml2.substring(j);
-      } else if (j === 0) {
-        data = xml2.substring(j, i);
+        data = xml2.substring(j2);
+      } else if (j2 === 0) {
+        data = xml2.substring(j2, i);
       } else {
         column = i - startOfLine;
-        data = j == -1 ? xml2.substring(i) : xml2.substring(i, j + 1);
+        data = j2 == -1 ? xml2.substring(i) : xml2.substring(i, j2 + 1);
       }
       return {
         "data": data,
@@ -2363,15 +2369,15 @@ function Parser(options) {
         })
       });
     }
-    while (j !== -1) {
-      if (xml2.charCodeAt(j) === 60) {
-        i = j;
+    while (j2 !== -1) {
+      if (xml2.charCodeAt(j2) === 60) {
+        i = j2;
       } else {
-        i = xml2.indexOf("<", j);
+        i = xml2.indexOf("<", j2);
       }
       if (i === -1) {
         if (streaming2) {
-          return xml2.substring(j);
+          return xml2.substring(j2);
         }
         if (nodeStack.length) {
           return handleError("unexpected end of file");
@@ -2379,8 +2385,8 @@ function Parser(options) {
         if (!rootTagFound) {
           return handleError("missing start tag");
         }
-        if (j < xml2.length) {
-          if (xml2.substring(j).trim()) {
+        if (j2 < xml2.length) {
+          if (xml2.substring(j2).trim()) {
             handleWarning(NON_WHITESPACE_OUTSIDE_ROOT_NODE);
           }
         }
@@ -2389,16 +2395,16 @@ function Parser(options) {
       if (!rootTagFound) {
         rootTagFound = true;
       }
-      if (j !== i) {
+      if (j2 !== i) {
         if (nodeStack.length) {
           if (onText) {
-            onText(xml2.substring(j, i), decodeEntities, getContext);
+            onText(xml2.substring(j2, i), decodeEntities, getContext);
             if (parseStop) {
               return;
             }
           }
         } else {
-          if (xml2.substring(j, i).trim()) {
+          if (xml2.substring(j2, i).trim()) {
             handleWarning(NON_WHITESPACE_OUTSIDE_ROOT_NODE);
             if (parseStop) {
               return;
@@ -2406,93 +2412,93 @@ function Parser(options) {
           }
         }
       }
-      w = xml2.charCodeAt(i + 1);
-      if (w === 33) {
+      w2 = xml2.charCodeAt(i + 1);
+      if (w2 === 33) {
         q = xml2.charCodeAt(i + 2);
         if (q === 91 && xml2.substr(i + 3, 6) === "CDATA[") {
-          j = xml2.indexOf("]]>", i);
-          if (j === -1) {
+          j2 = xml2.indexOf("]]>", i);
+          if (j2 === -1) {
             if (streaming2) {
               return xml2.substring(i);
             }
             return handleError("unclosed cdata");
           }
           if (onCDATA) {
-            onCDATA(xml2.substring(i + 9, j), getContext);
+            onCDATA(xml2.substring(i + 9, j2), getContext);
             if (parseStop) {
               return;
             }
           }
-          j += 3;
+          j2 += 3;
           continue;
         }
         if (q === 45 && xml2.charCodeAt(i + 3) === 45) {
-          j = xml2.indexOf("-->", i);
-          if (j === -1) {
+          j2 = xml2.indexOf("-->", i);
+          if (j2 === -1) {
             if (streaming2) {
               return xml2.substring(i);
             }
             return handleError("unclosed comment");
           }
           if (onComment) {
-            onComment(xml2.substring(i + 4, j), decodeEntities, getContext);
+            onComment(xml2.substring(i + 4, j2), decodeEntities, getContext);
             if (parseStop) {
               return;
             }
           }
-          j += 3;
+          j2 += 3;
           continue;
         }
       }
-      if (w === 63) {
-        j = xml2.indexOf("?>", i);
-        if (j === -1) {
+      if (w2 === 63) {
+        j2 = xml2.indexOf("?>", i);
+        if (j2 === -1) {
           if (streaming2) {
             return xml2.substring(i);
           }
           return handleError("unclosed question");
         }
         if (onQuestion) {
-          onQuestion(xml2.substring(i, j + 2), getContext);
+          onQuestion(xml2.substring(i, j2 + 2), getContext);
           if (parseStop) {
             return;
           }
         }
-        j += 2;
+        j2 += 2;
         continue;
       }
       for (x = i + 1; ; x++) {
-        v = xml2.charCodeAt(x);
-        if (isNaN(v)) {
+        v2 = xml2.charCodeAt(x);
+        if (isNaN(v2)) {
           if (streaming2) {
             return xml2.substring(i);
           }
-          j = -1;
+          j2 = -1;
           return handleError("unclosed tag");
         }
-        if (v === 34) {
+        if (v2 === 34) {
           q = xml2.indexOf('"', x + 1);
           x = q !== -1 ? q : x;
-        } else if (v === 39) {
+        } else if (v2 === 39) {
           q = xml2.indexOf("'", x + 1);
           x = q !== -1 ? q : x;
-        } else if (v === 62) {
-          j = x;
+        } else if (v2 === 62) {
+          j2 = x;
           break;
         }
       }
-      if (w === 33) {
+      if (w2 === 33) {
         if (onAttention) {
-          onAttention(xml2.substring(i, j + 1), decodeEntities, getContext);
+          onAttention(xml2.substring(i, j2 + 1), decodeEntities, getContext);
           if (parseStop) {
             return;
           }
         }
-        j += 1;
+        j2 += 1;
         continue;
       }
       cachedAttrs = {};
-      if (w === 47) {
+      if (w2 === 47) {
         tagStart = false;
         tagEnd = true;
         if (!nodeStack.length) {
@@ -2503,32 +2509,32 @@ function Parser(options) {
         if (xml2.substring(i + 2, q) !== x) {
           return handleError("closing tag mismatch");
         }
-        for (; q < j; q++) {
-          w = xml2.charCodeAt(q);
-          if (w === 32 || w > 8 && w < 14) {
+        for (; q < j2; q++) {
+          w2 = xml2.charCodeAt(q);
+          if (w2 === 32 || w2 > 8 && w2 < 14) {
             continue;
           }
           return handleError("close tag");
         }
       } else {
-        if (xml2.charCodeAt(j - 1) === 47) {
-          x = elementName = xml2.substring(i + 1, j - 1);
+        if (xml2.charCodeAt(j2 - 1) === 47) {
+          x = elementName = xml2.substring(i + 1, j2 - 1);
           tagStart = true;
           tagEnd = true;
         } else {
-          x = elementName = xml2.substring(i + 1, j);
+          x = elementName = xml2.substring(i + 1, j2);
           tagStart = true;
           tagEnd = false;
         }
-        if (!(w > 96 && w < 123 || w > 64 && w < 91 || w === 95 || w === 58)) {
+        if (!(w2 > 96 && w2 < 123 || w2 > 64 && w2 < 91 || w2 === 95 || w2 === 58)) {
           return handleError("illegal first char nodeName");
         }
         for (q = 1, y = x.length; q < y; q++) {
-          w = x.charCodeAt(q);
-          if (w > 96 && w < 123 || w > 64 && w < 91 || w > 47 && w < 59 || w === 45 || w === 95 || w == 46) {
+          w2 = x.charCodeAt(q);
+          if (w2 > 96 && w2 < 123 || w2 > 64 && w2 < 91 || w2 > 47 && w2 < 59 || w2 === 45 || w2 === 95 || w2 == 46) {
             continue;
           }
-          if (w === 32 || w < 14 && w > 8) {
+          if (w2 === 32 || w2 < 14 && w2 > 8) {
             elementName = x.substring(0, q);
             cachedAttrs = null;
             break;
@@ -2562,13 +2568,13 @@ function Parser(options) {
         if (_cachedName !== void 0) {
           elementName = _cachedName;
         } else {
-          w = elementName.indexOf(":");
-          if (w !== -1) {
-            xmlns = nsMatrix[elementName.substring(0, w)];
+          w2 = elementName.indexOf(":");
+          if (w2 !== -1) {
+            xmlns = nsMatrix[elementName.substring(0, w2)];
             if (!xmlns) {
               return handleError("missing namespace on <" + _elementName + ">");
             }
-            elementName = elementName.substr(w + 1);
+            elementName = elementName.substr(w2 + 1);
           } else {
             xmlns = nsMatrix["xmlns"];
           }
@@ -2611,7 +2617,7 @@ function Parser(options) {
           }
         }
       }
-      j += 1;
+      j2 += 1;
     }
   }
 }
@@ -2628,8 +2634,8 @@ var init_dist3 = __esm({
       "lt": "<",
       "quot": '"'
     };
-    Object.keys(ENTITY_MAPPING).forEach(function(k) {
-      ENTITY_MAPPING[k.toUpperCase()] = ENTITY_MAPPING[k];
+    Object.keys(ENTITY_MAPPING).forEach(function(k2) {
+      ENTITY_MAPPING[k2.toUpperCase()] = ENTITY_MAPPING[k2];
     });
     NON_WHITESPACE_OUTSIDE_ROOT_NODE = "non-whitespace outside of root node";
   }
@@ -2811,22 +2817,22 @@ function getPropertyNs(ns, descriptor) {
 }
 function getSerializableProperties(element) {
   var descriptor = element.$descriptor;
-  return filter(descriptor.properties, function(p) {
-    var name2 = p.name;
-    if (p.isVirtual) {
+  return filter(descriptor.properties, function(p2) {
+    var name2 = p2.name;
+    if (p2.isVirtual) {
       return false;
     }
     if (!has(element, name2)) {
       return false;
     }
     var value = element[name2];
-    if (value === p.default) {
+    if (value === p2.default) {
       return false;
     }
     if (value === null) {
       return false;
     }
-    return p.isMany ? value.length : true;
+    return p2.isMany ? value.length : true;
   });
 }
 function escape2(str, charPattern, replaceMap) {
@@ -2842,13 +2848,13 @@ function escapeBody(str) {
   return escape2(str, ESCAPE_CHARS, ESCAPE_MAP);
 }
 function filterAttributes(props) {
-  return filter(props, function(p) {
-    return p.isAttr;
+  return filter(props, function(p2) {
+    return p2.isAttr;
   });
 }
 function filterContained(props) {
-  return filter(props, function(p) {
-    return !p.isAttr;
+  return filter(props, function(p2) {
+    return !p2.isAttr;
   });
 }
 function ReferenceSerializer(tagName) {
@@ -3093,11 +3099,11 @@ var init_dist4 = __esm({
             });
           } else {
             values = value.split(" ");
-            forEach(values, function(v) {
+            forEach(values, function(v2) {
               context.addReference({
                 element: instance,
                 property: prop.ns.name,
-                id: v
+                id: v2
               });
             });
           }
@@ -3145,8 +3151,8 @@ var init_dist4 = __esm({
       if (pkg) {
         const elementTypeName = aliasToName(nameNs, pkg);
         const elementType = model.getType(elementTypeName);
-        property = find(descriptor.properties, function(p) {
-          return !p.isVirtual && !p.isReference && !p.isAttribute && elementType.hasType(p.type);
+        property = find(descriptor.properties, function(p2) {
+          return !p2.isVirtual && !p2.isReference && !p2.isAttribute && elementType.hasType(p2.type);
         });
         if (property) {
           return assign({}, property, {
@@ -3154,8 +3160,8 @@ var init_dist4 = __esm({
           });
         }
       } else {
-        property = find(descriptor.properties, function(p) {
-          return !p.isReference && !p.isAttribute && p.type === "Element";
+        property = find(descriptor.properties, function(p2) {
+          return !p2.isReference && !p2.isAttribute && p2.type === "Element";
         });
         if (property) {
           return property;
@@ -3278,21 +3284,21 @@ var init_dist4 = __esm({
       function resolveReferences() {
         var elementsById = context.elementsById;
         var references = context.references;
-        var i, r;
-        for (i = 0; r = references[i]; i++) {
-          var element = r.element;
-          var reference = elementsById[r.id];
-          var property = getModdleDescriptor(element).propertiesByName[r.property];
+        var i, r2;
+        for (i = 0; r2 = references[i]; i++) {
+          var element = r2.element;
+          var reference = elementsById[r2.id];
+          var property = getModdleDescriptor(element).propertiesByName[r2.property];
           if (!reference) {
             context.addWarning({
-              message: "unresolved reference <" + r.id + ">",
-              element: r.element,
-              property: r.property,
-              value: r.id
+              message: "unresolved reference <" + r2.id + ">",
+              element: r2.element,
+              property: r2.property,
+              value: r2.id
             });
           }
           if (property.isMany) {
-            var collection = element.get(property.name), idx = collection.indexOf(r);
+            var collection = element.get(property.name), idx = collection.indexOf(r2);
             if (idx === -1) {
               idx = collection.length;
             }
@@ -3348,8 +3354,8 @@ var init_dist4 = __esm({
         }
         handleCData(text2, getContext);
       }
-      var uriMap = model.getPackages().reduce(function(uriMap2, p) {
-        uriMap2[p.uri] = p.prefix;
+      var uriMap = model.getPackages().reduce(function(uriMap2, p2) {
+        uriMap2[p2.uri] = p2.prefix;
         return uriMap2;
       }, Object.entries(DEFAULT_NS_MAP).reduce(function(map3, [prefix2, url2]) {
         map3[url2] = prefix2;
@@ -3357,10 +3363,10 @@ var init_dist4 = __esm({
       }, model.config && model.config.nsMap || {}));
       parser.ns(uriMap).on("openTag", function(obj, decodeStr, selfClosing, getContext) {
         var attrs = obj.attrs || {};
-        var decodedAttrs = Object.keys(attrs).reduce(function(d, key) {
+        var decodedAttrs = Object.keys(attrs).reduce(function(d2, key) {
           var value = decodeStr(attrs[key]);
-          d[key] = value;
-          return d;
+          d2[key] = value;
+          return d2;
         }, {});
         var node2 = {
           name: obj.name,
@@ -3648,47 +3654,47 @@ var init_dist4 = __esm({
     };
     ElementSerializer.prototype.collectContainments = function(properties) {
       var self = this, element = this.element, children = [];
-      forEach(properties, function(p) {
-        var value = element.get(p.name), isReference = p.isReference, isMany = p.isMany;
+      forEach(properties, function(p2) {
+        var value = element.get(p2.name), isReference = p2.isReference, isMany = p2.isMany;
         if (!isMany) {
           value = [value];
         }
-        if (p.isBody) {
+        if (p2.isBody) {
           children.push({
             create: function() {
-              return new BodySerializer().build(p, value[0]);
+              return new BodySerializer().build(p2, value[0]);
             }
           });
-        } else if (isSimple(p.type)) {
-          forEach(value, function(v) {
+        } else if (isSimple(p2.type)) {
+          forEach(value, function(v2) {
             children.push({
               create: function() {
-                return new ValueSerializer(self.addTagName(self.nsPropertyTagName(p))).build(p, v);
+                return new ValueSerializer(self.addTagName(self.nsPropertyTagName(p2))).build(p2, v2);
               }
             });
           });
         } else if (isReference) {
-          forEach(value, function(v) {
+          forEach(value, function(v2) {
             children.push({
               create: function() {
-                return new ReferenceSerializer(self.addTagName(self.nsPropertyTagName(p))).build(v);
+                return new ReferenceSerializer(self.addTagName(self.nsPropertyTagName(p2))).build(v2);
               }
             });
           });
         } else {
-          var serialization = getSerialization(p);
-          forEach(value, function(v) {
+          var serialization = getSerialization(p2);
+          forEach(value, function(v2) {
             children.push({
               create: function() {
                 if (serialization) {
                   if (serialization === SERIALIZE_PROPERTY) {
-                    return new ElementSerializer(self, p);
+                    return new ElementSerializer(self, p2);
                   }
-                  return new TypeSerializer(self, p, serialization);
+                  return new TypeSerializer(self, p2, serialization);
                 }
                 return new ElementSerializer(self);
               },
-              element: v
+              element: v2
             });
           });
         }
@@ -3765,20 +3771,20 @@ var init_dist4 = __esm({
     };
     ElementSerializer.prototype.parseAttributes = function(properties) {
       var self = this, element = this.element;
-      forEach(properties, function(p) {
-        var value = element.get(p.name);
-        if (p.isReference) {
-          if (!p.isMany) {
+      forEach(properties, function(p2) {
+        var value = element.get(p2.name);
+        if (p2.isReference) {
+          if (!p2.isMany) {
             value = value.id;
           } else {
             var values = [];
-            forEach(value, function(v) {
-              values.push(v.id);
+            forEach(value, function(v2) {
+              values.push(v2.id);
             });
             value = values.join(" ");
           }
         }
-        self.addAttribute(self.nsAttributeName(p), value);
+        self.addAttribute(self.nsAttributeName(p2), value);
       });
     };
     ElementSerializer.prototype.addTagName = function(nsTagName) {
@@ -7758,20 +7764,20 @@ function segmentEntersRect(a, b, rect) {
   }
   return end - start > SEGMENT_INTERSECTION_EPSILON;
 }
-function collinearOverlap(a, b, c, d) {
-  const horizontal = a.y === b.y && c.y === d.y && a.y === c.y;
-  const vertical = a.x === b.x && c.x === d.x && a.x === c.x;
+function collinearOverlap(a, b, c, d2) {
+  const horizontal = a.y === b.y && c.y === d2.y && a.y === c.y;
+  const vertical = a.x === b.x && c.x === d2.x && a.x === c.x;
   if (!horizontal && !vertical) {
     return false;
   }
-  const [aStart, aEnd, cStart, cEnd] = horizontal ? [Math.min(a.x, b.x), Math.max(a.x, b.x), Math.min(c.x, d.x), Math.max(c.x, d.x)] : [Math.min(a.y, b.y), Math.max(a.y, b.y), Math.min(c.y, d.y), Math.max(c.y, d.y)];
+  const [aStart, aEnd, cStart, cEnd] = horizontal ? [Math.min(a.x, b.x), Math.max(a.x, b.x), Math.min(c.x, d2.x), Math.max(c.x, d2.x)] : [Math.min(a.y, b.y), Math.max(a.y, b.y), Math.min(c.y, d2.y), Math.max(c.y, d2.y)];
   return Math.min(aEnd, cEnd) - Math.max(aStart, cStart) > 0;
 }
-function segmentsProperlyCross(a, b, c, d) {
+function segmentsProperlyCross(a, b, c, d2) {
   const abC = segmentDirection(a, b, c);
-  const abD = segmentDirection(a, b, d);
-  const cdA = segmentDirection(c, d, a);
-  const cdB = segmentDirection(c, d, b);
+  const abD = segmentDirection(a, b, d2);
+  const cdA = segmentDirection(c, d2, a);
+  const cdB = segmentDirection(c, d2, b);
   return abC * abD < 0 && cdA * cdB < 0;
 }
 function segmentDirection(a, b, c) {
@@ -9743,7 +9749,7 @@ function visibilityRoute(start, end, shapes, sourceElement, targetElement, route
   const { pointsByX, pointsByY } = indexVisibilityPoints(points);
   const distance = Array(points.length).fill(Infinity);
   const previous = Array(points.length).fill(-1);
-  const pending = new Set(points.map((_, index) => index));
+  const pending = new Set(points.map((_2, index) => index));
   const queue = [];
   const segmentIsClear2 = createVisibilitySegmentChecker(
     shapes,
@@ -9822,8 +9828,8 @@ function createVisibilitySegmentChecker(shapes, sourceElement, targetElement, ro
       return false;
     }
     return !connections.some((connection) => {
-      return connection.segments.some(([c, d]) => {
-        return !allowPerpendicularCrossings && segmentsProperlyCross(a, b, c, d) || !connection.sharedEndpoint && collinearOverlap(a, b, c, d);
+      return connection.segments.some(([c, d2]) => {
+        return !allowPerpendicularCrossings && segmentsProperlyCross(a, b, c, d2) || !connection.sharedEndpoint && collinearOverlap(a, b, c, d2);
       });
     });
   };
@@ -9902,8 +9908,8 @@ function segmentIsClear(a, b, shapes, sourceElement, targetElement, routedConnec
       sourceElement,
       targetElement
     );
-    return toSegments(connection.points).some(([c, d]) => {
-      return !allowPerpendicularCrossings && segmentsProperlyCross(a, b, c, d) || !sharedEndpoint && collinearOverlap(a, b, c, d);
+    return toSegments(connection.points).some(([c, d2]) => {
+      return !allowPerpendicularCrossings && segmentsProperlyCross(a, b, c, d2) || !sharedEndpoint && collinearOverlap(a, b, c, d2);
     });
   });
 }
@@ -11159,8 +11165,8 @@ function countRouteCrossings(routes) {
   for (let first = 0; first < segments.length; first++) {
     for (let second = first + 1; second < segments.length; second++) {
       for (const [a, b] of segments[first]) {
-        crossings += segments[second].filter(([c, d]) => {
-          return segmentsProperlyCross(a, b, c, d);
+        crossings += segments[second].filter(([c, d2]) => {
+          return segmentsProperlyCross(a, b, c, d2);
         }).length;
       }
     }
@@ -12883,8 +12889,8 @@ function endpointRouteIsClear(points, obstacles, sourceElement, targetElement, r
   }
   return !toSegments(points).some(([a, b]) => {
     return routedConnections.some((connection) => {
-      return toSegments(connection.points).some(([c, d]) => {
-        return segmentsProperlyCross(a, b, c, d);
+      return toSegments(connection.points).some(([c, d2]) => {
+        return segmentsProperlyCross(a, b, c, d2);
       });
     });
   });
@@ -14030,8 +14036,8 @@ var init_dist6 = __esm({
 });
 
 // node_modules/@nanobpm/workflow/dist/layout.js
-function isRecord(v) {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
+function isRecord(v2) {
+  return typeof v2 === "object" && v2 !== null && !Array.isArray(v2);
 }
 async function layoutBpmn(bpmnXml) {
   let layoutProcess2;
@@ -14149,17 +14155,17 @@ function assertIs(_arg) {
 function assertNever(_x) {
   throw new Error("Unexpected value in exhaustive check");
 }
-function assert(_) {
+function assert(_2) {
 }
 function getEnumValues(entries) {
-  const numericValues = Object.values(entries).filter((v) => typeof v === "number");
-  const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+  const numericValues = Object.values(entries).filter((v2) => typeof v2 === "number");
+  const values = Object.entries(entries).filter(([k2, _2]) => numericValues.indexOf(+k2) === -1).map(([_2, v2]) => v2);
   return values;
 }
 function joinValues(array2, separator = "|") {
   return array2.map((val) => stringifyPrimitive(val)).join(separator);
 }
-function jsonStringifyReplacer(_, value) {
+function jsonStringifyReplacer(_2, value) {
   if (typeof value === "bigint")
     return value.toString();
   return value;
@@ -14196,9 +14202,9 @@ function defineLazy(object3, key, getter2) {
       }
       return value;
     },
-    set(v) {
+    set(v2) {
       Object.defineProperty(object3, key, {
-        value: v
+        value: v2
         // configurable: true,
       });
     },
@@ -14374,31 +14380,31 @@ function normalizeParams(_params) {
 function createTransparentProxy(getter2) {
   let target;
   return new Proxy({}, {
-    get(_, prop, receiver) {
+    get(_2, prop, receiver) {
       target ?? (target = getter2());
       return Reflect.get(target, prop, receiver);
     },
-    set(_, prop, value, receiver) {
+    set(_2, prop, value, receiver) {
       target ?? (target = getter2());
       return Reflect.set(target, prop, value, receiver);
     },
-    has(_, prop) {
+    has(_2, prop) {
       target ?? (target = getter2());
       return Reflect.has(target, prop);
     },
-    deleteProperty(_, prop) {
+    deleteProperty(_2, prop) {
       target ?? (target = getter2());
       return Reflect.deleteProperty(target, prop);
     },
-    ownKeys(_) {
+    ownKeys(_2) {
       target ?? (target = getter2());
       return Reflect.ownKeys(target);
     },
-    getOwnPropertyDescriptor(_, prop) {
+    getOwnPropertyDescriptor(_2, prop) {
       target ?? (target = getter2());
       return Reflect.getOwnPropertyDescriptor(target, prop);
     },
-    defineProperty(_, prop, descriptor) {
+    defineProperty(_2, prop, descriptor) {
       target ?? (target = getter2());
       return Reflect.defineProperty(target, prop, descriptor);
     }
@@ -14412,8 +14418,8 @@ function stringifyPrimitive(value) {
   return `${value}`;
 }
 function optionalKeys(shape) {
-  return Object.keys(shape).filter((k) => {
-    return shape[k]._zod.optin !== void 0 && shape[k]._zod.optout === "optional";
+  return Object.keys(shape).filter((k2) => {
+    return shape[k2]._zod.optin !== void 0 && shape[k2]._zod.optout === "optional";
   });
 }
 function pick2(schema, mask) {
@@ -14553,10 +14559,10 @@ function unwrapMessage(message) {
 function sizeCaps(defChecks) {
   const caps = [];
   for (const ch of defChecks ?? []) {
-    const d = ch._zod.def;
-    if (!/_(length|size)$|_equals$/.test(d.check))
+    const d2 = ch._zod.def;
+    if (!/_(length|size)$|_equals$/.test(d2.check))
       break;
-    const max = d.maximum ?? d.length ?? d.size;
+    const max = d2.maximum ?? d2.length ?? d2.size;
     if (max >= 0)
       caps.push([max, ch]);
   }
@@ -14580,10 +14586,10 @@ function finalizeIssue(iss, ctx, config2) {
   const schemaError = iss.schema !== iss.inst ? iss.schema?._zod.def?.error : void 0;
   const message = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(schemaError?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
   const full = {};
-  for (const k of Object.keys(iss)) {
-    if (k === "inst" || k === "schema" || k === "continue" || k === "input" || k === "__proto__")
+  for (const k2 of Object.keys(iss)) {
+    if (k2 === "inst" || k2 === "schema" || k2 === "continue" || k2 === "input" || k2 === "__proto__")
       continue;
-    full[k] = iss[k];
+    full[k2] = iss[k2];
   }
   full.path ?? (full.path = []);
   full.message = message;
@@ -14655,8 +14661,8 @@ function issue(...args) {
   return { ...iss };
 }
 function cleanEnum(obj) {
-  return Object.entries(obj).filter(([k, _]) => {
-    return Number.isNaN(Number.parseInt(k, 10));
+  return Object.entries(obj).filter(([k2, _2]) => {
+    return Number.isNaN(Number.parseInt(k2, 10));
   }).map((el) => el[1]);
 }
 function base64ToUint8Array(base643) {
@@ -14831,7 +14837,7 @@ var init_util = __esm({
         const F = Function;
         new F("");
         return true;
-      } catch (_) {
+      } catch (_2) {
         return false;
       }
     });
@@ -14918,12 +14924,12 @@ var init_util = __esm({
 
 // node_modules/zod/v4/core/core.js
 function newError(Definition) {
-  const E = _E;
-  if (E) {
-    const saved = E.stackTraceLimit;
+  const E2 = _E;
+  if (E2) {
+    const saved = E2.stackTraceLimit;
     if (typeof saved === "number") {
       try {
-        E.stackTraceLimit = 0;
+        E2.stackTraceLimit = 0;
       } catch {
         _E = null;
         return new Definition();
@@ -14931,7 +14937,7 @@ function newError(Definition) {
       try {
         return new Definition();
       } finally {
-        E.stackTraceLimit = saved;
+        E2.stackTraceLimit = saved;
       }
     }
   }
@@ -14942,7 +14948,7 @@ function $constructor(name2, initializer3, proto, params) {
   const zodProto = {};
   function Internals(def) {
     this.def = def;
-    this.constr = _;
+    this.constr = _2;
     this.traits = /* @__PURE__ */ new Set();
   }
   Internals.prototype = zodProto;
@@ -14973,12 +14979,12 @@ function $constructor(name2, initializer3, proto, params) {
         members(target, protoMembers);
       }
     }
-    const proto2 = _.prototype;
-    for (const k in proto2) {
-      if (!Object.prototype.hasOwnProperty.call(proto2, k))
+    const proto2 = _2.prototype;
+    for (const k2 in proto2) {
+      if (!Object.prototype.hasOwnProperty.call(proto2, k2))
         continue;
-      if (!(k in inst)) {
-        inst[k] = proto2[k].bind(inst);
+      if (!(k2 in inst)) {
+        inst[k2] = proto2[k2].bind(inst);
       }
     }
   }
@@ -14986,7 +14992,7 @@ function $constructor(name2, initializer3, proto, params) {
   class Definition extends Parent {
   }
   Object.defineProperty(Definition, "name", { value: name2 });
-  function _(def) {
+  function _2(def) {
     const inst = params?.Parent ? newError(Definition) : this;
     init(inst, def);
     const deferred = inst._zod.deferred;
@@ -15001,16 +15007,16 @@ function $constructor(name2, initializer3, proto, params) {
       pp(inst);
     return inst;
   }
-  Object.defineProperty(_, "init", { value: init });
-  Object.defineProperty(_, Symbol.hasInstance, {
+  Object.defineProperty(_2, "init", { value: init });
+  Object.defineProperty(_2, Symbol.hasInstance, {
     value: (inst) => {
       if (params?.Parent && inst instanceof params.Parent)
         return true;
       return inst?._zod?.traits?.has(name2);
     }
   });
-  Object.defineProperty(_, "name", { value: name2 });
-  return _;
+  Object.defineProperty(_2, "name", { value: name2 });
+  return _2;
 }
 function config(newConfig) {
   if (newConfig)
@@ -16140,10 +16146,10 @@ function standardProps(inst) {
     validate: (value) => {
       const ctx = { async: false };
       try {
-        const r = inst._zod.run({ value, issues: [] }, ctx);
-        if (!(r instanceof Promise))
-          return toStandardResult(r, ctx);
-      } catch (_) {
+        const r2 = inst._zod.run({ value, issues: [] }, ctx);
+        if (!(r2 instanceof Promise))
+          return toStandardResult(r2, ctx);
+      } catch (_2) {
       }
       return validateAsync2(inst, value);
     },
@@ -16351,9 +16357,9 @@ function normalizeDef(def) {
   const ownSymbols = Object.getOwnPropertySymbols(def.shape);
   const symbolKeys = ownSymbols.length ? ownSymbols : NO_SYMBOL_KEYS;
   const allKeys = symbolKeys.length ? [...keys, ...symbolKeys] : keys;
-  for (const k of allKeys) {
-    if (!def.shape?.[k]?._zod?.traits?.has("$ZodType")) {
-      throw new Error(`Invalid element at key "${String(k)}": expected a Zod schema`);
+  for (const k2 of allKeys) {
+    if (!def.shape?.[k2]?._zod?.traits?.has("$ZodType")) {
+      throw new Error(`Invalid element at key "${String(k2)}": expected a Zod schema`);
     }
   }
   const okeys = optionalKeys(def.shape);
@@ -16392,11 +16398,11 @@ function handleCatchall(proms, input2, payload, ctx, def, inst, abortEarly) {
       unrecognized.push(key);
       continue;
     }
-    const r = _catchall.run({ value: input2[key], issues: [] }, ctx);
-    if (r instanceof Promise) {
-      proms.push(r.then((r2) => handlePropertyResult(r2, payload, key, input2, optin, optout)));
+    const r2 = _catchall.run({ value: input2[key], issues: [] }, ctx);
+    if (r2 instanceof Promise) {
+      proms.push(r2.then((r3) => handlePropertyResult(r3, payload, key, input2, optin, optout)));
     } else {
-      handlePropertyResult(r, payload, key, input2, optin, optout);
+      handlePropertyResult(r2, payload, key, input2, optin, optout);
     }
   }
   if (unrecognized.length) {
@@ -16422,7 +16428,7 @@ function handleUnionResults(results, final, inst, ctx) {
       return final;
     }
   }
-  const nonaborted = results.filter((r) => !aborted(r));
+  const nonaborted = results.filter((r2) => !aborted(r2));
   if (nonaborted.length === 1) {
     final.value = nonaborted[0].value;
     return nonaborted[0];
@@ -16552,17 +16558,17 @@ function handleIntersectionResults(result, left, right) {
       unrecIssue ?? (unrecIssue = iss);
       keys = iss.keys;
     } else if (iss.code === "invalid_key" && iss.origin === "record" && iss.path?.length === 1) {
-      const k = String(iss.path[0]);
-      if (!keyIssues.has(k))
-        keyIssues.set(k, iss);
-      keys = [k];
+      const k2 = String(iss.path[0]);
+      if (!keyIssues.has(k2))
+        keyIssues.set(k2, iss);
+      keys = [k2];
     } else {
       return false;
     }
-    for (const k of keys) {
-      if (!unrecKeys.has(k))
-        unrecKeys.set(k, {});
-      unrecKeys.get(k)[side] = true;
+    for (const k2 of keys) {
+      if (!unrecKeys.has(k2))
+        unrecKeys.set(k2, {});
+      unrecKeys.get(k2)[side] = true;
     }
     return true;
   };
@@ -16574,14 +16580,14 @@ function handleIntersectionResults(result, left, right) {
     if (!collect(iss, "r"))
       result.issues.push(iss);
   }
-  const bothKeys = [...unrecKeys].filter(([, f]) => f.l && f.r).map(([k]) => k);
+  const bothKeys = [...unrecKeys].filter(([, f2]) => f2.l && f2.r).map(([k2]) => k2);
   if (bothKeys.length) {
-    const aggregated = unrecIssue ? bothKeys.filter((k) => unrecIssue.keys.includes(k)) : [];
+    const aggregated = unrecIssue ? bothKeys.filter((k2) => unrecIssue.keys.includes(k2)) : [];
     if (aggregated.length)
       result.issues.push({ ...unrecIssue, keys: aggregated });
-    for (const k of bothKeys) {
-      if (!aggregated.includes(k) && keyIssues.has(k))
-        result.issues.push(keyIssues.get(k));
+    for (const k2 of bothKeys) {
+      if (!aggregated.includes(k2) && keyIssues.has(k2))
+        result.issues.push(keyIssues.get(k2));
     }
   }
   const merged = mergeValues(left.value, right.value);
@@ -16609,20 +16615,20 @@ function handleTupleResult(result, final, index) {
 }
 function handleTupleResults(itemResults, final, items, input2, optoutStart) {
   for (let i = 0; i < items.length; i++) {
-    const r = itemResults[i];
+    const r2 = itemResults[i];
     const isPresent = i < input2.length;
     if (!isPresent && i >= optoutStart && items[i]._zod.optin === "optional") {
       final.value.length = i;
       break;
     }
-    if (r.issues.length) {
+    if (r2.issues.length) {
       if (!isPresent && i >= optoutStart) {
         final.value.length = i;
         break;
       }
-      final.issues.push(...prefixIssues(i, r.issues));
+      final.issues.push(...prefixIssues(i, r2.issues));
     }
-    final.value[i] = r.value;
+    final.value[i] = r2.value;
   }
   for (let i = final.value.length - 1; i >= input2.length; i--) {
     if (items[i]._zod.optout === "optional" && final.value[i] === void 0) {
@@ -16753,12 +16759,12 @@ function leafPattern(schema) {
   let minimum;
   let maximum;
   for (const ch of def.checks ?? []) {
-    const d = ch._zod.def;
-    if (d.pattern)
-      pattern = d.pattern;
-    isInt || (isInt = !!d.format?.includes("int"));
-    const lo = d.minimum ?? d.length;
-    const hi = d.maximum ?? d.length;
+    const d2 = ch._zod.def;
+    if (d2.pattern)
+      pattern = d2.pattern;
+    isInt || (isInt = !!d2.format?.includes("int"));
+    const lo = d2.minimum ?? d2.length;
+    const hi = d2.maximum ?? d2.length;
     if (lo !== void 0 && (minimum === void 0 || lo > minimum))
       minimum = lo;
     if (hi !== void 0 && (maximum === void 0 || hi < maximum))
@@ -16855,13 +16861,13 @@ var init_schemas = __esm({
               continue;
             }
             const currLen = payload.issues.length;
-            const _ = ch._zod.check(payload);
-            if (_ instanceof Promise && ctx?.async === false) {
+            const _2 = ch._zod.check(payload);
+            if (_2 instanceof Promise && ctx?.async === false) {
               throw new $ZodAsyncError();
             }
-            if (asyncResult || _ instanceof Promise) {
+            if (asyncResult || _2 instanceof Promise) {
               asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
-                await _;
+                await _2;
                 const nextLen = payload.issues.length;
                 if (nextLen === currLen)
                   return;
@@ -16929,15 +16935,15 @@ var init_schemas = __esm({
         own(this, "~standard", value);
       }
     });
-    toStandardResult = (r, ctx) => r.issues.length ? { issues: r.issues.map((iss) => finalizeIssue(iss, ctx, config())) } : { value: r.value };
+    toStandardResult = (r2, ctx) => r2.issues.length ? { issues: r2.issues.map((iss) => finalizeIssue(iss, ctx, config())) } : { value: r2.value };
     $ZodString = /* @__PURE__ */ $constructor("$ZodString", (inst, def) => {
       $ZodType.init(inst, def);
       inst._zod.pattern = def.pattern ?? anyString;
-      inst._zod.parse = (payload, _) => {
+      inst._zod.parse = (payload, _2) => {
         if (def.coerce)
           try {
             payload.value = String(payload.value);
-          } catch (_2) {
+          } catch (_3) {
           }
         if (typeof payload.value === "string")
           return payload;
@@ -16970,10 +16976,10 @@ var init_schemas = __esm({
           v7: 7,
           v8: 8
         };
-        const v = versionMap[def.version];
-        if (v === void 0)
+        const v2 = versionMap[def.version];
+        if (v2 === void 0)
           throw new Error(`Invalid UUID version: "${def.version}"`);
-        def.pattern ?? (def.pattern = uuid(v));
+        def.pattern ?? (def.pattern = uuid(v2));
       } else
         def.pattern ?? (def.pattern = uuid());
       $ZodStringFormat.init(inst, def);
@@ -17040,7 +17046,7 @@ var init_schemas = __esm({
           }
           payload.value = def.normalize ? url2.href : stripTabAndNewline(trimmed);
           return;
-        } catch (_) {
+        } catch (_2) {
           payload.issues.push({
             code: "invalid_format",
             format: "url",
@@ -17242,7 +17248,7 @@ var init_schemas = __esm({
         if (def.coerce)
           try {
             payload.value = Number(payload.value);
-          } catch (_) {
+          } catch (_2) {
           }
         const input2 = payload.value;
         if (typeof input2 === "number" && !Number.isNaN(input2) && Number.isFinite(input2)) {
@@ -17270,7 +17276,7 @@ var init_schemas = __esm({
         if (def.coerce)
           try {
             payload.value = Boolean(payload.value);
-          } catch (_) {
+          } catch (_2) {
           }
         const input2 = payload.value;
         if (typeof input2 === "boolean")
@@ -17291,7 +17297,7 @@ var init_schemas = __esm({
         if (def.coerce)
           try {
             payload.value = BigInt(payload.value);
-          } catch (_) {
+          } catch (_2) {
           }
         if (typeof payload.value === "bigint")
           return payload;
@@ -17483,8 +17489,8 @@ var init_schemas = __esm({
             if (!Object.prototype.hasOwnProperty.call(propValues, key)) {
               assignProp(propValues, key, /* @__PURE__ */ new Set());
             }
-            for (const v of field.values)
-              propValues[key].add(v);
+            for (const v2 of field.values)
+              propValues[key].add(v2);
             if (field.optin !== void 0)
               propValues[key].add(void 0);
           }
@@ -17524,11 +17530,11 @@ var init_schemas = __esm({
           const el = shape[key];
           const optin = el._zod.optin;
           const optout = el._zod.optout;
-          const r = el._zod.run({ value: input2[key], issues: [] }, ctx);
-          if (r instanceof Promise) {
-            proms.push(r.then((r2) => handlePropertyResult(r2, payload, key, input2, optin, optout)));
+          const r2 = el._zod.run({ value: input2[key], issues: [] }, ctx);
+          if (r2 instanceof Promise) {
+            proms.push(r2.then((r3) => handlePropertyResult(r3, payload, key, input2, optin, optout)));
           } else {
-            handlePropertyResult(r, payload, key, input2, optin, optout);
+            handlePropertyResult(r2, payload, key, input2, optin, optout);
           }
         }
         if (!catchall) {
@@ -17546,12 +17552,12 @@ var init_schemas = __esm({
         const normalized = _normalized.value;
         const syms = normalized.symbolKeys;
         const doc = new Doc(["payload", "ctx"], { shape, inst, memo: memo2, syms });
-        const parseStr = (k) => `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
-        const prefixStr = (id, k) => `
+        const parseStr = (k2) => `shape[${k2}]._zod.run({ value: input[${k2}], issues: [] }, ctx)`;
+        const prefixStr = (id, k2) => `
           let ${id}_ab = false;
           for (let i = 0; i < ${id}.issues.length; i++) {
             const iss = ${id}.issues[i];
-            iss.path = iss.path ? [${k}, ...iss.path] : [${k}];
+            iss.path = iss.path ? [${k2}, ...iss.path] : [${k2}];
             payload.issues.push(iss);
             if (iss.continue !== true) ${id}_ab = true;
           }
@@ -17570,23 +17576,23 @@ var init_schemas = __esm({
           if (key === "__proto__")
             continue;
           const id = ids[key];
-          const k = typeof key === "symbol" ? `syms[${syms.indexOf(key)}]` : esc(key);
-          const isPresent = `${k} in input`;
+          const k2 = typeof key === "symbol" ? `syms[${syms.indexOf(key)}]` : esc(key);
+          const isPresent = `${k2} in input`;
           const schema = shape[key];
           const optin = schema?._zod?.optin;
           const isOptionalIn = optin !== void 0;
           const isOptionalOut = schema?._zod?.optout === "optional";
-          doc.write(`const ${id} = ${parseStr(k)};`);
+          doc.write(`const ${id} = ${parseStr(k2)};`);
           if (isOptionalIn && isOptionalOut) {
             const assign2 = optin === "optional" ? `${id}_present` : `${id}.value !== undefined || ${id}_present`;
             doc.write(`
         const ${id}_present = ${isPresent};
         if (!${id}.issues.length || ${id}_present) {
-          if (${id}.issues.length) {${prefixStr(id, k)}
+          if (${id}.issues.length) {${prefixStr(id, k2)}
           }
 
           if (${assign2}) {
-            newResult[${k}] = ${id}.value;
+            newResult[${k2}] = ${id}.value;
           }
         }
 
@@ -17594,14 +17600,14 @@ var init_schemas = __esm({
           } else if (!isOptionalIn) {
             doc.write(`
         const ${id}_present = ${isPresent};
-        if (${id}.issues.length) {${prefixStr(id, k)}
+        if (${id}.issues.length) {${prefixStr(id, k2)}
         }
         if (!${id}_present && !${id}.issues.length) {
           payload.issues.push({
             code: "invalid_type",
             expected: "nonoptional",
             input: undefined,
-            path: [${k}]
+            path: [${k2}]
           });
           if (ctx && ctx.abortEarly) {
             payload.value = newResult;
@@ -17610,21 +17616,21 @@ var init_schemas = __esm({
         }
 
         if (${id}_present) {
-          newResult[${k}] = ${id}.value;
+          newResult[${k2}] = ${id}.value;
         }
 
       `);
           } else {
             doc.write(`
-        if (${id}.issues.length) {${prefixStr(id, k)}
+        if (${id}.issues.length) {${prefixStr(id, k2)}
         }
       `);
             if (optin === "defaulted") {
-              doc.write(`newResult[${k}] = ${id}.value;`);
+              doc.write(`newResult[${k2}] = ${id}.value;`);
             } else {
               doc.write(`
         if (${id}.value !== undefined || ${isPresent}) {
-          newResult[${k}] = ${id}.value;
+          newResult[${k2}] = ${id}.value;
         }
       `);
             }
@@ -17677,7 +17683,7 @@ var init_schemas = __esm({
       defineLazyInternal(inst, "pattern", (zod) => {
         if (zod.def.options.every((o) => o._zod.pattern)) {
           const patterns = zod.def.options.map((o) => o._zod.pattern);
-          return new RegExp(`^(${patterns.map((p) => cleanRegex(p.source)).join("|")})$`);
+          return new RegExp(`^(${patterns.map((p2) => cleanRegex(p2.source)).join("|")})$`);
         }
         return void 0;
       });
@@ -17751,12 +17757,12 @@ var init_schemas = __esm({
             throw new Error(`Invalid discriminated union option at index "${zod.def.options.indexOf(option)}"`);
           if (pv[zod.def.discriminator]?.has(void 0))
             undefinedCount++;
-          for (const [k, v] of Object.entries(pv)) {
-            if (!Object.prototype.hasOwnProperty.call(propValues, k)) {
-              assignProp(propValues, k, /* @__PURE__ */ new Set());
+          for (const [k2, v2] of Object.entries(pv)) {
+            if (!Object.prototype.hasOwnProperty.call(propValues, k2)) {
+              assignProp(propValues, k2, /* @__PURE__ */ new Set());
             }
-            for (const val of v) {
-              propValues[k].add(val);
+            for (const val of v2) {
+              propValues[k2].add(val);
             }
           }
         }
@@ -17865,15 +17871,15 @@ var init_schemas = __esm({
         const abortEarly = def.rest ? ctx?.abortEarly : void 0;
         let itemAborted = false;
         for (let i = 0; i < items.length; i++) {
-          const r = items[i]._zod.run({ value: input2[i], issues: [] }, ctx);
-          if (r instanceof Promise) {
-            proms.push(r.then((rr) => {
+          const r2 = items[i]._zod.run({ value: input2[i], issues: [] }, ctx);
+          if (r2 instanceof Promise) {
+            proms.push(r2.then((rr) => {
               itemResults[i] = rr;
             }));
           } else {
-            itemResults[i] = r;
-            if (abortEarly && !itemAborted && r.issues.length)
-              itemAborted = aborted(r);
+            itemResults[i] = r2;
+            if (abortEarly && !itemAborted && r2.issues.length)
+              itemAborted = aborted(r2);
           }
         }
         if (def.rest && !itemAborted) {
@@ -17889,7 +17895,7 @@ var init_schemas = __esm({
             i++;
             const result = def.rest._zod.run({ value: el, issues: [] }, ctx);
             if (result instanceof Promise) {
-              proms.push(result.then((r) => handleTupleResult(r, payload, i)));
+              proms.push(result.then((r2) => handleTupleResult(r2, payload, i)));
             } else {
               handleTupleResult(result, payload, i);
             }
@@ -18140,7 +18146,7 @@ var init_schemas = __esm({
       const valuesSet = new Set(values);
       inst._zod.values = valuesSet;
       defineLazyInternal(inst, "pattern", (zod) => {
-        const patternValues = getEnumValues(zod.def.entries).filter((k) => propertyKeyTypes.has(typeof k));
+        const patternValues = getEnumValues(zod.def.entries).filter((k2) => propertyKeyTypes.has(typeof k2));
         return new RegExp(patternValues.length ? `^(${patternValues.map((o) => escapeRegex(o.toString())).join("|")})$` : "^[^\\s\\S]$");
       });
       inst._zod.parse = (payload, _ctx) => {
@@ -18302,8 +18308,8 @@ var init_schemas = __esm({
     $ZodNonOptional = /* @__PURE__ */ $constructor("$ZodNonOptional", (inst, def) => {
       $ZodType.init(inst, def);
       defineLazyInternal(inst, "values", (zod) => {
-        const v = zod.def.innerType._zod.values;
-        return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+        const v2 = zod.def.innerType._zod.values;
+        return v2 ? new Set([...v2].filter((x) => x !== void 0)) : void 0;
       });
       inst._zod.parse = (payload, ctx) => {
         const result = def.innerType._zod.run(payload, ctx);
@@ -18552,10 +18558,10 @@ var init_schemas = __esm({
     $ZodLazy = /* @__PURE__ */ $constructor("$ZodLazy", (inst, def) => {
       $ZodType.init(inst, def);
       defineLazy(inst._zod, "innerType", () => {
-        const d = def;
-        if (!d._cachedInner)
-          d._cachedInner = def.getter();
-        return d._cachedInner;
+        const d2 = def;
+        if (!d2._cachedInner)
+          d2._cachedInner = def.getter();
+        return d2._cachedInner;
       });
       defineLazyInternal(inst, "pattern", (zod) => zod.innerType?._zod?.pattern);
       defineLazyInternal(inst, "propValues", (zod) => zod.innerType?._zod?.propValues);
@@ -18569,16 +18575,16 @@ var init_schemas = __esm({
     $ZodCustom = /* @__PURE__ */ $constructor("$ZodCustom", (inst, def) => {
       $ZodCheck.init(inst, def);
       $ZodType.init(inst, def);
-      inst._zod.parse = (payload, _) => {
+      inst._zod.parse = (payload, _2) => {
         return payload;
       };
       inst._zod.check = (payload) => {
         const input2 = payload.value;
-        const r = def.fn(input2);
-        if (r instanceof Promise) {
-          return r.then((r2) => handleRefineResult(r2, payload, input2, inst));
+        const r2 = def.fn(input2);
+        if (r2 instanceof Promise) {
+          return r2.then((r3) => handleRefineResult(r3, payload, input2, inst));
         }
-        handleRefineResult(r, payload, input2, inst);
+        handleRefineResult(r2, payload, input2, inst);
         return;
       };
     });
@@ -18848,10 +18854,10 @@ var init_memoizer = __esm({
             handoff = void 0;
             const entry = open.length > depth ? open.pop() : void 0;
             if (result instanceof Promise) {
-              return result.then((r) => {
+              return result.then((r2) => {
                 if (entry)
-                  entry.issues = r.issues.length ? cloneIssues(r.issues) : NO_ISSUES;
-                return r;
+                  entry.issues = r2.issues.length ? cloneIssues(r2.issues) : NO_ISSUES;
+                return r2;
               });
             }
             if (entry)
@@ -19731,7 +19737,7 @@ var init_ckb = __esm({
             const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
             const receivedType = parsedType(issue2.input);
             const received = TypeDictionary[receivedType] ?? receivedType;
-            const postfix = ["\u0627", "\u0648", "\u06C6", "\u0648\u0648", "\u06D5", "\u06CC", "\u06CE"].some((p) => received.endsWith(p)) ? "\u06CC\u06D5" : "\u06D5";
+            const postfix = ["\u0627", "\u0648", "\u06C6", "\u0648\u0648", "\u06D5", "\u06CC", "\u06CE"].some((p2) => received.endsWith(p2)) ? "\u06CC\u06D5" : "\u06D5";
             const isEnglish = /^[a-zA-Z]+$/.test(received);
             if (receivedType === "null" || receivedType === "undefined")
               return `\u062F\u0627\u0648\u0627\u06A9\u0631\u0627\u0648\u06D5`;
@@ -21412,7 +21418,7 @@ var init_he = __esm({
             if (issue2.values.length === 1) {
               return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue2.values[0])}`;
             }
-            const stringified = issue2.values.map((v) => stringifyPrimitive(v));
+            const stringified = issue2.values.map((v2) => stringifyPrimitive(v2));
             if (issue2.values.length === 2) {
               return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${stringified[0]} \u05D0\u05D5 ${stringified[1]}`;
             }
@@ -26913,12 +26919,12 @@ var init_registries = __esm({
         return this;
       }
       get(schema) {
-        const p = schema._zod.parent;
-        if (p) {
-          const pm = { ...this.get(p) ?? {} };
+        const p2 = schema._zod.parent;
+        if (p2) {
+          const pm = { ...this.get(p2) ?? {} };
           delete pm.id;
-          const f = { ...pm, ...this._map.get(schema) };
-          return Object.keys(f).length ? f : void 0;
+          const f2 = { ...pm, ...this._map.get(schema) };
+          return Object.keys(f2).length ? f2 : void 0;
         }
         return this._map.get(schema);
       }
@@ -27047,8 +27053,8 @@ ${code}
   return fn;
 }
 function addConstant(ctx, value) {
-  for (const [name3, v] of ctx.constants) {
-    if (v === value)
+  for (const [name3, v2] of ctx.constants) {
+    if (v2 === value)
       return name3;
   }
   const name2 = `c${ctx.constantCounter++}`;
@@ -27066,8 +27072,8 @@ function runtimeRun(schema, value) {
   const result = schema._zod.run({ value, issues: [] }, {});
   if (result && typeof result.then === "function")
     return INVALID;
-  const r = result;
-  return r.issues.length === 0 ? r.value : INVALID;
+  const r2 = result;
+  return r2.issues.length === 0 ? r2.value : INVALID;
 }
 function compileChild(doc, ctx, schema, accessor, needsValue = true) {
   const contentLen = doc.content.length;
@@ -27082,8 +27088,8 @@ function compileChild(doc, ctx, schema, accessor, needsValue = true) {
     doc.content.length = contentLen;
     if (ctx.constants.size > constantCount) {
       const trailing = Array.from(ctx.constants.keys()).slice(constantCount);
-      for (const k of trailing)
-        ctx.constants.delete(k);
+      for (const k2 of trailing)
+        ctx.constants.delete(k2);
     }
     ctx.constantCounter = constantCounter;
     ctx.varCounter = varCounter;
@@ -27183,9 +27189,9 @@ function generateChecks(doc, ctx, schema, accessor) {
 }
 function codePointLengthVar(doc, ctx, accessor, inDoubt) {
   const cpLen = addConstant(ctx, codePointLength);
-  const v = newVar(ctx);
-  doc.write(`const ${v} = typeof ${accessor} === "string" && ${inDoubt} ? ${cpLen}(${accessor}) : ${accessor}.length;`);
-  return v;
+  const v2 = newVar(ctx);
+  doc.write(`const ${v2} = typeof ${accessor} === "string" && ${inDoubt} ? ${cpLen}(${accessor}) : ${accessor}.length;`);
+  return v2;
 }
 function numericOperand(value, label) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -27645,8 +27651,8 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
   const keys = Object.keys(shape);
   const symbolKeys = Object.getOwnPropertySymbols(shape);
   const allKeys = symbolKeys.length ? [...keys, ...symbolKeys] : keys;
-  const keyExpr = (k) => typeof k === "symbol" ? addConstant(ctx, k) : esc(k);
-  const propKey = (k) => typeof k === "symbol" ? `[${keyExpr(k)}]` : esc(k);
+  const keyExpr = (k2) => typeof k2 === "symbol" ? addConstant(ctx, k2) : esc(k2);
+  const propKey = (k2) => typeof k2 === "symbol" ? `[${keyExpr(k2)}]` : esc(k2);
   const propShape = shape;
   if (keys.includes("__proto__")) {
     throw new ZodCompileUnsupportedError('object shape key "__proto__"');
@@ -27660,16 +27666,16 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
     if (propSchema._zod.optin !== void 0) {
       const outputVar2 = newVar(ctx);
       doc.write(`let ${outputVar2} = (() => {`);
-      doc.indented((d) => {
-        const outputAccessor = compileChild(d, ctx, propSchema, inputVar);
-        d.write(`return ${outputAccessor};`);
+      doc.indented((d2) => {
+        const outputAccessor = compileChild(d2, ctx, propSchema, inputVar);
+        d2.write(`return ${outputAccessor};`);
       });
       doc.write(`})();`);
       if (propSchema._zod.optout === "optional") {
         doc.write(`if (${outputVar2} === INVALID) {`);
-        doc.indented((d) => {
-          d.write(`if (${kx} in ${accessor}) return INVALID;`);
-          d.write(`${outputVar2} = undefined;`);
+        doc.indented((d2) => {
+          d2.write(`if (${kx} in ${accessor}) return INVALID;`);
+          d2.write(`${outputVar2} = undefined;`);
         });
         doc.write(`}`);
       } else {
@@ -27690,10 +27696,10 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
   if (catchall) {
     const catchallType = catchall._zod.def.type;
     if (catchallType === "never") {
-      const condition = keys.map((k) => `k !== ${esc(k)}`).join(" && ") || "true";
+      const condition = keys.map((k2) => `k !== ${esc(k2)}`).join(" && ") || "true";
       doc.write(`for (const k in ${accessor}) {`);
-      doc.indented((d) => {
-        d.write(`if (${condition}) return INVALID;`);
+      doc.indented((d2) => {
+        d2.write(`if (${condition}) return INVALID;`);
       });
       doc.write(`}`);
     } else if ((catchallType === "unknown" || catchallType === "any") && !catchall._zod.def.checks?.length) {
@@ -27703,34 +27709,34 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
     }
   }
   const outputVar = newVar(ctx);
-  const hasConditionalKeys = allKeys.some((k) => mayOmitUndefined(propShape[k]) || dropsWhenAbsent(propShape[k]));
+  const hasConditionalKeys = allKeys.some((k2) => mayOmitUndefined(propShape[k2]) || dropsWhenAbsent(propShape[k2]));
   if (!buildsValue) {
     if (unknownKeysMode === "schema") {
       const knownSet = keys.length > 0 ? addConstant(ctx, new Set(keys)) : null;
       doc.write(`for (const k in ${accessor}) {`);
-      doc.indented((d) => {
-        d.write(`if (k === "__proto__") continue;`);
+      doc.indented((d2) => {
+        d2.write(`if (k === "__proto__") continue;`);
         if (knownSet)
-          d.write(`if (${knownSet}.has(k)) continue;`);
+          d2.write(`if (${knownSet}.has(k)) continue;`);
         const valVar = newVar(ctx);
-        d.write(`const ${valVar} = ${accessor}[k];`);
-        compileChild(d, ctx, catchall, valVar, false);
+        d2.write(`const ${valVar} = ${accessor}[k];`);
+        compileChild(d2, ctx, catchall, valVar, false);
       });
       doc.write(`}`);
     }
     return null;
   }
   if (!hasConditionalKeys) {
-    const propLiterals = allKeys.map((k) => `${propKey(k)}: ${propOutputs.get(k)}`).join(", ");
+    const propLiterals = allKeys.map((k2) => `${propKey(k2)}: ${propOutputs.get(k2)}`).join(", ");
     doc.write(`const ${outputVar} = { ${propLiterals} };`);
   } else {
     doc.write(`const ${outputVar} = {};`);
-    for (const k of allKeys) {
-      const kx = keyExpr(k);
-      const out = propOutputs.get(k);
-      if (dropsWhenAbsent(propShape[k])) {
+    for (const k2 of allKeys) {
+      const kx = keyExpr(k2);
+      const out = propOutputs.get(k2);
+      if (dropsWhenAbsent(propShape[k2])) {
         doc.write(`if (${kx} in ${accessor}) ${outputVar}[${kx}] = ${out};`);
-      } else if (mayOmitUndefined(propShape[k])) {
+      } else if (mayOmitUndefined(propShape[k2])) {
         doc.write(`if (${out} !== undefined || ${kx} in ${accessor}) ${outputVar}[${kx}] = ${out};`);
       } else {
         doc.write(`${outputVar}[${kx}] = ${out};`);
@@ -27740,17 +27746,17 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
   if (unknownKeysMode !== "none") {
     const knownSet = keys.length > 0 ? addConstant(ctx, new Set(keys)) : null;
     doc.write(`for (const k in ${accessor}) {`);
-    doc.indented((d) => {
-      d.write(`if (k === "__proto__") continue;`);
+    doc.indented((d2) => {
+      d2.write(`if (k === "__proto__") continue;`);
       if (knownSet)
-        d.write(`if (${knownSet}.has(k)) continue;`);
+        d2.write(`if (${knownSet}.has(k)) continue;`);
       if (unknownKeysMode === "passthrough") {
-        d.write(`${outputVar}[k] = ${accessor}[k];`);
+        d2.write(`${outputVar}[k] = ${accessor}[k];`);
       } else {
         const valVar = newVar(ctx);
-        d.write(`const ${valVar} = ${accessor}[k];`);
-        const catchallOut = compileChild(d, ctx, catchall, valVar);
-        d.write(`${outputVar}[k] = ${catchallOut};`);
+        d2.write(`const ${valVar} = ${accessor}[k];`);
+        const catchallOut = compileChild(d2, ctx, catchall, valVar);
+        d2.write(`${outputVar}[k] = ${catchallOut};`);
       }
     });
     doc.write(`}`);
@@ -27767,19 +27773,19 @@ function generateOptionalCheck(doc, ctx, schema, accessor, buildsValue = true) {
     const branchVar = newVar(ctx);
     doc.write(`let ${outputVar2};`);
     doc.write(`if (${accessor} === undefined) {`);
-    doc.indented((d) => {
-      d.write(`const ${branchVar} = (() => {`);
-      d.indented((d2) => {
-        const innerOutput = generateCheck(d2, ctx, def.innerType, accessor);
-        d2.write(`return ${innerOutput};`);
+    doc.indented((d2) => {
+      d2.write(`const ${branchVar} = (() => {`);
+      d2.indented((d22) => {
+        const innerOutput = generateCheck(d22, ctx, def.innerType, accessor);
+        d22.write(`return ${innerOutput};`);
       });
-      d.write(`})();`);
-      d.write(`if (${branchVar} !== INVALID) ${outputVar2} = ${branchVar};`);
+      d2.write(`})();`);
+      d2.write(`if (${branchVar} !== INVALID) ${outputVar2} = ${branchVar};`);
     });
     doc.write(`} else {`);
-    doc.indented((d) => {
-      const innerOutput = generateCheck(d, ctx, def.innerType, accessor);
-      d.write(`${outputVar2} = ${innerOutput};`);
+    doc.indented((d2) => {
+      const innerOutput = generateCheck(d2, ctx, def.innerType, accessor);
+      d2.write(`${outputVar2} = ${innerOutput};`);
     });
     doc.write(`}`);
     return outputVar2;
@@ -27788,10 +27794,10 @@ function generateOptionalCheck(doc, ctx, schema, accessor, buildsValue = true) {
   if (outputVar)
     doc.write(`let ${outputVar};`);
   doc.write(`if (${accessor} !== undefined) {`);
-  doc.indented((d) => {
-    const innerOutput = generateCheck(d, ctx, def.innerType, accessor, buildsValue);
+  doc.indented((d2) => {
+    const innerOutput = generateCheck(d2, ctx, def.innerType, accessor, buildsValue);
     if (outputVar && innerOutput !== null)
-      d.write(`${outputVar} = ${innerOutput};`);
+      d2.write(`${outputVar} = ${innerOutput};`);
   });
   doc.write(`}`);
   return outputVar;
@@ -27914,10 +27920,10 @@ function generateNullableCheck(doc, ctx, schema, accessor, buildsValue = true) {
   if (outputVar)
     doc.write(`let ${outputVar} = null;`);
   doc.write(`if (${accessor} !== null) {`);
-  doc.indented((d) => {
-    const innerOutput = generateCheck(d, ctx, def.innerType, accessor, buildsValue);
+  doc.indented((d2) => {
+    const innerOutput = generateCheck(d2, ctx, def.innerType, accessor, buildsValue);
     if (outputVar && innerOutput !== null)
-      d.write(`${outputVar} = ${innerOutput};`);
+      d2.write(`${outputVar} = ${innerOutput};`);
   });
   doc.write(`}`);
   return outputVar;
@@ -27937,11 +27943,11 @@ function generateArrayCheck(doc, ctx, schema, accessor, buildsValue = true) {
   if (outputVar)
     doc.write(`const ${outputVar} = new Array(${accessor}.length);`);
   doc.write(`for (let ${iVar} = 0; ${iVar} < ${accessor}.length; ${iVar}++) {`);
-  doc.indented((d) => {
-    d.write(`const ${elemVar} = ${accessor}[${iVar}];`);
-    const elemOutput = compileChild(d, ctx, def.element, elemVar, buildsValue);
+  doc.indented((d2) => {
+    d2.write(`const ${elemVar} = ${accessor}[${iVar}];`);
+    const elemOutput = compileChild(d2, ctx, def.element, elemVar, buildsValue);
     if (outputVar && elemOutput !== null)
-      d.write(`${outputVar}[${iVar}] = ${elemOutput};`);
+      d2.write(`${outputVar}[${iVar}] = ${elemOutput};`);
   });
   doc.write(`}`);
   return outputVar;
@@ -28008,21 +28014,21 @@ function generateDefaultCheck(doc, ctx, schema, accessor) {
     const cloneFn = addConstant(ctx, shallowClone);
     doc.write(`let ${outputVar};`);
     doc.write(`if (${accessor} === undefined) {`);
-    doc.indented((d) => {
-      d.write(`${outputVar} = ${cloneFn}(${defaultFn}());`);
+    doc.indented((d2) => {
+      d2.write(`${outputVar} = ${cloneFn}(${defaultFn}());`);
     });
     doc.write(`} else {`);
-    doc.indented((d) => {
-      const innerOutput = generateCheck(d, ctx, def.innerType, accessor);
-      d.write(`${outputVar} = ${innerOutput} === undefined ? ${cloneFn}(${defaultFn}()) : ${innerOutput};`);
+    doc.indented((d2) => {
+      const innerOutput = generateCheck(d2, ctx, def.innerType, accessor);
+      d2.write(`${outputVar} = ${innerOutput} === undefined ? ${cloneFn}(${defaultFn}()) : ${innerOutput};`);
     });
     doc.write(`}`);
   } else {
     doc.write(`let ${outputVar};`);
     doc.write(`if (${accessor} !== undefined) {`);
-    doc.indented((d) => {
-      const innerOutput = generateCheck(d, ctx, def.innerType, accessor);
-      d.write(`${outputVar} = ${innerOutput};`);
+    doc.indented((d2) => {
+      const innerOutput = generateCheck(d2, ctx, def.innerType, accessor);
+      d2.write(`${outputVar} = ${innerOutput};`);
     });
     doc.write(`}`);
   }
@@ -28054,33 +28060,33 @@ function generateTupleCheck(doc, ctx, schema, accessor) {
     const itemSchema = items[i];
     if (i >= optoutStart) {
       doc.write(`if (${outputVar}.length === ${i}) {`);
-      doc.indented((d) => {
-        d.write(`if (${i} < ${accessor}.length) {`);
-        d.indented((d2) => {
+      doc.indented((d2) => {
+        d2.write(`if (${i} < ${accessor}.length) {`);
+        d2.indented((d22) => {
           const elemVar = newVar(ctx);
-          d2.write(`const ${elemVar} = ${accessor}[${i}];`);
-          const elemOutput = compileChild(d2, ctx, itemSchema, elemVar);
-          d2.write(`${outputVar}[${i}] = ${elemOutput};`);
+          d22.write(`const ${elemVar} = ${accessor}[${i}];`);
+          const elemOutput = compileChild(d22, ctx, itemSchema, elemVar);
+          d22.write(`${outputVar}[${i}] = ${elemOutput};`);
         });
-        d.write(`} else {`);
-        d.indented((d2) => {
+        d2.write(`} else {`);
+        d2.indented((d22) => {
           if (dropsWhenAbsent(itemSchema)) {
-            d2.write(`${outputVar}.length = ${i};`);
+            d22.write(`${outputVar}.length = ${i};`);
             return;
           }
           const elemVar = newVar(ctx);
           const branchVar = newVar(ctx);
-          d2.write(`const ${elemVar} = undefined;`);
-          d2.write(`const ${branchVar} = (() => {`);
-          d2.indented((d3) => {
+          d22.write(`const ${elemVar} = undefined;`);
+          d22.write(`const ${branchVar} = (() => {`);
+          d22.indented((d3) => {
             const elemOutput = compileChild(d3, ctx, itemSchema, elemVar);
             d3.write(`return ${elemOutput};`);
           });
-          d2.write(`})();`);
-          d2.write(`if (${branchVar} === INVALID || ${branchVar} === undefined) ${outputVar}.length = ${i};`);
-          d2.write(`else ${outputVar}[${i}] = ${branchVar};`);
+          d22.write(`})();`);
+          d22.write(`if (${branchVar} === INVALID || ${branchVar} === undefined) ${outputVar}.length = ${i};`);
+          d22.write(`else ${outputVar}[${i}] = ${branchVar};`);
         });
-        d.write(`}`);
+        d2.write(`}`);
       });
       doc.write(`}`);
     } else {
@@ -28094,10 +28100,10 @@ function generateTupleCheck(doc, ctx, schema, accessor) {
     const iVar = newVar(ctx);
     const elemVar = newVar(ctx);
     doc.write(`for (let ${iVar} = ${items.length}; ${iVar} < ${accessor}.length; ${iVar}++) {`);
-    doc.indented((d) => {
-      d.write(`const ${elemVar} = ${accessor}[${iVar}];`);
-      const elemOutput = compileChild(d, ctx, rest2, elemVar);
-      d.write(`${outputVar}[${iVar}] = ${elemOutput};`);
+    doc.indented((d2) => {
+      d2.write(`const ${elemVar} = ${accessor}[${iVar}];`);
+      const elemOutput = compileChild(d2, ctx, rest2, elemVar);
+      d2.write(`${outputVar}[${iVar}] = ${elemOutput};`);
     });
     doc.write(`}`);
   }
@@ -28143,9 +28149,9 @@ function generateUnionCheck(doc, ctx, schema, accessor) {
     } else {
       doc.write(`if (${outputVar} === INVALID) ${outputVar} = (() => {`);
     }
-    doc.indented((d) => {
-      const branchOutput = generateCheck(d, ctx, opt, accessor);
-      d.write(`return ${branchOutput};`);
+    doc.indented((d2) => {
+      const branchOutput = generateCheck(d2, ctx, opt, accessor);
+      d2.write(`return ${branchOutput};`);
     });
     doc.write(`})();`);
   }
@@ -28180,9 +28186,9 @@ function generateDiscriminatedUnionCheck(doc, ctx, def, accessor) {
     const conditions = Array.from(values, (value) => literalEquality(ctx, discVar, value));
     const prefix2 = firstBranch ? "if" : "else if";
     doc.write(`${prefix2} (${conditions.join(" || ")}) {`);
-    doc.indented((d) => {
-      const branchOutput = generateCheck(d, ctx, option, accessor);
-      d.write(`${outputVar} = ${branchOutput};`);
+    doc.indented((d2) => {
+      const branchOutput = generateCheck(d2, ctx, option, accessor);
+      d2.write(`${outputVar} = ${branchOutput};`);
     });
     doc.write(`}`);
     firstBranch = false;
@@ -28253,12 +28259,12 @@ function generateRecordCheck(doc, ctx, schema, accessor) {
     }
     const knownKeysConst = addConstant(ctx, new Set(inputKeys));
     doc.write(`for (const ${kVar} in ${accessor}) {`);
-    doc.indented((d) => {
-      d.write(`if (${knownKeysConst}.has(${kVar})) continue;`);
+    doc.indented((d2) => {
+      d2.write(`if (${knownKeysConst}.has(${kVar})) continue;`);
       if (recordDef.mode === "loose") {
-        d.write(`if (${kVar} !== "__proto__") ${outputVar}[${kVar}] = ${accessor}[${kVar}];`);
+        d2.write(`if (${kVar} !== "__proto__") ${outputVar}[${kVar}] = ${accessor}[${kVar}];`);
       } else {
-        d.write(`return INVALID;`);
+        d2.write(`return INVALID;`);
       }
     });
     doc.write(`}`);
@@ -28274,26 +28280,26 @@ function generateRecordCheck(doc, ctx, schema, accessor) {
     const keyFast = addConstant(ctx, keyFn);
     const numericConst = addConstant(ctx, number);
     const outKeyVar = newVar(ctx);
-    emitOwnKeys(doc, ctx, accessor, kVar, (d) => {
-      d.write(`let ${outKeyVar} = ${keyFast}(${kVar});`);
-      d.write(`if (${outKeyVar} === INVALID && typeof ${kVar} === "string" && ${numericConst}.test(${kVar})) ${outKeyVar} = ${keyFast}(Number(${kVar}));`);
+    emitOwnKeys(doc, ctx, accessor, kVar, (d2) => {
+      d2.write(`let ${outKeyVar} = ${keyFast}(${kVar});`);
+      d2.write(`if (${outKeyVar} === INVALID && typeof ${kVar} === "string" && ${numericConst}.test(${kVar})) ${outKeyVar} = ${keyFast}(Number(${kVar}));`);
       if (isLoose) {
-        d.write(`if (${outKeyVar} === INVALID) { ${outputVar}[${kVar}] = ${accessor}[${kVar}]; continue; }`);
+        d2.write(`if (${outKeyVar} === INVALID) { ${outputVar}[${kVar}] = ${accessor}[${kVar}]; continue; }`);
       } else {
-        d.write(`if (${outKeyVar} === INVALID) return INVALID;`);
+        d2.write(`if (${outKeyVar} === INVALID) return INVALID;`);
       }
-      d.write(`if (${outKeyVar} === "__proto__") continue;`);
+      d2.write(`if (${outKeyVar} === "__proto__") continue;`);
       const valueVar = newVar(ctx);
-      d.write(`const ${valueVar} = ${accessor}[${kVar}];`);
-      const valOutput = compileChild(d, ctx, def.valueType, valueVar);
-      d.write(`${outputVar}[${outKeyVar}] = ${valOutput};`);
+      d2.write(`const ${valueVar} = ${accessor}[${kVar}];`);
+      const valOutput = compileChild(d2, ctx, def.valueType, valueVar);
+      d2.write(`${outputVar}[${outKeyVar}] = ${valOutput};`);
     });
     return outputVar;
   }
-  emitOwnKeys(doc, ctx, accessor, kVar, (d) => {
-    d.write(`const ${valVar} = ${accessor}[${kVar}];`);
-    const valOutput = compileChild(d, ctx, def.valueType, valVar);
-    d.write(`${outputVar}[${kVar}] = ${valOutput};`);
+  emitOwnKeys(doc, ctx, accessor, kVar, (d2) => {
+    d2.write(`const ${valVar} = ${accessor}[${kVar}];`);
+    const valOutput = compileChild(d2, ctx, def.valueType, valVar);
+    d2.write(`${outputVar}[${kVar}] = ${valOutput};`);
   }, `return INVALID;`);
   return outputVar;
 }
@@ -28305,20 +28311,20 @@ function emitOwnKeys(doc, ctx, accessor, kVar, body2, onSymbol) {
   doc.write(`const ${symsVar} = Object.getOwnPropertySymbols(${accessor});`);
   doc.write(`const ${keysVar} = Object.getOwnPropertyNames(${accessor});`);
   doc.write(`for (let ${iVar} = 0; ${iVar} < ${keysVar}.length; ${iVar}++) {`);
-  doc.indented((d) => {
-    d.write(`const ${kVar} = ${keysVar}[${iVar}];`);
-    d.write(`if (${kVar} === "__proto__" || !${propIsEnumerableConst}.call(${accessor}, ${kVar})) continue;`);
-    body2(d);
+  doc.indented((d2) => {
+    d2.write(`const ${kVar} = ${keysVar}[${iVar}];`);
+    d2.write(`if (${kVar} === "__proto__" || !${propIsEnumerableConst}.call(${accessor}, ${kVar})) continue;`);
+    body2(d2);
   });
   doc.write(`}`);
   doc.write(`for (let ${iVar} = 0; ${iVar} < ${symsVar}.length; ${iVar}++) {`);
-  doc.indented((d) => {
-    d.write(`const ${kVar} = ${symsVar}[${iVar}];`);
-    d.write(`if (!${propIsEnumerableConst}.call(${accessor}, ${kVar})) continue;`);
+  doc.indented((d2) => {
+    d2.write(`const ${kVar} = ${symsVar}[${iVar}];`);
+    d2.write(`if (!${propIsEnumerableConst}.call(${accessor}, ${kVar})) continue;`);
     if (onSymbol)
-      d.write(onSymbol);
+      d2.write(onSymbol);
     else
-      body2(d);
+      body2(d2);
   });
   doc.write(`}`);
 }
@@ -28336,10 +28342,10 @@ function generateMapCheck(doc, ctx, schema, accessor) {
   const valVar = newVar(ctx);
   doc.write(`const ${outputVar} = new Map();`);
   doc.write(`for (const [${kVar}, ${valVar}] of ${accessor}) {`);
-  doc.indented((d) => {
-    const keyOutput = generateCheck(d, ctx, def.keyType, kVar);
-    const valOutput = generateCheck(d, ctx, def.valueType, valVar);
-    d.write(`${outputVar}.set(${keyOutput}, ${valOutput});`);
+  doc.indented((d2) => {
+    const keyOutput = generateCheck(d2, ctx, def.keyType, kVar);
+    const valOutput = generateCheck(d2, ctx, def.valueType, valVar);
+    d2.write(`${outputVar}.set(${keyOutput}, ${valOutput});`);
   });
   doc.write(`}`);
   return outputVar;
@@ -28352,9 +28358,9 @@ function generateSetCheck(doc, ctx, schema, accessor) {
   const valVar = newVar(ctx);
   doc.write(`const ${outputVar} = new Set();`);
   doc.write(`for (const ${valVar} of ${accessor}) {`);
-  doc.indented((d) => {
-    const valOutput = generateCheck(d, ctx, def.valueType, valVar);
-    d.write(`${outputVar}.add(${valOutput});`);
+  doc.indented((d2) => {
+    const valOutput = generateCheck(d2, ctx, def.valueType, valVar);
+    d2.write(`${outputVar}.add(${valOutput});`);
   });
   doc.write(`}`);
   return outputVar;
@@ -28378,14 +28384,14 @@ function generateLazyCheck(doc, ctx, schema, accessor) {
   const getterConst = addUserConstant(ctx, def.getter);
   const cacheConst = addConstant(ctx, { parser: null });
   doc.write(`if (!${cacheConst}.parser) {`);
-  doc.indented((d) => {
-    d.write(`const inner = ${getterConst}();`);
-    d.write(`${cacheConst}.parser = function(input) {`);
-    d.indented((d2) => {
-      d2.write(`const result = inner._zod.run({ value: input, issues: [] }, {});`);
-      d2.write(`return result.issues.length === 0 ? result.value : INVALID;`);
+  doc.indented((d2) => {
+    d2.write(`const inner = ${getterConst}();`);
+    d2.write(`${cacheConst}.parser = function(input) {`);
+    d2.indented((d22) => {
+      d22.write(`const result = inner._zod.run({ value: input, issues: [] }, {});`);
+      d22.write(`return result.issues.length === 0 ? result.value : INVALID;`);
     });
-    d.write(`};`);
+    d2.write(`};`);
   });
   doc.write(`}`);
   const outputVar = newVar(ctx);
@@ -28441,9 +28447,9 @@ function runtimeCatch(innerSchema, catchValue, value) {
   const result = innerSchema._zod.run({ value, issues: [] }, {});
   if (result && typeof result.then === "function")
     return INVALID;
-  const r = result;
-  if (r.issues.length === 0)
-    return r.value;
+  const r2 = result;
+  if (r2.issues.length === 0)
+    return r2.value;
   return catchValue();
 }
 function generateCatchCheck(doc, ctx, schema, accessor) {
@@ -28453,18 +28459,18 @@ function generateCatchCheck(doc, ctx, schema, accessor) {
   }
   const outputVar = newVar(ctx);
   doc.write(`let ${outputVar} = (() => {`);
-  doc.indented((d) => {
-    const innerOut = compileChild(d, ctx, def.innerType, accessor);
-    d.write(`return ${innerOut};`);
+  doc.indented((d2) => {
+    const innerOut = compileChild(d2, ctx, def.innerType, accessor);
+    d2.write(`return ${innerOut};`);
   });
   doc.write(`})();`);
   const innerConst = addConstant(ctx, def.innerType);
   const catchConst = addUserConstant(ctx, def.catchValue);
   const catchHelperConst = addConstant(ctx, runtimeCatch);
   doc.write(`if (${outputVar} === INVALID) {`);
-  doc.indented((d) => {
-    d.write(`${outputVar} = ${catchHelperConst}(${innerConst}, ${catchConst}, ${accessor});`);
-    d.write(`if (${outputVar} === INVALID) return INVALID;`);
+  doc.indented((d2) => {
+    d2.write(`${outputVar} = ${catchHelperConst}(${innerConst}, ${catchConst}, ${accessor});`);
+    d2.write(`if (${outputVar} === INVALID) return INVALID;`);
   });
   doc.write(`}`);
   return outputVar;
@@ -29333,7 +29339,7 @@ function _set(Class2, valueType, params) {
 }
 // @__NO_SIDE_EFFECTS__
 function _enum(Class2, values, params) {
-  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v2) => [v2, v2])) : values;
   return new Class2({
     type: "enum",
     entries,
@@ -29539,8 +29545,8 @@ function _stringbool(Classes, _params) {
   let truthyArray = params.truthy ?? ["true", "1", "yes", "on", "y", "enabled"];
   let falsyArray = params.falsy ?? ["false", "0", "no", "off", "n", "disabled"];
   if (params.case !== "sensitive") {
-    truthyArray = truthyArray.map((v) => typeof v === "string" ? v.toLowerCase() : v);
-    falsyArray = falsyArray.map((v) => typeof v === "string" ? v.toLowerCase() : v);
+    truthyArray = truthyArray.map((v2) => typeof v2 === "string" ? v2.toLowerCase() : v2);
+    falsyArray = falsyArray.map((v2) => typeof v2 === "string" ? v2.toLowerCase() : v2);
   }
   const truthySet = new Set(truthyArray);
   const falsySet = new Set(falsyArray);
@@ -29656,13 +29662,13 @@ function initializeContext(params) {
     external: params?.external ?? void 0
   };
 }
-function handleUnrepresentable(schema, ctx, json3, params, message) {
+function handleUnrepresentable(schema, ctx, json4, params, message) {
   const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message }) : ctx.unrepresentable;
   if (result === "any")
     return false;
   if (result === void 0 || result === "throw")
     throw new Error(message);
-  Object.assign(json3, result);
+  Object.assign(json4, result);
   return true;
 }
 function processSchema(schema, ctx, _params = { path: [], schemaPath: [] }) {
@@ -29896,23 +29902,23 @@ function foldObjects(members2) {
   }
   return folded;
 }
-function foldIntersection(json3) {
-  const allOf = json3.allOf;
+function foldIntersection(json4) {
+  const allOf = json4.allOf;
   if (!Array.isArray(allOf) || allOf.length < 2)
     return;
   for (const key of FOLDABLE_KEYS)
-    if (key in json3)
+    if (key in json4)
       return;
-  const unions = allOf.filter((m) => UNION_KEYS.some((k) => Array.isArray(m[k])));
+  const unions = allOf.filter((m2) => UNION_KEYS.some((k2) => Array.isArray(m2[k2])));
   let folded = null;
   if (!unions.length) {
     folded = foldObjects(allOf);
   } else {
     const union2 = unions[0];
-    const keyword = UNION_KEYS.find((k) => Array.isArray(union2[k]));
+    const keyword = UNION_KEYS.find((k2) => Array.isArray(union2[k2]));
     if (Object.keys(union2).length !== 1)
       return;
-    const rest2 = allOf.filter((m) => m !== union2);
+    const rest2 = allOf.filter((m2) => m2 !== union2);
     const branches = union2[keyword].map((branch) => foldObjects([...rest2, branch]));
     if (branches.some((b) => !b))
       return;
@@ -29920,8 +29926,8 @@ function foldIntersection(json3) {
   }
   if (!folded)
     return;
-  delete json3.allOf;
-  assignProps(json3, folded);
+  delete json4.allOf;
+  assignProps(json4, folded);
 }
 function finalize(ctx, schema) {
   const root = ctx.seen.get(schema);
@@ -30003,20 +30009,20 @@ function finalize(ctx, schema) {
     if (ctx.intersections.length) {
       const carriers = /* @__PURE__ */ new Map();
       for (const seen of ctx.seen.values()) {
-        for (const json3 of [seen.schema, seen.def]) {
-          const allOf = json3?.allOf;
+        for (const json4 of [seen.schema, seen.def]) {
+          const allOf = json4?.allOf;
           if (!Array.isArray(allOf))
             continue;
           const existing = carriers.get(allOf);
           if (existing)
-            existing.push(json3);
+            existing.push(json4);
           else
-            carriers.set(allOf, [json3]);
+            carriers.set(allOf, [json4]);
         }
       }
       for (const allOf of ctx.intersections) {
-        for (const json3 of carriers.get(allOf) ?? [])
-          foldIntersection(json3);
+        for (const json4 of carriers.get(allOf) ?? [])
+          foldIntersection(json4);
       }
     }
   }
@@ -30196,33 +30202,33 @@ function inputOptin(schema) {
   }
   return schema._zod.optin;
 }
-function stringifyKeyNames(bySchema, json3, visited) {
-  if (json3.$ref) {
-    if (visited.has(json3))
-      return json3;
-    visited.add(json3);
-    const def = bySchema.get(json3)?.def;
+function stringifyKeyNames(bySchema, json4, visited) {
+  if (json4.$ref) {
+    if (visited.has(json4))
+      return json4;
+    visited.add(json4);
+    const def = bySchema.get(json4)?.def;
     if (!def)
-      return json3;
+      return json4;
     const inlined = stringifyKeyNames(bySchema, def, visited);
-    return inlined === def ? json3 : inlined;
+    return inlined === def ? json4 : inlined;
   }
   for (const keyword of ["anyOf", "oneOf"]) {
-    const branches = json3[keyword];
+    const branches = json4[keyword];
     if (!Array.isArray(branches))
       continue;
     const mapped = branches.map((branch) => stringifyKeyNames(bySchema, branch, visited));
     if (mapped.some((branch, i) => branch !== branches[i]))
-      json3 = { ...json3, [keyword]: mapped };
+      json4 = { ...json4, [keyword]: mapped };
   }
-  const types2 = Array.isArray(json3.type) ? json3.type : [json3.type];
+  const types2 = Array.isArray(json4.type) ? json4.type : [json4.type];
   const numericType = !types2.includes("string") && types2.some((t) => t === "number" || t === "integer");
-  const values = json3.enum ?? (json3.const !== void 0 ? [json3.const] : void 0);
-  if (!numericType && !values?.some((v) => typeof v === "number"))
-    return json3;
-  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id, ...rest2 } = json3;
+  const values = json4.enum ?? (json4.const !== void 0 ? [json4.const] : void 0);
+  if (!numericType && !values?.some((v2) => typeof v2 === "number"))
+    return json4;
+  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id, ...rest2 } = json4;
   if (rest2.enum)
-    rest2.enum = rest2.enum.map((v) => typeof v === "number" ? String(v) : v);
+    rest2.enum = rest2.enum.map((v2) => typeof v2 === "number" ? String(v2) : v2);
   else if (typeof rest2.const === "number")
     rest2.const = String(rest2.const);
   if (!numericType)
@@ -30258,9 +30264,9 @@ function rewriteKeyNames(ctx) {
     }
   }
 }
-function serializeDefaultValue(value, schema, ctx, json3, params) {
+function serializeDefaultValue(value, schema, ctx, json4, params) {
   let unrepresentable = false;
-  const serialized = JSON.stringify(value, (_, val) => {
+  const serialized = JSON.stringify(value, (_2, val) => {
     if (typeof val !== "bigint")
       return val;
     unrepresentable = true;
@@ -30268,7 +30274,7 @@ function serializeDefaultValue(value, schema, ctx, json3, params) {
   });
   if (!unrepresentable)
     return JSON.parse(serialized);
-  handleUnrepresentable(schema, ctx, json3, params, "BigInt defaults cannot be represented in JSON Schema");
+  handleUnrepresentable(schema, ctx, json4, params, "BigInt defaults cannot be represented in JSON Schema");
   return UNREPRESENTABLE_DEFAULT;
 }
 function toJSONSchema(input2, params) {
@@ -30277,7 +30283,7 @@ function toJSONSchema(input2, params) {
     const ctx2 = initializeContext({ ...params, processors: allProcessors });
     const defs = {};
     for (const entry of registry2._idmap.entries()) {
-      const [_, schema] = entry;
+      const [_2, schema] = entry;
       processSchema(schema, ctx2);
     }
     const schemas = {};
@@ -30334,7 +30340,7 @@ var init_json_schema_processors = __esm({
       agg.patterns.add(pattern);
     };
     intersectMime = (agg, mime) => {
-      agg.mime = agg.mime ? agg.mime.filter((m) => mime.includes(m)) : [...mime];
+      agg.mime = agg.mime ? agg.mime.filter((m2) => mime.includes(m2)) : [...mime];
     };
     setFormat = (agg, format) => {
       agg.format = format;
@@ -30384,31 +30390,31 @@ var init_json_schema_processors = __esm({
       [base64Charset, base64],
       [base64urlCharset, base64url]
     ]);
-    exactPattern = (p) => exactPatterns.get(p) ?? p;
+    exactPattern = (p2) => exactPatterns.get(p2) ?? p2;
     stringProcessor = (schema, ctx, _json, _params) => {
-      const json3 = _json;
-      json3.type = "string";
+      const json4 = _json;
+      json4.type = "string";
       const { minimum, maximum, format, patterns, contentEncoding, laxFormat } = aggregateChecks(schema);
       if (typeof minimum === "number")
-        json3.minLength = minimum;
+        json4.minLength = minimum;
       if (typeof maximum === "number")
-        json3.maxLength = maximum;
+        json4.maxLength = maximum;
       if (format) {
-        json3.format = formatMap[format] ?? format;
-        if (json3.format === "")
-          delete json3.format;
+        json4.format = formatMap[format] ?? format;
+        if (json4.format === "")
+          delete json4.format;
         if (format === "time" || laxFormat) {
-          delete json3.format;
+          delete json4.format;
         }
       }
       if (contentEncoding)
-        json3.contentEncoding = contentEncoding;
+        json4.contentEncoding = contentEncoding;
       if (patterns && patterns.size > 0) {
         const patternList = [...patterns].map(exactPattern);
         if (patternList.length === 1)
-          json3.pattern = patternList[0].source;
+          json4.pattern = patternList[0].source;
         else if (patternList.length > 1) {
-          json3.allOf = [
+          json4.allOf = [
             ...patternList.map((regex) => ({
               ...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
               pattern: regex.source
@@ -30418,31 +30424,31 @@ var init_json_schema_processors = __esm({
       }
     };
     numberProcessor = (schema, ctx, _json, params) => {
-      const json3 = _json;
+      const json4 = _json;
       const { minimum, maximum, multipleOf, exclusiveMaximum, exclusiveMinimum, isInt } = aggregateChecks(schema);
-      json3.type = isInt ? "integer" : "number";
+      json4.type = isInt ? "integer" : "number";
       const exMin = typeof exclusiveMinimum === "number" && exclusiveMinimum >= (minimum ?? Number.NEGATIVE_INFINITY);
       const exMax = typeof exclusiveMaximum === "number" && exclusiveMaximum <= (maximum ?? Number.POSITIVE_INFINITY);
       const legacy = ctx.target === "draft-04" || ctx.target === "openapi-3.0";
       if (exMin) {
         if (legacy) {
-          json3.minimum = exclusiveMinimum;
-          json3.exclusiveMinimum = true;
+          json4.minimum = exclusiveMinimum;
+          json4.exclusiveMinimum = true;
         } else {
-          json3.exclusiveMinimum = exclusiveMinimum;
+          json4.exclusiveMinimum = exclusiveMinimum;
         }
       } else if (typeof minimum === "number") {
-        json3.minimum = minimum;
+        json4.minimum = minimum;
       }
       if (exMax) {
         if (legacy) {
-          json3.maximum = exclusiveMaximum;
-          json3.exclusiveMaximum = true;
+          json4.maximum = exclusiveMaximum;
+          json4.exclusiveMaximum = true;
         } else {
-          json3.exclusiveMaximum = exclusiveMaximum;
+          json4.exclusiveMaximum = exclusiveMaximum;
         }
       } else if (typeof maximum === "number") {
-        json3.maximum = maximum;
+        json4.maximum = maximum;
       }
       if (multipleOf) {
         const divisors = /* @__PURE__ */ new Set();
@@ -30450,75 +30456,75 @@ var init_json_schema_processors = __esm({
           if (Number.isFinite(divisor) && divisor !== 0)
             divisors.add(Math.abs(divisor));
           else
-            handleUnrepresentable(schema, ctx, json3, params, `A multipleOf divisor of ${divisor} cannot be represented in JSON Schema`);
+            handleUnrepresentable(schema, ctx, json4, params, `A multipleOf divisor of ${divisor} cannot be represented in JSON Schema`);
         }
         const [first, ...rest2] = divisors;
         if (first !== void 0)
-          json3.multipleOf = first;
+          json4.multipleOf = first;
         if (rest2.length)
-          json3.allOf = [...json3.allOf ?? [], ...rest2.map((m) => ({ multipleOf: m }))];
+          json4.allOf = [...json4.allOf ?? [], ...rest2.map((m2) => ({ multipleOf: m2 }))];
       }
     };
-    booleanProcessor = (_schema, _ctx, json3, _params) => {
-      json3.type = "boolean";
+    booleanProcessor = (_schema, _ctx, json4, _params) => {
+      json4.type = "boolean";
     };
-    bigintProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "BigInt cannot be represented in JSON Schema");
+    bigintProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "BigInt cannot be represented in JSON Schema");
     };
-    symbolProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Symbols cannot be represented in JSON Schema");
+    symbolProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Symbols cannot be represented in JSON Schema");
     };
-    nullProcessor = (_schema, ctx, json3, _params) => {
+    nullProcessor = (_schema, ctx, json4, _params) => {
       if (ctx.target === "openapi-3.0") {
-        json3.type = "string";
-        json3.nullable = true;
-        json3.enum = [null];
+        json4.type = "string";
+        json4.nullable = true;
+        json4.enum = [null];
       } else {
-        json3.type = "null";
+        json4.type = "null";
       }
     };
-    undefinedProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Undefined cannot be represented in JSON Schema");
+    undefinedProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Undefined cannot be represented in JSON Schema");
     };
-    voidProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Void cannot be represented in JSON Schema");
+    voidProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Void cannot be represented in JSON Schema");
     };
-    neverProcessor = (_schema, _ctx, json3, _params) => {
-      json3.not = {};
+    neverProcessor = (_schema, _ctx, json4, _params) => {
+      json4.not = {};
     };
     anyProcessor = (_schema, _ctx, _json, _params) => {
     };
     unknownProcessor = (_schema, _ctx, _json, _params) => {
     };
-    dateProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Date cannot be represented in JSON Schema");
+    dateProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Date cannot be represented in JSON Schema");
     };
-    enumProcessor = (schema, _ctx, json3, _params) => {
+    enumProcessor = (schema, _ctx, json4, _params) => {
       const def = schema._zod.def;
       const values = getEnumValues(def.entries);
       if (values.length === 0) {
-        json3.not = {};
+        json4.not = {};
         return;
       }
-      if (values.every((v) => typeof v === "number"))
-        json3.type = "number";
-      if (values.every((v) => typeof v === "string"))
-        json3.type = "string";
-      json3.enum = values;
+      if (values.every((v2) => typeof v2 === "number"))
+        json4.type = "number";
+      if (values.every((v2) => typeof v2 === "string"))
+        json4.type = "string";
+      json4.enum = values;
     };
-    literalProcessor = (schema, ctx, json3, params) => {
+    literalProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       if (def.values.length === 0) {
-        json3.not = {};
+        json4.not = {};
         return;
       }
       const vals = [];
       for (const val of def.values) {
         if (val === void 0) {
-          if (handleUnrepresentable(schema, ctx, json3, params, "Literal `undefined` cannot be represented in JSON Schema"))
+          if (handleUnrepresentable(schema, ctx, json4, params, "Literal `undefined` cannot be represented in JSON Schema"))
             return;
         } else if (typeof val === "bigint") {
-          if (handleUnrepresentable(schema, ctx, json3, params, "BigInt literals cannot be represented in JSON Schema"))
+          if (handleUnrepresentable(schema, ctx, json4, params, "BigInt literals cannot be represented in JSON Schema"))
             return;
           vals.push(Number(val));
         } else {
@@ -30528,37 +30534,37 @@ var init_json_schema_processors = __esm({
       if (vals.length === 0) {
       } else if (vals.length === 1) {
         const val = vals[0];
-        json3.type = val === null ? "null" : typeof val;
+        json4.type = val === null ? "null" : typeof val;
         if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") {
-          json3.enum = [val];
+          json4.enum = [val];
         } else {
-          json3.const = val;
+          json4.const = val;
         }
       } else {
-        if (vals.every((v) => typeof v === "number"))
-          json3.type = "number";
-        if (vals.every((v) => typeof v === "string"))
-          json3.type = "string";
-        if (vals.every((v) => typeof v === "boolean"))
-          json3.type = "boolean";
-        if (vals.every((v) => v === null))
-          json3.type = "null";
-        json3.enum = vals;
+        if (vals.every((v2) => typeof v2 === "number"))
+          json4.type = "number";
+        if (vals.every((v2) => typeof v2 === "string"))
+          json4.type = "string";
+        if (vals.every((v2) => typeof v2 === "boolean"))
+          json4.type = "boolean";
+        if (vals.every((v2) => v2 === null))
+          json4.type = "null";
+        json4.enum = vals;
       }
     };
-    nanProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "NaN cannot be represented in JSON Schema");
+    nanProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "NaN cannot be represented in JSON Schema");
     };
-    templateLiteralProcessor = (schema, _ctx, json3, _params) => {
-      const _json = json3;
+    templateLiteralProcessor = (schema, _ctx, json4, _params) => {
+      const _json = json4;
       const pattern = schema._zod.pattern;
       if (!pattern)
         throw new Error("Pattern not found in template literal");
       _json.type = "string";
       _json.pattern = pattern.source;
     };
-    fileProcessor = (schema, _ctx, json3, _params) => {
-      const _json = json3;
+    fileProcessor = (schema, _ctx, json4, _params) => {
+      const _json = json4;
       _json.type = "string";
       _json.format = "binary";
       _json.contentEncoding = "binary";
@@ -30574,52 +30580,52 @@ var init_json_schema_processors = __esm({
       else if (mime.length === 1)
         _json.contentMediaType = mime[0];
       else
-        _json.anyOf = mime.map((m) => ({ contentMediaType: m }));
+        _json.anyOf = mime.map((m2) => ({ contentMediaType: m2 }));
     };
-    successProcessor = (_schema, _ctx, json3, _params) => {
-      json3.type = "boolean";
+    successProcessor = (_schema, _ctx, json4, _params) => {
+      json4.type = "boolean";
     };
-    customProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Custom types cannot be represented in JSON Schema");
+    customProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Custom types cannot be represented in JSON Schema");
     };
-    functionProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Function types cannot be represented in JSON Schema");
+    functionProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Function types cannot be represented in JSON Schema");
     };
-    transformProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Transforms cannot be represented in JSON Schema");
+    transformProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Transforms cannot be represented in JSON Schema");
     };
-    mapProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Map cannot be represented in JSON Schema");
+    mapProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Map cannot be represented in JSON Schema");
     };
-    setProcessor = (schema, ctx, json3, params) => {
-      handleUnrepresentable(schema, ctx, json3, params, "Set cannot be represented in JSON Schema");
+    setProcessor = (schema, ctx, json4, params) => {
+      handleUnrepresentable(schema, ctx, json4, params, "Set cannot be represented in JSON Schema");
     };
     arrayProcessor = (schema, ctx, _json, params) => {
-      const json3 = _json;
+      const json4 = _json;
       const def = schema._zod.def;
       const { minimum, maximum } = aggregateChecks(schema);
       if (typeof minimum === "number")
-        json3.minItems = minimum;
+        json4.minItems = minimum;
       if (typeof maximum === "number")
-        json3.maxItems = maximum;
-      json3.type = "array";
-      json3.items = processSchema(def.element, ctx, {
+        json4.maxItems = maximum;
+      json4.type = "array";
+      json4.items = processSchema(def.element, ctx, {
         ...params,
         path: [...params.path, "items"]
       });
     };
     objectProcessor = (schema, ctx, _json, params) => {
-      const json3 = _json;
+      const json4 = _json;
       const def = schema._zod.def;
       const shape = def.shape;
       const symbolKeys = Object.getOwnPropertySymbols(shape);
-      if (symbolKeys.length && handleUnrepresentable(schema, ctx, json3, params, "Symbol keys cannot be represented in JSON Schema")) {
+      if (symbolKeys.length && handleUnrepresentable(schema, ctx, json4, params, "Symbol keys cannot be represented in JSON Schema")) {
         return;
       }
-      json3.type = "object";
-      json3.properties = {};
+      json4.type = "object";
+      json4.properties = {};
       for (const key in shape) {
-        assignProp(json3.properties, key, processSchema(shape[key], ctx, {
+        assignProp(json4.properties, key, processSchema(shape[key], ctx, {
           ...params,
           path: [...params.path, "properties", key]
         }));
@@ -30632,21 +30638,21 @@ var init_json_schema_processors = __esm({
         }
       }
       if (requiredKeys.length > 0) {
-        json3.required = requiredKeys;
+        json4.required = requiredKeys;
       }
       if (def.catchall?._zod.def.type === "never") {
-        json3.additionalProperties = false;
+        json4.additionalProperties = false;
       } else if (!def.catchall) {
         if (ctx.io === "output")
-          json3.additionalProperties = false;
+          json4.additionalProperties = false;
       } else if (def.catchall) {
-        json3.additionalProperties = processSchema(def.catchall, ctx, {
+        json4.additionalProperties = processSchema(def.catchall, ctx, {
           ...params,
           path: [...params.path, "additionalProperties"]
         });
       }
     };
-    unionProcessor = (schema, ctx, json3, params) => {
+    unionProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       const isExclusive = def.inclusive === false;
       const options = def.options.map((x, i) => processSchema(x, ctx, {
@@ -30654,12 +30660,12 @@ var init_json_schema_processors = __esm({
         path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
       }));
       if (isExclusive) {
-        json3.oneOf = options;
+        json4.oneOf = options;
       } else {
-        json3.anyOf = options;
+        json4.anyOf = options;
       }
     };
-    intersectionProcessor = (schema, ctx, json3, params) => {
+    intersectionProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       const a = processSchema(def.left, ctx, {
         ...params,
@@ -30674,13 +30680,13 @@ var init_json_schema_processors = __esm({
         ...isSimpleIntersection(a) ? a.allOf : [a],
         ...isSimpleIntersection(b) ? b.allOf : [b]
       ];
-      json3.allOf = allOf;
+      json4.allOf = allOf;
       ctx.intersections.push(allOf);
     };
     tupleProcessor = (schema, ctx, _json, params) => {
-      const json3 = _json;
+      const json4 = _json;
       const def = schema._zod.def;
-      json3.type = "array";
+      json4.type = "array";
       const prefixPath = ctx.target === "draft-2020-12" ? "prefixItems" : "items";
       const restPath = ctx.target === "draft-2020-12" ? "items" : ctx.target === "openapi-3.0" ? "items" : "additionalItems";
       const prefixItems = def.items.map((x, i) => processSchema(x, ctx, {
@@ -30702,50 +30708,50 @@ var init_json_schema_processors = __esm({
       const maxItems = def.items.length;
       const isClosed = !def.rest;
       if (ctx.target === "draft-2020-12") {
-        json3.prefixItems = prefixItems;
+        json4.prefixItems = prefixItems;
         if (isClosed) {
-          json3.items = false;
+          json4.items = false;
         } else if (rest2) {
-          json3.items = rest2;
+          json4.items = rest2;
         }
         if (minItems > 0)
-          json3.minItems = minItems;
+          json4.minItems = minItems;
         if (isClosed)
-          json3.maxItems = maxItems;
+          json4.maxItems = maxItems;
       } else if (ctx.target === "openapi-3.0") {
-        json3.items = {
+        json4.items = {
           anyOf: prefixItems
         };
         if (rest2) {
-          json3.items.anyOf.push(rest2);
+          json4.items.anyOf.push(rest2);
         }
         if (minItems > 0)
-          json3.minItems = minItems;
+          json4.minItems = minItems;
         if (isClosed)
-          json3.maxItems = maxItems;
+          json4.maxItems = maxItems;
       } else {
-        json3.items = prefixItems;
+        json4.items = prefixItems;
         if (isClosed) {
-          json3.additionalItems = false;
+          json4.additionalItems = false;
         } else if (rest2) {
-          json3.additionalItems = rest2;
+          json4.additionalItems = rest2;
         }
         if (minItems > 0)
-          json3.minItems = minItems;
+          json4.minItems = minItems;
         if (isClosed)
-          json3.maxItems = maxItems;
+          json4.maxItems = maxItems;
       }
       const { minimum, maximum } = aggregateChecks(schema);
       if (typeof minimum === "number")
-        json3.minItems = minimum;
+        json4.minItems = minimum;
       if (typeof maximum === "number")
-        json3.maxItems = maximum;
+        json4.maxItems = maximum;
     };
     pendingRecords = /* @__PURE__ */ new WeakMap();
     recordProcessor = (schema, ctx, _json, params) => {
-      const json3 = _json;
+      const json4 = _json;
       const def = schema._zod.def;
-      json3.type = "object";
+      json4.type = "object";
       const keyType = def.keyType;
       const patterns = aggregateChecks(keyType).patterns;
       if (def.mode === "loose" && patterns && patterns.size > 0) {
@@ -30753,13 +30759,13 @@ var init_json_schema_processors = __esm({
           ...params,
           path: [...params.path, "patternProperties", "*"]
         });
-        json3.patternProperties = {};
+        json4.patternProperties = {};
         for (const pattern of patterns) {
-          assignProp(json3.patternProperties, exactPattern(pattern).source, valueSchema);
+          assignProp(json4.patternProperties, exactPattern(pattern).source, valueSchema);
         }
       } else {
         if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") {
-          json3.propertyNames = processSchema(def.keyType, ctx, {
+          json4.propertyNames = processSchema(def.keyType, ctx, {
             ...params,
             path: [...params.path, "propertyNames"]
           });
@@ -30771,7 +30777,7 @@ var init_json_schema_processors = __esm({
           }
           pending.push(schema);
         }
-        json3.additionalProperties = processSchema(def.valueType, ctx, {
+        json4.additionalProperties = processSchema(def.valueType, ctx, {
           ...params,
           path: [...params.path, "additionalProperties"]
         });
@@ -30779,21 +30785,21 @@ var init_json_schema_processors = __esm({
       const keyValues = keyType._zod.values;
       const omittableOnInput = ctx.io === "input" && inputOptin(def.valueType) !== void 0;
       if (keyValues && !def.partial && !omittableOnInput) {
-        const validKeyValues = [...keyValues].filter((v) => typeof v === "string" || typeof v === "number");
+        const validKeyValues = [...keyValues].filter((v2) => typeof v2 === "string" || typeof v2 === "number");
         if (validKeyValues.length > 0) {
-          json3.required = validKeyValues.map(String);
+          json4.required = validKeyValues.map(String);
         }
       }
     };
-    nullableProcessor = (schema, ctx, json3, params) => {
+    nullableProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       const inner = processSchema(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       if (ctx.target === "openapi-3.0") {
         seen.ref = def.innerType;
-        json3.nullable = true;
+        json4.nullable = true;
       } else {
-        json3.anyOf = [inner, { type: "null" }];
+        json4.anyOf = [inner, { type: "null" }];
       }
     };
     nonoptionalProcessor = (schema, ctx, _json, params) => {
@@ -30803,27 +30809,27 @@ var init_json_schema_processors = __esm({
       seen.ref = def.innerType;
     };
     UNREPRESENTABLE_DEFAULT = /* @__PURE__ */ Symbol();
-    defaultProcessor = (schema, ctx, json3, params) => {
+    defaultProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       processSchema(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
-      const value = serializeDefaultValue(def.defaultValue, schema, ctx, json3, params);
+      const value = serializeDefaultValue(def.defaultValue, schema, ctx, json4, params);
       if (value !== UNREPRESENTABLE_DEFAULT)
-        json3.default = value;
+        json4.default = value;
     };
-    prefaultProcessor = (schema, ctx, json3, params) => {
+    prefaultProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       processSchema(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
       if (ctx.io !== "input")
         return;
-      const value = serializeDefaultValue(def.defaultValue, schema, ctx, json3, params);
+      const value = serializeDefaultValue(def.defaultValue, schema, ctx, json4, params);
       if (value !== UNREPRESENTABLE_DEFAULT)
-        json3._prefault = value;
+        json4._prefault = value;
     };
-    catchProcessor = (schema, ctx, json3, params) => {
+    catchProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       processSchema(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
@@ -30832,10 +30838,10 @@ var init_json_schema_processors = __esm({
       try {
         catchValue = def.catchValue(void 0);
       } catch {
-        handleUnrepresentable(schema, ctx, json3, params, "Dynamic catch values are not supported in JSON Schema");
+        handleUnrepresentable(schema, ctx, json4, params, "Dynamic catch values are not supported in JSON Schema");
         return;
       }
-      json3.default = catchValue;
+      json4.default = catchValue;
     };
     pipeProcessor = (schema, ctx, _json, params) => {
       const def = schema._zod.def;
@@ -30845,12 +30851,12 @@ var init_json_schema_processors = __esm({
       const seen = ctx.seen.get(schema);
       seen.ref = innerType;
     };
-    readonlyProcessor = (schema, ctx, json3, params) => {
+    readonlyProcessor = (schema, ctx, json4, params) => {
       const def = schema._zod.def;
       processSchema(def.innerType, ctx, params);
       const seen = ctx.seen.get(schema);
       seen.ref = def.innerType;
-      json3.readOnly = true;
+      json4.readOnly = true;
     };
     promiseProcessor = (schema, ctx, _json, params) => {
       const def = schema._zod.def;
@@ -30992,7 +30998,7 @@ var init_json_schema_generator = __esm({
         this.ctx.sharedEmitDoneFor = void 0;
         extractDefs(this.ctx, schema);
         const result = finalize(this.ctx, schema);
-        const { "~standard": _, ...plainResult } = result;
+        const { "~standard": _2, ...plainResult } = result;
         return plainResult;
       }
     };
@@ -31931,7 +31937,7 @@ function set2(valueType, params) {
   });
 }
 function _enum2(values, params) {
-  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v2) => [v2, v2])) : values;
   return new ZodEnum({
     type: "enum",
     entries,
@@ -32210,11 +32216,11 @@ var init_schemas2 = __esm({
       transform(tx) {
         return pipe(this, transform(tx));
       },
-      default(d) {
-        return _default2(this, d);
+      default(d2) {
+        return _default2(this, d2);
       },
-      prefault(d) {
-        return prefault(this, d);
+      prefault(d2) {
+        return prefault(this, d2);
       },
       catch(params) {
         return _catch2(this, params);
@@ -32325,7 +32331,7 @@ var init_schemas2 = __esm({
       (inst, def) => {
         $ZodString.init(inst, def);
         ZodType.init(inst, def);
-        inst._zod.processJSONSchema = (ctx, json3, params) => stringProcessor(inst, ctx, json3, params);
+        inst._zod.processJSONSchema = (ctx, json4, params) => stringProcessor(inst, ctx, json4, params);
       },
       /* @__PURE__ */ util_exports.derived({
         format: (inst) => aggregateChecks(inst).format ?? null,
@@ -32579,7 +32585,7 @@ var init_schemas2 = __esm({
       (inst, def) => {
         $ZodNumber.init(inst, def);
         ZodType.init(inst, def);
-        inst._zod.processJSONSchema = (ctx, json3, params) => numberProcessor(inst, ctx, json3, params);
+        inst._zod.processJSONSchema = (ctx, json4, params) => numberProcessor(inst, ctx, json4, params);
         inst.isFinite = true;
       },
       /* @__PURE__ */ util_exports.derived({
@@ -32651,14 +32657,14 @@ var init_schemas2 = __esm({
     ZodBoolean = /* @__PURE__ */ $constructor("ZodBoolean", (inst, def) => {
       $ZodBoolean.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => booleanProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => booleanProcessor(inst, ctx, json4, params);
     });
     ZodBigInt = /* @__PURE__ */ $constructor(
       "ZodBigInt",
       (inst, def) => {
         $ZodBigInt.init(inst, def);
         ZodType.init(inst, def);
-        inst._zod.processJSONSchema = (ctx, json3, params) => bigintProcessor(inst, ctx, json3, params);
+        inst._zod.processJSONSchema = (ctx, json4, params) => bigintProcessor(inst, ctx, json4, params);
       },
       /* @__PURE__ */ util_exports.derived({
         minValue: (inst) => aggregateChecks(inst).minimum ?? null,
@@ -32707,44 +32713,44 @@ var init_schemas2 = __esm({
     ZodSymbol = /* @__PURE__ */ $constructor("ZodSymbol", (inst, def) => {
       $ZodSymbol.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => symbolProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => symbolProcessor(inst, ctx, json4, params);
     });
     ZodUndefined = /* @__PURE__ */ $constructor("ZodUndefined", (inst, def) => {
       $ZodUndefined.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => undefinedProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => undefinedProcessor(inst, ctx, json4, params);
     });
     ZodNull = /* @__PURE__ */ $constructor("ZodNull", (inst, def) => {
       $ZodNull.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => nullProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => nullProcessor(inst, ctx, json4, params);
     });
     ZodAny = /* @__PURE__ */ $constructor("ZodAny", (inst, def) => {
       $ZodAny.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => anyProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => anyProcessor(inst, ctx, json4, params);
     });
     ZodUnknown = /* @__PURE__ */ $constructor("ZodUnknown", (inst, def) => {
       $ZodUnknown.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => unknownProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => unknownProcessor(inst, ctx, json4, params);
     });
     ZodNever = /* @__PURE__ */ $constructor("ZodNever", (inst, def) => {
       $ZodNever.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => neverProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => neverProcessor(inst, ctx, json4, params);
     });
     ZodVoid = /* @__PURE__ */ $constructor("ZodVoid", (inst, def) => {
       $ZodVoid.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => voidProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => voidProcessor(inst, ctx, json4, params);
     });
     ZodDate = /* @__PURE__ */ $constructor(
       "ZodDate",
       (inst, def) => {
         $ZodDate.init(inst, def);
         ZodType.init(inst, def);
-        inst._zod.processJSONSchema = (ctx, json3, params) => dateProcessor(inst, ctx, json3, params);
+        inst._zod.processJSONSchema = (ctx, json4, params) => dateProcessor(inst, ctx, json4, params);
         inst.min = (value, params) => inst.check(_gte(value, params));
         inst.max = (value, params) => inst.check(_lte(value, params));
       },
@@ -32763,7 +32769,7 @@ var init_schemas2 = __esm({
       _ensureDefaultMemoizer();
       $ZodArray.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => arrayProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => arrayProcessor(inst, ctx, json4, params);
       inst.element = def.element;
     }, {
       min(n, params) {
@@ -32786,7 +32792,7 @@ var init_schemas2 = __esm({
       _ensureDefaultMemoizer();
       $ZodObjectJIT.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => objectProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => objectProcessor(inst, ctx, json4, params);
       util_exports.installLazyProp(inst, "shape", (self) => self._zod.def.shape, false);
     }, {
       keyof() {
@@ -32835,13 +32841,13 @@ var init_schemas2 = __esm({
     ZodUnion = /* @__PURE__ */ $constructor("ZodUnion", (inst, def) => {
       $ZodUnion.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => unionProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => unionProcessor(inst, ctx, json4, params);
       inst.options = def.options;
     });
     ZodXor = /* @__PURE__ */ $constructor("ZodXor", (inst, def) => {
       ZodUnion.init(inst, def);
       $ZodXor.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => unionProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => unionProcessor(inst, ctx, json4, params);
       inst.options = def.options;
     });
     ZodDiscriminatedUnion = /* @__PURE__ */ $constructor("ZodDiscriminatedUnion", (inst, def) => {
@@ -32851,13 +32857,13 @@ var init_schemas2 = __esm({
     ZodIntersection = /* @__PURE__ */ $constructor("ZodIntersection", (inst, def) => {
       $ZodIntersection.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => intersectionProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => intersectionProcessor(inst, ctx, json4, params);
     });
     ZodTuple = /* @__PURE__ */ $constructor("ZodTuple", (inst, def) => {
       _ensureDefaultMemoizer();
       $ZodTuple.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => tupleProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => tupleProcessor(inst, ctx, json4, params);
     }, {
       rest(rest2) {
         return this.clone({
@@ -32879,7 +32885,7 @@ var init_schemas2 = __esm({
       _ensureDefaultMemoizer();
       $ZodRecord.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => recordProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => recordProcessor(inst, ctx, json4, params);
       inst.keyType = def.keyType;
       inst.valueType = def.valueType;
     });
@@ -32887,7 +32893,7 @@ var init_schemas2 = __esm({
       _ensureDefaultMemoizer();
       $ZodMap.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => mapProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => mapProcessor(inst, ctx, json4, params);
       inst.keyType = def.keyType;
       inst.valueType = def.valueType;
       inst.min = (...args) => inst.check(_minSize(...args));
@@ -32899,7 +32905,7 @@ var init_schemas2 = __esm({
       _ensureDefaultMemoizer();
       $ZodSet.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => setProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => setProcessor(inst, ctx, json4, params);
       inst.min = (...args) => inst.check(_minSize(...args));
       inst.nonempty = (params) => inst.check(_minSize(1, params));
       inst.max = (...args) => inst.check(_maxSize(...args));
@@ -32908,7 +32914,7 @@ var init_schemas2 = __esm({
     ZodEnum = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
       $ZodEnum.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => enumProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => enumProcessor(inst, ctx, json4, params);
       inst.enum = def.entries;
       inst.options = [...inst._zod.values];
       const keys = new Set(Object.keys(def.entries));
@@ -32946,7 +32952,7 @@ var init_schemas2 = __esm({
     ZodLiteral = /* @__PURE__ */ $constructor("ZodLiteral", (inst, def) => {
       $ZodLiteral.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => literalProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => literalProcessor(inst, ctx, json4, params);
       inst.values = new Set(def.values);
       Object.defineProperty(inst, "value", {
         get() {
@@ -32960,7 +32966,7 @@ var init_schemas2 = __esm({
     ZodFile = /* @__PURE__ */ $constructor("ZodFile", (inst, def) => {
       $ZodFile.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => fileProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => fileProcessor(inst, ctx, json4, params);
       inst.min = (size, params) => inst.check(_minSize(size, params));
       inst.max = (size, params) => inst.check(_maxSize(size, params));
       inst.mime = (types2, params) => inst.check(_mime(Array.isArray(types2) ? types2 : [types2], params));
@@ -32969,7 +32975,7 @@ var init_schemas2 = __esm({
       _ensureDefaultMemoizer();
       $ZodTransform.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => transformProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => transformProcessor(inst, ctx, json4, params);
       inst._zod.parse = (payload, _ctx) => {
         if (_ctx.direction === "backward") {
           throw new $ZodEncodeError(inst.constructor.name);
@@ -33002,62 +33008,62 @@ var init_schemas2 = __esm({
     ZodOptional = /* @__PURE__ */ $constructor("ZodOptional", (inst, def) => {
       $ZodOptional.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => optionalProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => optionalProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodExactOptional = /* @__PURE__ */ $constructor("ZodExactOptional", (inst, def) => {
       $ZodExactOptional.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => optionalProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => optionalProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodNullable = /* @__PURE__ */ $constructor("ZodNullable", (inst, def) => {
       $ZodNullable.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => nullableProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => nullableProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodDefault = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
       $ZodDefault.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => defaultProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => defaultProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
       inst.removeDefault = inst.unwrap;
     });
     ZodPrefault = /* @__PURE__ */ $constructor("ZodPrefault", (inst, def) => {
       $ZodPrefault.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => prefaultProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => prefaultProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodNonOptional = /* @__PURE__ */ $constructor("ZodNonOptional", (inst, def) => {
       $ZodNonOptional.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => nonoptionalProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => nonoptionalProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodSuccess = /* @__PURE__ */ $constructor("ZodSuccess", (inst, def) => {
       $ZodSuccess.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => successProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => successProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodCatch = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
       $ZodCatch.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => catchProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => catchProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
       inst.removeCatch = inst.unwrap;
     });
     ZodNaN = /* @__PURE__ */ $constructor("ZodNaN", (inst, def) => {
       $ZodNaN.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => nanProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => nanProcessor(inst, ctx, json4, params);
     });
     ZodPipe = /* @__PURE__ */ $constructor("ZodPipe", (inst, def) => {
       $ZodPipe.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => pipeProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => pipeProcessor(inst, ctx, json4, params);
       inst.in = def.in;
       inst.out = def.out;
     });
@@ -33072,35 +33078,35 @@ var init_schemas2 = __esm({
     ZodReadonly = /* @__PURE__ */ $constructor("ZodReadonly", (inst, def) => {
       $ZodReadonly.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => readonlyProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => readonlyProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodTemplateLiteral = /* @__PURE__ */ $constructor("ZodTemplateLiteral", (inst, def) => {
       $ZodTemplateLiteral.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => templateLiteralProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => templateLiteralProcessor(inst, ctx, json4, params);
     });
     ZodLazy = /* @__PURE__ */ $constructor("ZodLazy", (inst, def) => {
       $ZodLazy.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => lazyProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => lazyProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.getter();
     });
     ZodPromise = /* @__PURE__ */ $constructor("ZodPromise", (inst, def) => {
       $ZodPromise.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => promiseProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => promiseProcessor(inst, ctx, json4, params);
       inst.unwrap = () => inst._zod.def.innerType;
     });
     ZodFunction = /* @__PURE__ */ $constructor("ZodFunction", (inst, def) => {
       $ZodFunction.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => functionProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => functionProcessor(inst, ctx, json4, params);
     });
     ZodCustom = /* @__PURE__ */ $constructor("ZodCustom", (inst, def) => {
       $ZodCustom.init(inst, def);
       ZodType.init(inst, def);
-      inst._zod.processJSONSchema = (ctx, json3, params) => customProcessor(inst, ctx, json3, params);
+      inst._zod.processJSONSchema = (ctx, json4, params) => customProcessor(inst, ctx, json4, params);
     });
     describe2 = describe;
     meta2 = meta;
@@ -33294,11 +33300,11 @@ function canonicalKey(value, seen) {
     }
     const keys = Object.keys(value).sort();
     const parts = [];
-    for (const k of keys) {
-      const key = canonicalKey(value[k], seen);
+    for (const k2 of keys) {
+      const key = canonicalKey(value[k2], seen);
       if (key === null)
         return null;
-      parts.push(`${k.length}:${k}=${key}`);
+      parts.push(`${k2.length}:${k2}=${key}`);
     }
     return `o${parts.length}:{${parts.join(",")}}`;
   } finally {
@@ -33435,10 +33441,10 @@ function convertBaseSchema(schema, ctx) {
     if (enumValues.length === 1) {
       return z.literal(enumValues[0]);
     }
-    if (enumValues.every((v) => typeof v === "string")) {
+    if (enumValues.every((v2) => typeof v2 === "string")) {
       return z.enum(enumValues);
     }
-    const literalSchemas = enumValues.map((v) => z.literal(v));
+    const literalSchemas = enumValues.map((v2) => z.literal(v2));
     if (literalSchemas.length < 2) {
       return literalSchemas[0];
     }
@@ -33605,7 +33611,7 @@ function convertBaseSchema(schema, ctx) {
         }
         if (schema.additionalProperties === false) {
           const propertyKeys = Object.keys(shape);
-          const patterns = patternKeys.map((p) => new RegExp(p));
+          const patterns = patternKeys.map((p2) => new RegExp(p2));
           const basePatternSchema = zodSchema;
           zodSchema = zodSchema.check((payload) => {
             if (!isPlainObject(payload.value))
@@ -33928,8 +33934,8 @@ var init_from_json_schema = __esm({
 // node_modules/zod/v4/core/visit.js
 function visit(schema, fnOrHandlers) {
   const fn = typeof fnOrHandlers === "function" ? fnOrHandlers : (node2, rewritten) => {
-    const h = fnOrHandlers[node2._zod.def.type];
-    return h ? h(node2, rewritten) : node2;
+    const h2 = fnOrHandlers[node2._zod.def.type];
+    return h2 ? h2(node2, rewritten) : node2;
   };
   const cache = /* @__PURE__ */ new Map();
   function run(s) {
@@ -33957,11 +33963,11 @@ function visit(schema, fnOrHandlers) {
         const keys = Object.keys(oldShape);
         let changed = false;
         const newShape = {};
-        for (const k of keys) {
-          const mapped = run(oldShape[k]);
-          if (mapped !== oldShape[k])
+        for (const k2 of keys) {
+          const mapped = run(oldShape[k2]);
+          if (mapped !== oldShape[k2])
             changed = true;
-          newShape[k] = mapped;
+          newShape[k2] = mapped;
         }
         let newCatchall = def.catchall;
         if (def.catchall) {
@@ -36094,10 +36100,10 @@ function flowsDir(project2) {
 function listFlowFiles(project2) {
   const dir = flowsDir(project2);
   if (!fs2.existsSync(dir)) return [];
-  return fs2.readdirSync(dir).filter((f) => /\.flow\.(ts|mts|js|mjs)$/.test(f)).sort().map((f) => path.join(dir, f));
+  return fs2.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path.join(dir, f2));
 }
-function isFlow(v) {
-  return v && typeof v === "object" && v.kind === "declarative" && typeof v.id === "string" && Array.isArray(v.steps);
+function isFlow(v2) {
+  return v2 && typeof v2 === "object" && v2.kind === "declarative" && typeof v2.id === "string" && Array.isArray(v2.steps);
 }
 async function checkFile(file2) {
   installResolveHook();
@@ -36125,8 +36131,8 @@ async function checkFile(file2) {
     const handlers = {};
     for (const type of inlineJobTypes(flow)) {
       const name2 = type.slice(flow.id.length + 1);
-      const h = flow.handlers?.[name2];
-      if (typeof h === "function") handlers[type] = h;
+      const h2 = flow.handlers?.[name2];
+      if (typeof h2 === "function") handlers[type] = h2;
       else problems.push({ severity: "error", element: name2, message: `run("${name2}") has no handler` });
     }
     const humans = [];
@@ -36136,12 +36142,12 @@ async function checkFile(file2) {
       if (n.kind === "task")
         tasks.push({ name: n.name, jobType: n.jobType ?? `${flow.id}:${n.name}`, agent: !!n.agent || !!n.prompt, prompt: n.prompt });
     });
-    for (const h of humans) {
-      if (!forms[h.form])
+    for (const h2 of humans) {
+      if (!forms[h2.form])
         problems.push({
           severity: "warning",
-          element: h.name,
-          message: `human("${h.name}") uses form "${h.form}" which is not in the exported forms \u2014 it will be asked as free text`
+          element: h2.name,
+          message: `human("${h2.name}") uses form "${h2.form}" which is not in the exported forms \u2014 it will be asked as free text`
         });
     }
     const projectDir = path.dirname(path.dirname(path.resolve(file2)));
@@ -36159,7 +36165,7 @@ async function checkFile(file2) {
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
     if (mod.workers) {
-      for (const [type, h] of Object.entries(mod.workers)) if (typeof h === "function") handlers[type] = h;
+      for (const [type, h2] of Object.entries(mod.workers)) if (typeof h2 === "function") handlers[type] = h2;
     }
     try {
       newEngine().deploy(xml2);
@@ -36172,16 +36178,16 @@ async function checkFile(file2) {
 }
 async function checkProject(project2) {
   const out = [];
-  for (const f of listFlowFiles(project2)) out.push(await checkFile(f));
+  for (const f2 of listFlowFiles(project2)) out.push(await checkFile(f2));
   return out;
 }
 function formatProblems(results) {
   const lines = [];
-  for (const r of results) {
-    const ids = r.flows.map((f) => f.id).join(", ");
-    const errs = r.problems.filter((p) => p.severity === "error").length;
-    lines.push(`${errs ? "\u2717" : "\u2713"} ${path.basename(r.file)}${ids ? ` (${ids})` : ""}`);
-    for (const p of r.problems) lines.push(`  ${p.severity}${p.element ? ` [${p.element}]` : ""}: ${p.message}`);
+  for (const r2 of results) {
+    const ids = r2.flows.map((f2) => f2.id).join(", ");
+    const errs = r2.problems.filter((p2) => p2.severity === "error").length;
+    lines.push(`${errs ? "\u2717" : "\u2713"} ${path.basename(r2.file)}${ids ? ` (${ids})` : ""}`);
+    for (const p2 of r2.problems) lines.push(`  ${p2.severity}${p2.element ? ` [${p2.element}]` : ""}: ${p2.message}`);
   }
   return lines.join("\n");
 }
@@ -36207,14 +36213,20 @@ import { fileURLToPath } from "node:url";
 function stateDir(project2) {
   return path2.join(path2.resolve(project2), ".agent-graph");
 }
+function defaultHome() {
+  return process.env.AGE_HOME ?? path2.join(process.env.HOME ?? "/tmp", "AgentGraph");
+}
 function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()) {
   let dir = path2.resolve(start);
   for (; ; ) {
     if (fs3.existsSync(path2.join(dir, "flows")) || fs3.existsSync(path2.join(dir, ".agent-graph"))) return dir;
     const up = path2.dirname(dir);
-    if (up === dir) return path2.resolve(start);
+    if (up === dir) break;
     dir = up;
   }
+  const s = path2.resolve(start);
+  if (s === "/" || s === path2.resolve(process.env.HOME ?? "/")) return defaultHome();
+  return s;
 }
 function alive(pid) {
   try {
@@ -36225,17 +36237,17 @@ function alive(pid) {
   }
 }
 async function findDaemon(project2) {
-  const f = path2.join(stateDir(project2), "daemon.json");
+  const f2 = path2.join(stateDir(project2), "daemon.json");
   let info;
   try {
-    info = JSON.parse(fs3.readFileSync(f, "utf8"));
+    info = JSON.parse(fs3.readFileSync(f2, "utf8"));
   } catch {
     return void 0;
   }
   if (!alive(info.pid)) return void 0;
   try {
-    const r = await fetch(`${info.url}/api/state`, { signal: AbortSignal.timeout(1500) });
-    return r.ok ? info : void 0;
+    const r2 = await fetch(`${info.url}/api/state`, { signal: AbortSignal.timeout(1500) });
+    return r2.ok ? info : void 0;
   } catch {
     return void 0;
   }
@@ -36255,21 +36267,21 @@ async function ensureDaemon(project2) {
   });
   child.unref();
   for (let i = 0; i < 100; i++) {
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r2) => setTimeout(r2, 100));
     const info = await findDaemon(project2);
     if (info) return info;
   }
   throw new Error(`daemon did not start; see ${path2.join(stateDir(project2), "daemon.log")}`);
 }
-async function api(info, p, body2) {
-  const r = await fetch(`${info.url}${p}`, {
+async function api(info, p2, body2) {
+  const r2 = await fetch(`${info.url}${p2}`, {
     method: body2 === void 0 ? "GET" : "POST",
     headers: { "content-type": "application/json" },
     body: body2 === void 0 ? void 0 : JSON.stringify(body2)
   });
-  const text2 = await r.text();
-  const data = r.headers.get("content-type")?.includes("json") ? JSON.parse(text2) : text2;
-  if (!r.ok) throw new Error(data?.error ?? `HTTP ${r.status}`);
+  const text2 = await r2.text();
+  const data = r2.headers.get("content-type")?.includes("json") ? JSON.parse(text2) : text2;
+  if (!r2.ok) throw new Error(data?.error ?? `HTTP ${r2.status}`);
   return data;
 }
 var init_paths = __esm({
@@ -36282,16 +36294,16 @@ var init_paths = __esm({
 function summarize(state) {
   const lines = [];
   lines.push(`project: ${state.project}`);
-  lines.push(`flows: ${state.flows.map((f) => f.id).join(", ") || "(none \u2014 add flows/*.flow.ts)"}`);
-  for (const p of state.problems) for (const q of p.problems) lines.push(`  ${q.severity} ${p.file}: ${q.message}`);
+  lines.push(`flows: ${state.flows.map((f2) => f2.id).join(", ") || "(none \u2014 add flows/*.flow.ts)"}`);
+  for (const p2 of state.problems) for (const q of p2.problems) lines.push(`  ${q.severity} ${p2.file}: ${q.message}`);
   const active = state.instances.filter((i) => !i.completed);
   lines.push(`instances: ${active.length} active, ${state.instances.length - active.length} finished`);
   for (const i of active) lines.push(`  ${i.key} ${i.flowId}${i.title ? ` "${i.title}"` : ""} @ ${i.activeElements.join(", ") || "-"}`);
   if (state.userTasks.length) lines.push(`user tasks waiting: ${state.userTasks.length}`);
   for (const t of state.userTasks) lines.push(`  task ${t.key}: ${t.flowId}/${t.elementId} (instance ${t.instanceKey})${t.form?.title ? ` \u2014 ${t.form.title}` : ""}`);
-  if (state.sessionJobs.length) lines.push(`session jobs waiting for this Claude session: ${state.sessionJobs.filter((j) => j.state === "Created").length}`);
+  if (state.sessionJobs.length) lines.push(`session jobs waiting for this Claude session: ${state.sessionJobs.filter((j2) => j2.state === "Created").length}`);
   for (const i of state.incidents) lines.push(`  INCIDENT ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${i.reason}`);
-  for (const r of state.running) lines.push(`  running ${r.elementId} (${r.type}) for ${Math.round((Date.now() - r.since) / 1e3)}s`);
+  for (const r2 of state.running) lines.push(`  running ${r2.elementId} (${r2.type}) for ${Math.round((Date.now() - r2.since) / 1e3)}s`);
   return lines.join("\n");
 }
 var init_summary = __esm({
@@ -36318,8 +36330,8 @@ async function claude(prompt, opts = {}) {
     });
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (d) => stdout += d);
-    child.stderr.on("data", (d) => stderr += d);
+    child.stdout.on("data", (d2) => stdout += d2);
+    child.stderr.on("data", (d2) => stderr += d2);
     child.on("error", reject);
     child.on(
       "close",
@@ -36349,12 +36361,20 @@ import fs4 from "node:fs";
 function explorerHtml() {
   if (cached2) return cached2;
   for (const rel of ["./explorer.html", "../dist/explorer.html"]) {
-    const u = new URL(rel, import.meta.url);
-    if (fs4.existsSync(u)) return cached2 = fs4.readFileSync(u, "utf8");
+    const u2 = new URL(rel, import.meta.url);
+    if (fs4.existsSync(u2)) return cached2 = fs4.readFileSync(u2, "utf8");
   }
   return "<!doctype html><title>Agent Graph Engine</title><p>Explorer not built \u2014 run <code>npm run build</code>. API: <a href=/api/state>/api/state</a>";
 }
-var cached2;
+function appHtml() {
+  if (cachedApp) return cachedApp;
+  for (const rel of ["./explorer-app.html", "../dist/explorer-app.html"]) {
+    const u2 = new URL(rel, import.meta.url);
+    if (fs4.existsSync(u2)) return cachedApp = fs4.readFileSync(u2, "utf8");
+  }
+  return "<!doctype html><p>Explorer not built \u2014 run <code>npm run build</code>.";
+}
+var cached2, cachedApp;
 var init_explorer_html = __esm({
   "src/explorer-html.ts"() {
     "use strict";
@@ -36370,11 +36390,26 @@ __export(daemon_exports, {
 import fs5 from "node:fs";
 import http from "node:http";
 import path3 from "node:path";
-import crypto from "node:crypto";
-function decodeValue(v) {
-  if (v === "Null") return null;
-  if (!v || typeof v !== "object") return v;
-  const [tag, x] = Object.entries(v)[0] ?? [];
+import crypto2 from "node:crypto";
+function agentMode() {
+  const m2 = process.env.AGE_AGENT_MODE ?? "auto";
+  if (m2 === "cli" || m2 === "session") return m2;
+  if (process.env.AGE_CLAUDE_CMD) return "cli";
+  const home = process.env.HOME ?? "";
+  const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, "/opt/homebrew/bin", "/usr/local/bin"];
+  for (const d2 of dirs) {
+    const f2 = path3.join(d2, "claude");
+    if (d2 && fs5.existsSync(f2)) {
+      process.env.AGE_CLAUDE_CMD = f2;
+      return "cli";
+    }
+  }
+  return "session";
+}
+function decodeValue(v2) {
+  if (v2 === "Null") return null;
+  if (!v2 || typeof v2 !== "object") return v2;
+  const [tag, x] = Object.entries(v2)[0] ?? [];
   switch (tag) {
     case "Str":
     case "Int":
@@ -36384,9 +36419,9 @@ function decodeValue(v) {
     case "List":
       return x.map(decodeValue);
     case "Map":
-      return Object.fromEntries(Object.entries(x).map(([k, y]) => [k, decodeValue(y)]));
+      return Object.fromEntries(Object.entries(x).map(([k2, y]) => [k2, decodeValue(y)]));
     default:
-      return v;
+      return v2;
   }
 }
 function send(res, status, body2, type = "application/json") {
@@ -36413,31 +36448,31 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
   }
   const server = http.createServer(async (req, res) => {
     const url2 = new URL(req.url ?? "/", "http://x");
-    const p = url2.pathname;
-    const m = (re) => p.match(re);
+    const p2 = url2.pathname;
+    const m2 = (re) => p2.match(re);
     let mm;
     try {
-      if (req.method === "GET" && (p === "/" || p === "/index.html")) return send(res, 200, explorerHtml(), "text/html; charset=utf-8");
-      if (req.method === "GET" && p === "/api/state") return send(res, 200, host.state());
-      if (req.method === "GET" && (mm = m(/^\/api\/flows\/([^/]+)\/bpmn$/))) {
-        const f = host.flows.get(decodeURIComponent(mm[1]));
-        return f ? send(res, 200, f.xml, "application/xml") : send(res, 404, { error: "no such flow" });
+      if (req.method === "GET" && (p2 === "/" || p2 === "/index.html")) return send(res, 200, explorerHtml(), "text/html; charset=utf-8");
+      if (req.method === "GET" && p2 === "/api/state") return send(res, 200, host.state());
+      if (req.method === "GET" && (mm = m2(/^\/api\/flows\/([^/]+)\/bpmn$/))) {
+        const f2 = host.flows.get(decodeURIComponent(mm[1]));
+        return f2 ? send(res, 200, f2.xml, "application/xml") : send(res, 404, { error: "no such flow" });
       }
-      if (req.method === "GET" && (mm = m(/^\/api\/instances\/([^/]+)$/))) {
+      if (req.method === "GET" && (mm = m2(/^\/api\/instances\/([^/]+)$/))) {
         return send(res, 200, { ...host.instance(mm[1]), history: host.history(mm[1]) });
       }
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
-      if (p === "/api/reload") return send(res, 200, await host.reload());
-      if (p === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title) });
-      if (mm = m(/^\/api\/user-tasks\/([^/]+)\/complete$/)) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
-      if (p === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max));
-      if (mm = m(/^\/api\/jobs\/([^/]+)\/complete$/)) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
-      if (mm = m(/^\/api\/jobs\/([^/]+)\/fail$/)) return send(res, 200, (host.failJob(mm[1], b.message ?? "failed", b.retries), { ok: true }));
-      if (mm = m(/^\/api\/incidents\/([^/]+)\/resolve$/)) return send(res, 200, (host.resolveIncident(mm[1], b.retries), { ok: true }));
-      if (mm = m(/^\/api\/instances\/([^/]+)\/cancel$/)) return send(res, 200, (host.cancel(mm[1]), { ok: true }));
-      if (p === "/api/messages") return send(res, 200, (host.correlate(b.name, b.correlationKey ?? "", b.variables ?? {}), { ok: true }));
-      if (p === "/api/shutdown") {
+      if (p2 === "/api/reload") return send(res, 200, await host.reload());
+      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title) });
+      if (mm = m2(/^\/api\/user-tasks\/([^/]+)\/complete$/)) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
+      if (p2 === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max));
+      if (mm = m2(/^\/api\/jobs\/([^/]+)\/complete$/)) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
+      if (mm = m2(/^\/api\/jobs\/([^/]+)\/fail$/)) return send(res, 200, (host.failJob(mm[1], b.message ?? "failed", b.retries), { ok: true }));
+      if (mm = m2(/^\/api\/incidents\/([^/]+)\/resolve$/)) return send(res, 200, (host.resolveIncident(mm[1], b.retries), { ok: true }));
+      if (mm = m2(/^\/api\/instances\/([^/]+)\/cancel$/)) return send(res, 200, (host.cancel(mm[1]), { ok: true }));
+      if (p2 === "/api/messages") return send(res, 200, (host.correlate(b.name, b.correlationKey ?? "", b.variables ?? {}), { ok: true }));
+      if (p2 === "/api/shutdown") {
         send(res, 200, { ok: true });
         setTimeout(() => shutdown(), 50);
         return;
@@ -36460,7 +36495,7 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
   }
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
-  await new Promise((r) => server.listen(port, "127.0.0.1", r));
+  await new Promise((r2) => server.listen(port, "127.0.0.1", r2));
   const addr = server.address();
   const info = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.project, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
   fs5.writeFileSync(infoFile, JSON.stringify(info, null, 2));
@@ -36489,6 +36524,9 @@ var init_daemon = __esm({
       activity = [];
       instanceMeta = {};
       deployed = {};
+      /** Who runs `jobType: "claude"` agent tasks: a headless `claude -p` ("cli"), or the
+       *  chat/session agent through session_job_next ("session"). */
+      agentMode = agentMode();
       dirty = false;
       timer;
       constructor(project2) {
@@ -36515,9 +36553,9 @@ var init_daemon = __esm({
         }
       }
       writeAtomic(name2, data) {
-        const p = path3.join(this.dir, name2);
-        fs5.writeFileSync(`${p}.tmp`, data);
-        fs5.renameSync(`${p}.tmp`, p);
+        const p2 = path3.join(this.dir, name2);
+        fs5.writeFileSync(`${p2}.tmp`, data);
+        fs5.renameSync(`${p2}.tmp`, p2);
       }
       /** Write the event log and side tables. The journal is the source of truth. */
       persist() {
@@ -36542,10 +36580,10 @@ var init_daemon = __esm({
       }
       /** Jobs a previous daemon had activated but never finished: hand them back out. */
       releaseOrphanedJobs() {
-        for (const j of this.snapshot().jobs ?? []) {
-          if (j.state === "Activated" && j.jobType !== "session") {
+        for (const j2 of this.snapshot().jobs ?? []) {
+          if (j2.state === "Activated" && j2.jobType !== "session" && !(this.agentMode === "session" && j2.jobType === "claude")) {
             try {
-              this.engine.failJob(j.key, j.retries, "daemon restarted while the job ran; retrying");
+              this.engine.failJob(j2.key, j2.retries, "daemon restarted while the job ran; retrying");
               this.touch();
             } catch {
             }
@@ -36555,24 +36593,24 @@ var init_daemon = __esm({
       /** Compile flows/ and deploy every flow whose BPMN changed. */
       async reload() {
         const results = await checkProject(this.project);
-        this.problems = results.filter((r) => r.problems.length).map((r) => ({ file: path3.relative(this.project, r.file), problems: r.problems }));
+        this.problems = results.filter((r2) => r2.problems.length).map((r2) => ({ file: path3.relative(this.project, r2.file), problems: r2.problems }));
         const deployed = [];
         const flows = /* @__PURE__ */ new Map();
-        for (const r of results) {
-          if (r.problems.some((p) => p.severity === "error")) continue;
-          for (const f of r.flows) {
-            flows.set(f.id, f);
-            fs5.writeFileSync(path3.join(this.dir, "compiled", `${f.id}.bpmn`), f.xml);
-            const hash2 = crypto.createHash("sha256").update(f.xml).digest("hex");
-            if (this.deployed[f.id] !== hash2) {
-              this.engine.deploy(f.xml);
-              this.deployed[f.id] = hash2;
-              deployed.push(f.id);
-              this.log({ kind: "deploy", message: `deployed flow ${f.id}` });
+        for (const r2 of results) {
+          if (r2.problems.some((p2) => p2.severity === "error")) continue;
+          for (const f2 of r2.flows) {
+            flows.set(f2.id, f2);
+            fs5.writeFileSync(path3.join(this.dir, "compiled", `${f2.id}.bpmn`), f2.xml);
+            const hash2 = crypto2.createHash("sha256").update(f2.xml).digest("hex");
+            if (this.deployed[f2.id] !== hash2) {
+              this.engine.deploy(f2.xml);
+              this.deployed[f2.id] = hash2;
+              deployed.push(f2.id);
+              this.log({ kind: "deploy", message: `deployed flow ${f2.id}` });
             }
           }
         }
-        for (const [id, f] of this.flows) if (!flows.has(id)) flows.set(id, f);
+        for (const [id, f2] of this.flows) if (!flows.has(id)) flows.set(id, f2);
         this.flows = flows;
         this.touch();
         this.persist();
@@ -36589,12 +36627,12 @@ var init_daemon = __esm({
       }
       /** Every job type this daemon serves itself. */
       servedTypes() {
-        const types2 = /* @__PURE__ */ new Set(["claude"]);
-        for (const f of this.flows.values()) for (const t of Object.keys(f.handlers)) types2.add(t);
+        const types2 = new Set(this.agentMode === "cli" ? ["claude"] : []);
+        for (const f2 of this.flows.values()) for (const t of Object.keys(f2.handlers)) types2.add(t);
         return [...types2];
       }
       handlerFor(type) {
-        for (const f of this.flows.values()) if (f.handlers[type]) return f.handlers[type];
+        for (const f2 of this.flows.values()) if (f2.handlers[type]) return f2.handlers[type];
         return void 0;
       }
       tick() {
@@ -36608,7 +36646,7 @@ var init_daemon = __esm({
             if (free <= 0) break;
             const now = Date.now();
             const waiting = (after.jobs ?? []).some(
-              (j) => j.jobType === type && j.state === "Created" && (this.backoff.get(j.key) ?? 0) <= now
+              (j2) => j2.jobType === type && j2.state === "Created" && (this.backoff.get(j2.key) ?? 0) <= now
             );
             if (!waiting) continue;
             const lockMs = type === "claude" ? 60 * 6e4 : 30 * 6e4;
@@ -36642,19 +36680,28 @@ var init_daemon = __esm({
           let vars = {};
           let costUsd;
           if (job.type === "claude") {
-            const r = await this.runAgent(job);
-            vars = r.vars;
-            costUsd = r.costUsd;
+            const r2 = await this.runAgent(job);
+            vars = r2.vars;
+            costUsd = r2.costUsd;
           } else {
-            const h = this.handlerFor(job.type);
-            if (!h) throw new Error(`no handler for ${job.type}`);
-            const out = await h(vjob);
+            const h2 = this.handlerFor(job.type);
+            if (!h2) throw new Error(`no handler for ${job.type}`);
+            const out = await h2(vjob);
             if (out && typeof out === "object") vars = out;
           }
           this.engine.completeJob(key, JSON.stringify(vars));
           this.log({ kind: "done", instanceKey: job.instanceKey, elementId: job.elementId, message: `completed ${job.elementId}`, costUsd });
         } catch (e) {
           const msg = String(e?.message ?? e).slice(0, 4e3);
+          if (job.type === "claude" && process.env.AGE_AGENT_MODE !== "cli" && /401|authenticat|not logged in|ENOENT/i.test(msg)) {
+            this.agentMode = "session";
+            try {
+              this.engine.failJob(key, job.retries ?? 3, "handed to the session assistant");
+            } catch {
+            }
+            this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
+            return;
+          }
           const retries = Math.max(0, (job.retries ?? 1) - 1);
           try {
             this.engine.failJob(key, retries, msg);
@@ -36680,7 +36727,7 @@ var init_daemon = __esm({
         const promptFile = path3.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
         const vars = job.variables ?? {};
-        const ctx = opts.context ? Object.fromEntries(opts.context.map((k) => [k, vars[k]])) : vars;
+        const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
         const prompt = `${fs5.readFileSync(promptFile, "utf8").trim()}
 
 ## Context (process variables)
@@ -36692,31 +36739,31 @@ ${JSON.stringify(ctx, null, 2)}
 ${vars.appendPrompt}
 ` : "");
         const { context: _c, ...claudeOpts } = opts;
-        const r = await claude(prompt, { ...claudeOpts, cwd: this.project });
-        let out = r.result;
+        const r2 = await claude(prompt, { ...claudeOpts, cwd: this.project });
+        let out = r2.result;
         if (typeof out === "string") {
-          const m = out.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ?? out.match(/^\s*(\{[\s\S]*\})\s*$/);
-          if (m) {
+          const m2 = out.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ?? out.match(/^\s*(\{[\s\S]*\})\s*$/);
+          if (m2) {
             try {
-              out = JSON.parse(m[1]);
+              out = JSON.parse(m2[1]);
             } catch {
             }
           }
         }
         const result = out && typeof out === "object" && !Array.isArray(out) ? out : { [`${task.name}Result`]: out };
-        return { vars: result, costUsd: r.costUsd };
+        return { vars: result, costUsd: r2.costUsd };
       }
       // ---------- read model for the API / MCP / UI ----------
       userTaskView(t, snap) {
         const inst = (snap.instances ?? []).find((i) => i.key === t.instanceKey);
         const flowId = inst?.processId ?? this.instanceMeta[t.instanceKey]?.flowId;
         const flow = flowId ? this.flows.get(flowId) : void 0;
-        const human = flow?.humans.find((h) => h.name === t.elementId);
+        const human = flow?.humans.find((h2) => h2.name === t.elementId);
         const form = human ? flow?.forms[human.form] : void 0;
         const variables = inst?.variables ?? {};
-        const fill = (s) => s?.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k) => {
-          const v = variables[k];
-          return v === void 0 ? "" : typeof v === "string" ? v : JSON.stringify(v, null, 2);
+        const fill = (s) => s?.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k2) => {
+          const v2 = variables[k2];
+          return v2 === void 0 ? "" : typeof v2 === "string" ? v2 : JSON.stringify(v2, null, 2);
         });
         return {
           key: t.key,
@@ -36742,19 +36789,20 @@ ${vars.appendPrompt}
         return {
           project: this.project,
           now: snap.now,
-          flows: [...this.flows.values()].map((f) => ({
-            id: f.id,
-            file: path3.relative(this.project, f.file),
-            description: f.description,
-            humans: f.humans,
-            tasks: f.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent }))
+          flows: [...this.flows.values()].map((f2) => ({
+            id: f2.id,
+            file: path3.relative(this.project, f2.file),
+            description: f2.description,
+            humans: f2.humans,
+            tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent }))
           })),
           problems: this.problems,
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
-          sessionJobs: (snap.jobs ?? []).filter((j) => j.jobType === "session"),
+          agentMode: this.agentMode,
+          sessionJobs: (snap.jobs ?? []).filter((j2) => j2.jobType === "session" || this.agentMode === "session" && j2.jobType === "claude"),
           jobs: snap.jobs ?? [],
-          running: [...this.running.entries()].map(([key, r]) => ({ key, ...r })),
+          running: [...this.running.entries()].map(([key, r2]) => ({ key, ...r2 })),
           incidents: snap.incidents ?? [],
           timers: snap.timers ?? [],
           messageSubscriptions: snap.messageSubscriptions ?? [],
@@ -36770,22 +36818,22 @@ ${vars.appendPrompt}
           ...this.instanceMeta[key],
           incidents: (snap.incidents ?? []).filter((i) => i.instanceKey === key),
           userTasks: (snap.userTasks ?? []).filter((t) => t.instanceKey === key && t.state === "Created").map((t) => this.userTaskView(t, snap)),
-          jobs: (snap.jobs ?? []).filter((j) => j.instanceKey === key),
+          jobs: (snap.jobs ?? []).filter((j2) => j2.instanceKey === key),
           activity: this.activity.filter((a) => a.instanceKey === key).slice(-50)
         };
       }
       /** What an instance did, from the engine's event log: completed elements (with
        *  counts, for loops), sequence flows taken, and a timeline. */
       history(key) {
-        const k = Number(key);
+        const k2 = Number(key);
         const completed = {};
         const flows = [];
         const timeline = [];
         const variables = {};
         for (const e of JSON.parse(this.engine.events())) {
-          if (e.instance_key !== k) continue;
+          if (e.instance_key !== k2) continue;
           if (e.type === "ProcessInstanceCreated" || e.type === "VariablesUpdated")
-            for (const [n, v] of Object.entries(e.variables ?? {})) variables[n] = decodeValue(v);
+            for (const [n, v2] of Object.entries(e.variables ?? {})) variables[n] = decodeValue(v2);
           if (e.type === "ElementCompleted") completed[e.element_id] = (completed[e.element_id] ?? 0) + 1;
           else if (e.type === "SequenceFlowTaken") flows.push([e.from, e.to]);
           if (/^(ElementActivated|ElementCompleted|JobFailed|IncidentCreated|UserTaskCreated|UserTaskCompleted|ProcessInstance\w+|ElementTerminated)$/.test(e.type))
@@ -36795,28 +36843,34 @@ ${vars.appendPrompt}
       }
       completeUserTask(key, variables) {
         const snap = this.snapshot();
-        const t = (snap.userTasks ?? []).find((u) => u.key === key);
+        const t = (snap.userTasks ?? []).find((u2) => u2.key === key);
         if (!t) throw new Error(`no open user task ${key}`);
         this.engine.completeUserTask(key, JSON.stringify(variables));
         this.log({ kind: "human", instanceKey: t.instanceKey, elementId: t.elementId, message: `user task ${t.elementId} completed` });
         this.persist();
       }
       /** Claim jobs for the live Claude Code session (job type "session" or another the caller names). */
-      claimJobs(type = "session", max = 1) {
-        const jobs = JSON.parse(this.engine.activateJobs(type, max, 60 * 6e4, "claude-session"));
+      claimJobs(type, max = 1) {
+        const types2 = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
+        const jobs = [];
+        for (const t of types2) {
+          if (jobs.length >= max) break;
+          jobs.push(...JSON.parse(this.engine.activateJobs(t, max - jobs.length, 60 * 6e4, "claude-session")));
+        }
         this.touch();
         this.persist();
-        return jobs.map((j) => {
-          const flow = this.flows.get(j.bpmnProcessId);
-          const task = flow?.tasks.find((t) => t.name === j.elementId);
+        return jobs.map((j2) => {
+          const flow = this.flows.get(j2.bpmnProcessId);
+          const task = flow?.tasks.find((t) => t.name === j2.elementId);
           const promptFile = task?.prompt ? path3.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
           return {
-            key: j.key,
-            flowId: j.bpmnProcessId,
-            elementId: j.elementId,
-            instanceKey: j.instanceKey,
-            variables: j.variables,
-            prompt: promptFile && fs5.existsSync(promptFile) ? fs5.readFileSync(promptFile, "utf8") : void 0
+            key: j2.key,
+            flowId: j2.bpmnProcessId,
+            elementId: j2.elementId,
+            instanceKey: j2.instanceKey,
+            variables: j2.variables,
+            prompt: promptFile && fs5.existsSync(promptFile) ? fs5.readFileSync(promptFile, "utf8") : void 0,
+            outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
       }
@@ -36826,16 +36880,16 @@ ${vars.appendPrompt}
         this.persist();
       }
       failJob(key, message, retries) {
-        const j = (this.snapshot().jobs ?? []).find((x) => x.key === key);
-        this.engine.failJob(key, retries ?? Math.max(0, (j?.retries ?? 1) - 1), message);
-        this.log({ kind: "retry", instanceKey: j?.instanceKey, elementId: j?.elementId, message: `job ${key} failed: ${message}` });
+        const j2 = (this.snapshot().jobs ?? []).find((x) => x.key === key);
+        this.engine.failJob(key, retries ?? Math.max(0, (j2?.retries ?? 1) - 1), message);
+        this.log({ kind: "retry", instanceKey: j2?.instanceKey, elementId: j2?.elementId, message: `job ${key} failed: ${message}` });
         this.persist();
       }
       resolveIncident(key, retries = 1) {
         const snap = this.snapshot();
         const inc = (snap.incidents ?? []).find((i) => i.key === key);
         if (!inc) throw new Error(`no incident ${key}`);
-        const job = (snap.jobs ?? []).find((j) => j.instanceKey === inc.instanceKey && j.elementId === inc.elementId);
+        const job = (snap.jobs ?? []).find((j2) => j2.instanceKey === inc.instanceKey && j2.elementId === inc.elementId);
         if (job) this.engine.updateRetries(job.key, retries);
         this.engine.resolveIncident(key);
         this.log({ kind: "resolve", instanceKey: inc.instanceKey, elementId: inc.elementId, message: `incident at ${inc.elementId} resolved \u2014 retrying` });
@@ -36868,7 +36922,7 @@ var util, objectUtil, ZodParsedType, getParsedType2;
 var init_util2 = __esm({
   "node_modules/zod/v3/helpers/util.js"() {
     (function(util2) {
-      util2.assertEqual = (_) => {
+      util2.assertEqual = (_2) => {
       };
       function assertIs2(_arg) {
       }
@@ -36885,10 +36939,10 @@ var init_util2 = __esm({
         return obj;
       };
       util2.getValidEnumValues = (obj) => {
-        const validKeys = util2.objectKeys(obj).filter((k) => typeof obj[obj[k]] !== "number");
+        const validKeys = util2.objectKeys(obj).filter((k2) => typeof obj[obj[k2]] !== "number");
         const filtered = {};
-        for (const k of validKeys) {
-          filtered[k] = obj[k];
+        for (const k2 of validKeys) {
+          filtered[k2] = obj[k2];
         }
         return util2.objectValues(filtered);
       };
@@ -36918,7 +36972,7 @@ var init_util2 = __esm({
         return array2.map((val) => typeof val === "string" ? `'${val}'` : val).join(separator);
       }
       util2.joinValues = joinValues2;
-      util2.jsonStringifyReplacer = (_, value) => {
+      util2.jsonStringifyReplacer = (_2, value) => {
         if (typeof value === "bigint") {
           return value.toString();
         }
@@ -37297,7 +37351,7 @@ var init_parseUtil = __esm({
         };
       }
       let errorMessage = "";
-      const maps = errorMaps.filter((m) => !!m).slice().reverse();
+      const maps = errorMaps.filter((m2) => !!m2).slice().reverse();
       for (const map3 of maps) {
         errorMessage = map3(fullIssue, { data, defaultError: errorMessage }).message;
       }
@@ -41009,7 +41063,7 @@ function normalizeObjectSchema(schema) {
     const asV4 = schema;
     if (!asV3._def && !asV4._zod) {
       const values = Object.values(schema);
-      if (values.length > 0 && values.every((v) => typeof v === "object" && v !== null && (v._def !== void 0 || v._zod !== void 0 || typeof v.parse === "function"))) {
+      if (values.length > 0 && values.every((v2) => typeof v2 === "object" && v2 !== null && (v2._def !== void 0 || v2._zod !== void 0 || typeof v2.parse === "function"))) {
         return objectFromShape(schema);
       }
     }
@@ -41114,6 +41168,7 @@ var init_zod_compat = __esm({
 var init_classic = __esm({
   "node_modules/zod/v4/classic/index.js"() {
     init_external();
+    init_external();
   }
 });
 
@@ -41137,15 +41192,16 @@ function assertCompleteRequestResourceTemplate(request) {
   }
   void request;
 }
-var LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS, RELATED_TASK_META_KEY, JSONRPC_VERSION, AssertObjectSchema, ProgressTokenSchema, CursorSchema, TaskCreationParamsSchema, TaskMetadataSchema, RelatedTaskMetadataSchema, RequestMetaSchema, BaseRequestParamsSchema, TaskAugmentedRequestParamsSchema, isTaskAugmentedRequestParams, RequestSchema, NotificationsParamsSchema, NotificationSchema, ResultSchema, RequestIdSchema, JSONRPCRequestSchema, isJSONRPCRequest, JSONRPCNotificationSchema, isJSONRPCNotification, JSONRPCResultResponseSchema, isJSONRPCResultResponse, ErrorCode, JSONRPCErrorResponseSchema, isJSONRPCErrorResponse, JSONRPCMessageSchema, JSONRPCResponseSchema, EmptyResultSchema, CancelledNotificationParamsSchema, CancelledNotificationSchema, IconSchema, IconsSchema, BaseMetadataSchema, ImplementationSchema, FormElicitationCapabilitySchema, ElicitationCapabilitySchema, ClientTasksCapabilitySchema, ServerTasksCapabilitySchema, ClientCapabilitiesSchema, InitializeRequestParamsSchema, InitializeRequestSchema, ServerCapabilitiesSchema, InitializeResultSchema, InitializedNotificationSchema, PingRequestSchema, ProgressSchema, ProgressNotificationParamsSchema, ProgressNotificationSchema, PaginatedRequestParamsSchema, PaginatedRequestSchema, PaginatedResultSchema, TaskStatusSchema, TaskSchema, CreateTaskResultSchema, TaskStatusNotificationParamsSchema, TaskStatusNotificationSchema, GetTaskRequestSchema, GetTaskResultSchema, GetTaskPayloadRequestSchema, GetTaskPayloadResultSchema, ListTasksRequestSchema, ListTasksResultSchema, CancelTaskRequestSchema, CancelTaskResultSchema, ResourceContentsSchema, TextResourceContentsSchema, Base64Schema, BlobResourceContentsSchema, RoleSchema, AnnotationsSchema, ResourceSchema, ResourceTemplateSchema, ListResourcesRequestSchema, ListResourcesResultSchema, ListResourceTemplatesRequestSchema, ListResourceTemplatesResultSchema, ResourceRequestParamsSchema, ReadResourceRequestParamsSchema, ReadResourceRequestSchema, ReadResourceResultSchema, ResourceListChangedNotificationSchema, SubscribeRequestParamsSchema, SubscribeRequestSchema, UnsubscribeRequestParamsSchema, UnsubscribeRequestSchema, ResourceUpdatedNotificationParamsSchema, ResourceUpdatedNotificationSchema, PromptArgumentSchema, PromptSchema, ListPromptsRequestSchema, ListPromptsResultSchema, GetPromptRequestParamsSchema, GetPromptRequestSchema, TextContentSchema, ImageContentSchema, AudioContentSchema, ToolUseContentSchema, EmbeddedResourceSchema, ResourceLinkSchema, ContentBlockSchema, PromptMessageSchema, GetPromptResultSchema, PromptListChangedNotificationSchema, ToolAnnotationsSchema, ToolExecutionSchema, ToolSchema, ListToolsRequestSchema, ListToolsResultSchema, CallToolResultSchema, CompatibilityCallToolResultSchema, CallToolRequestParamsSchema, CallToolRequestSchema, ToolListChangedNotificationSchema, ListChangedOptionsBaseSchema, LoggingLevelSchema, SetLevelRequestParamsSchema, SetLevelRequestSchema, LoggingMessageNotificationParamsSchema, LoggingMessageNotificationSchema, ModelHintSchema, ModelPreferencesSchema, ToolChoiceSchema, ToolResultContentSchema, SamplingContentSchema, SamplingMessageContentBlockSchema, SamplingMessageSchema, CreateMessageRequestParamsSchema, CreateMessageRequestSchema, CreateMessageResultSchema, CreateMessageResultWithToolsSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema, UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema, LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema, EnumSchemaSchema, PrimitiveSchemaDefinitionSchema, ElicitRequestFormParamsSchema, ElicitRequestURLParamsSchema, ElicitRequestParamsSchema, ElicitRequestSchema, ElicitationCompleteNotificationParamsSchema, ElicitationCompleteNotificationSchema, ElicitResultSchema, ResourceTemplateReferenceSchema, PromptReferenceSchema, CompleteRequestParamsSchema, CompleteRequestSchema, CompleteResultSchema, RootSchema, ListRootsRequestSchema, ListRootsResultSchema, RootsListChangedNotificationSchema, ClientRequestSchema, ClientNotificationSchema, ClientResultSchema, ServerRequestSchema, ServerNotificationSchema, ServerResultSchema, McpError, UrlElicitationRequiredError;
+var LATEST_PROTOCOL_VERSION, DEFAULT_NEGOTIATED_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS, RELATED_TASK_META_KEY, JSONRPC_VERSION, AssertObjectSchema, ProgressTokenSchema, CursorSchema, TaskCreationParamsSchema, TaskMetadataSchema, RelatedTaskMetadataSchema, RequestMetaSchema, BaseRequestParamsSchema, TaskAugmentedRequestParamsSchema, isTaskAugmentedRequestParams, RequestSchema, NotificationsParamsSchema, NotificationSchema, ResultSchema, RequestIdSchema, JSONRPCRequestSchema, isJSONRPCRequest, JSONRPCNotificationSchema, isJSONRPCNotification, JSONRPCResultResponseSchema, isJSONRPCResultResponse, ErrorCode, JSONRPCErrorResponseSchema, isJSONRPCErrorResponse, JSONRPCMessageSchema, JSONRPCResponseSchema, EmptyResultSchema, CancelledNotificationParamsSchema, CancelledNotificationSchema, IconSchema, IconsSchema, BaseMetadataSchema, ImplementationSchema, FormElicitationCapabilitySchema, ElicitationCapabilitySchema, ClientTasksCapabilitySchema, ServerTasksCapabilitySchema, ClientCapabilitiesSchema, InitializeRequestParamsSchema, InitializeRequestSchema, isInitializeRequest, ServerCapabilitiesSchema, InitializeResultSchema, InitializedNotificationSchema, PingRequestSchema, ProgressSchema, ProgressNotificationParamsSchema, ProgressNotificationSchema, PaginatedRequestParamsSchema, PaginatedRequestSchema, PaginatedResultSchema, TaskStatusSchema, TaskSchema, CreateTaskResultSchema, TaskStatusNotificationParamsSchema, TaskStatusNotificationSchema, GetTaskRequestSchema, GetTaskResultSchema, GetTaskPayloadRequestSchema, GetTaskPayloadResultSchema, ListTasksRequestSchema, ListTasksResultSchema, CancelTaskRequestSchema, CancelTaskResultSchema, ResourceContentsSchema, TextResourceContentsSchema, Base64Schema, BlobResourceContentsSchema, RoleSchema, AnnotationsSchema, ResourceSchema, ResourceTemplateSchema, ListResourcesRequestSchema, ListResourcesResultSchema, ListResourceTemplatesRequestSchema, ListResourceTemplatesResultSchema, ResourceRequestParamsSchema, ReadResourceRequestParamsSchema, ReadResourceRequestSchema, ReadResourceResultSchema, ResourceListChangedNotificationSchema, SubscribeRequestParamsSchema, SubscribeRequestSchema, UnsubscribeRequestParamsSchema, UnsubscribeRequestSchema, ResourceUpdatedNotificationParamsSchema, ResourceUpdatedNotificationSchema, PromptArgumentSchema, PromptSchema, ListPromptsRequestSchema, ListPromptsResultSchema, GetPromptRequestParamsSchema, GetPromptRequestSchema, TextContentSchema, ImageContentSchema, AudioContentSchema, ToolUseContentSchema, EmbeddedResourceSchema, ResourceLinkSchema, ContentBlockSchema, PromptMessageSchema, GetPromptResultSchema, PromptListChangedNotificationSchema, ToolAnnotationsSchema, ToolExecutionSchema, ToolSchema, ListToolsRequestSchema, ListToolsResultSchema, CallToolResultSchema, CompatibilityCallToolResultSchema, CallToolRequestParamsSchema, CallToolRequestSchema, ToolListChangedNotificationSchema, ListChangedOptionsBaseSchema, LoggingLevelSchema, SetLevelRequestParamsSchema, SetLevelRequestSchema, LoggingMessageNotificationParamsSchema, LoggingMessageNotificationSchema, ModelHintSchema, ModelPreferencesSchema, ToolChoiceSchema, ToolResultContentSchema, SamplingContentSchema, SamplingMessageContentBlockSchema, SamplingMessageSchema, CreateMessageRequestParamsSchema, CreateMessageRequestSchema, CreateMessageResultSchema, CreateMessageResultWithToolsSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema, UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema, LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema, EnumSchemaSchema, PrimitiveSchemaDefinitionSchema, ElicitRequestFormParamsSchema, ElicitRequestURLParamsSchema, ElicitRequestParamsSchema, ElicitRequestSchema, ElicitationCompleteNotificationParamsSchema, ElicitationCompleteNotificationSchema, ElicitResultSchema, ResourceTemplateReferenceSchema, PromptReferenceSchema, CompleteRequestParamsSchema, CompleteRequestSchema, CompleteResultSchema, RootSchema, ListRootsRequestSchema, ListRootsResultSchema, RootsListChangedNotificationSchema, ClientRequestSchema, ClientNotificationSchema, ClientResultSchema, ServerRequestSchema, ServerNotificationSchema, ServerResultSchema, McpError, UrlElicitationRequiredError;
 var init_types2 = __esm({
   "node_modules/@modelcontextprotocol/sdk/dist/esm/types.js"() {
     init_v4();
     LATEST_PROTOCOL_VERSION = "2025-11-25";
+    DEFAULT_NEGOTIATED_PROTOCOL_VERSION = "2025-03-26";
     SUPPORTED_PROTOCOL_VERSIONS = [LATEST_PROTOCOL_VERSION, "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
     RELATED_TASK_META_KEY = "io.modelcontextprotocol/related-task";
     JSONRPC_VERSION = "2.0";
-    AssertObjectSchema = custom((v) => v !== null && (typeof v === "object" || typeof v === "function"));
+    AssertObjectSchema = custom((v2) => v2 !== null && (typeof v2 === "object" || typeof v2 === "function"));
     ProgressTokenSchema = union([string2(), number2().int()]);
     CursorSchema = string2();
     TaskCreationParamsSchema = looseObject({
@@ -41469,6 +41525,7 @@ var init_types2 = __esm({
       method: literal("initialize"),
       params: InitializeRequestParamsSchema
     });
+    isInitializeRequest = (value) => InitializeRequestSchema.safeParse(value).success;
     ServerCapabilitiesSchema = object({
       /**
        * Experimental, non-standard capabilities that the server supports.
@@ -43202,7 +43259,7 @@ function parseStringDef(def, refs) {
         case "trim":
           break;
         default:
-          /* @__PURE__ */ ((_) => {
+          /* @__PURE__ */ ((_2) => {
           })(check2);
       }
     }
@@ -44050,7 +44107,7 @@ var init_selectParser = __esm({
         case ZodFirstPartyTypeKind2.ZodSymbol:
           return void 0;
         default:
-          return /* @__PURE__ */ ((_) => void 0)(typeName);
+          return /* @__PURE__ */ ((_2) => void 0)(typeName);
       }
     };
   }
@@ -44298,15 +44355,15 @@ function isPlainObject2(value) {
 function mergeCapabilities(base, additional) {
   const result = { ...base };
   for (const key in additional) {
-    const k = key;
-    const addValue = additional[k];
+    const k2 = key;
+    const addValue = additional[k2];
     if (addValue === void 0)
       continue;
-    const baseValue = result[k];
+    const baseValue = result[k2];
     if (isPlainObject2(baseValue) && isPlainObject2(addValue)) {
-      result[k] = { ...baseValue, ...addValue };
+      result[k2] = { ...baseValue, ...addValue };
     } else {
-      result[k] = addValue;
+      result[k2] = addValue;
     }
   }
   return result;
@@ -44614,7 +44671,7 @@ var init_protocol = __esm({
             }
             await this.notification(notification, notificationOptions);
           },
-          sendRequest: async (r, resultSchema, options) => {
+          sendRequest: async (r2, resultSchema, options) => {
             if (abortController.signal.aborted) {
               throw new McpError(ErrorCode.ConnectionClosed, "Request was cancelled");
             }
@@ -44626,7 +44683,7 @@ var init_protocol = __esm({
             if (effectiveTaskId && taskStore) {
               await taskStore.updateTaskStatus(effectiveTaskId, "input_required");
             }
-            return await this.request(r, resultSchema, requestOptions);
+            return await this.request(r2, resultSchema, requestOptions);
           },
           authInfo: extra?.authInfo,
           requestId: request.id,
@@ -45334,7 +45391,7 @@ var require_code = __commonJS({
     };
     exports._Code = _Code;
     exports.nil = new _Code("");
-    function _(strs, ...args) {
+    function _2(strs, ...args) {
       const code = [strs[0]];
       let i = 0;
       while (i < args.length) {
@@ -45343,7 +45400,7 @@ var require_code = __commonJS({
       }
       return new _Code(code);
     }
-    exports._ = _;
+    exports._ = _2;
     var plus = new _Code("+");
     function str(strs, ...args) {
       const expr = [safeStringify(strs[0])];
@@ -45414,7 +45471,7 @@ var require_code = __commonJS({
     }
     exports.safeStringify = safeStringify;
     function getProperty(key) {
-      return typeof key == "string" && exports.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _`[${key}]`;
+      return typeof key == "string" && exports.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _2`[${key}]`;
     }
     exports.getProperty = getProperty;
     function getEsmExportName(key) {
@@ -45654,11 +45711,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants);
+          this.rhs = optimizeExpr(this.rhs, names, constants2);
         return this;
       }
       get names() {
@@ -45675,10 +45732,10 @@ var require_codegen = __commonJS({
       render({ _n }) {
         return `${this.lhs} = ${this.rhs};` + _n;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants);
+        this.rhs = optimizeExpr(this.rhs, names, constants2);
         return this;
       }
       get names() {
@@ -45739,8 +45796,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants) {
-        this.code = optimizeExpr(this.code, names, constants);
+      optimizeNames(names, constants2) {
+        this.code = optimizeExpr(this.code, names, constants2);
         return this;
       }
       get names() {
@@ -45769,12 +45826,12 @@ var require_codegen = __commonJS({
         }
         return nodes.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         const { nodes } = this;
         let i = nodes.length;
         while (i--) {
           const n = nodes[i];
-          if (n.optimizeNames(names, constants))
+          if (n.optimizeNames(names, constants2))
             continue;
           subtractNames(names, n.names);
           nodes.splice(i, 1);
@@ -45827,12 +45884,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         var _a3;
-        this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants);
-        if (!(super.optimizeNames(names, constants) || this.else))
+        this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants2);
+        if (!(super.optimizeNames(names, constants2) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants);
+        this.condition = optimizeExpr(this.condition, names, constants2);
         return this;
       }
       get names() {
@@ -45855,10 +45912,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants) {
-        if (!super.optimizeNames(names, constants))
+      optimizeNames(names, constants2) {
+        if (!super.optimizeNames(names, constants2))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants);
+        this.iteration = optimizeExpr(this.iteration, names, constants2);
         return this;
       }
       get names() {
@@ -45894,10 +45951,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants) {
-        if (!super.optimizeNames(names, constants))
+      optimizeNames(names, constants2) {
+        if (!super.optimizeNames(names, constants2))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants);
+        this.iterable = optimizeExpr(this.iterable, names, constants2);
         return this;
       }
       get names() {
@@ -45939,11 +45996,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants2) {
         var _a3, _b;
-        super.optimizeNames(names, constants);
-        (_a3 = this.catch) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+        super.optimizeNames(names, constants2);
+        (_a3 = this.catch) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants2);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants2);
         return this;
       }
       get names() {
@@ -46244,7 +46301,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants) {
+    function optimizeExpr(expr, names, constants2) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -46259,14 +46316,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n) {
-        const c = constants[n.str];
+        const c = constants2[n.str];
         if (c === void 0 || names[n.str] !== 1)
           return n;
         delete names[n.str];
         return c;
       }
       function canOptimize(e) {
-        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== void 0);
+        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants2[c.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -46379,12 +46436,12 @@ var require_util = __commonJS({
       return str.replace(/~1/g, "/").replace(/~0/g, "~");
     }
     exports.unescapeJsonPointer = unescapeJsonPointer;
-    function eachItem(xs, f) {
+    function eachItem(xs, f2) {
       if (Array.isArray(xs)) {
         for (const x of xs)
-          f(x);
+          f2(x);
       } else {
-        f(xs);
+        f2(xs);
       }
     }
     exports.eachItem = eachItem;
@@ -46427,14 +46484,14 @@ var require_util = __commonJS({
     }
     exports.evaluatedPropsToName = evaluatedPropsToName;
     function setEvaluated(gen, props, ps) {
-      Object.keys(ps).forEach((p) => gen.assign((0, codegen_1._)`${props}${(0, codegen_1.getProperty)(p)}`, true));
+      Object.keys(ps).forEach((p2) => gen.assign((0, codegen_1._)`${props}${(0, codegen_1.getProperty)(p2)}`, true));
     }
     exports.setEvaluated = setEvaluated;
     var snippets = {};
-    function useFunc(gen, f) {
+    function useFunc(gen, f2) {
       return gen.scopeValue("func", {
-        ref: f,
-        code: snippets[f.code] || (snippets[f.code] = new code_1._Code(f.code))
+        ref: f2,
+        code: snippets[f2.code] || (snippets[f2.code] = new code_1._Code(f2.code))
       });
     }
     exports.useFunc = useFunc;
@@ -46572,7 +46629,7 @@ var require_errors = __commonJS({
         gen.return(false);
       }
     }
-    var E = {
+    var E2 = {
       keyword: new codegen_1.Name("keyword"),
       schemaPath: new codegen_1.Name("schemaPath"),
       // also used in JTD errors
@@ -46606,20 +46663,20 @@ var require_errors = __commonJS({
       if (schemaPath) {
         schPath = (0, codegen_1.str)`${schPath}${(0, util_1.getErrorPath)(schemaPath, util_1.Type.Str)}`;
       }
-      return [E.schemaPath, schPath];
+      return [E2.schemaPath, schPath];
     }
     function extraErrorProps(cxt, { params, message }, keyValues) {
       const { keyword, data, schemaValue, it } = cxt;
       const { opts, propertyName, topSchemaRef, schemaPath } = it;
-      keyValues.push([E.keyword, keyword], [E.params, typeof params == "function" ? params(cxt) : params || (0, codegen_1._)`{}`]);
+      keyValues.push([E2.keyword, keyword], [E2.params, typeof params == "function" ? params(cxt) : params || (0, codegen_1._)`{}`]);
       if (opts.messages) {
-        keyValues.push([E.message, typeof message == "function" ? message(cxt) : message]);
+        keyValues.push([E2.message, typeof message == "function" ? message(cxt) : message]);
       }
       if (opts.verbose) {
-        keyValues.push([E.schema, schemaValue], [E.parentSchema, (0, codegen_1._)`${topSchemaRef}${schemaPath}`], [names_1.default.data, data]);
+        keyValues.push([E2.schema, schemaValue], [E2.parentSchema, (0, codegen_1._)`${topSchemaRef}${schemaPath}`], [names_1.default.data, data]);
       }
       if (propertyName)
-        keyValues.push([E.propertyName, propertyName]);
+        keyValues.push([E2.propertyName, propertyName]);
     }
   }
 });
@@ -47000,11 +47057,11 @@ var require_code2 = __commonJS({
     }
     exports.noPropertyInData = noPropertyInData;
     function allSchemaProperties(schemaMap) {
-      return schemaMap ? Object.keys(schemaMap).filter((p) => p !== "__proto__") : [];
+      return schemaMap ? Object.keys(schemaMap).filter((p2) => p2 !== "__proto__") : [];
     }
     exports.allSchemaProperties = allSchemaProperties;
     function schemaProperties(it, schemaMap) {
-      return allSchemaProperties(schemaMap).filter((p) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p]));
+      return allSchemaProperties(schemaMap).filter((p2) => !(0, util_1.alwaysValidSchema)(it, schemaMap[p2]));
     }
     exports.schemaProperties = schemaProperties;
     function callValidateCode({ schemaCode, data, it: { gen, topSchemaRef, schemaPath, errorPath }, it }, func, context, passSchema) {
@@ -47023,13 +47080,13 @@ var require_code2 = __commonJS({
     exports.callValidateCode = callValidateCode;
     var newRegExp = (0, codegen_1._)`new RegExp`;
     function usePattern({ gen, it: { opts } }, pattern) {
-      const u = opts.unicodeRegExp ? "u" : "";
+      const u2 = opts.unicodeRegExp ? "u" : "";
       const { regExp } = opts.code;
-      const rx = regExp(pattern, u);
+      const rx = regExp(pattern, u2);
       return gen.scopeValue("pattern", {
         key: rx.toString(),
         ref: rx,
-        code: (0, codegen_1._)`${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u})`
+        code: (0, codegen_1._)`${regExp.code === "new RegExp" ? newRegExp : (0, util_2.useFunc)(gen, regExp)}(${pattern}, ${u2})`
       });
     }
     exports.usePattern = usePattern;
@@ -47482,12 +47539,12 @@ var require_resolve = __commonJS({
     function getFullPath(resolver, id = "", normalize) {
       if (normalize !== false)
         id = normalizeId(id);
-      const p = resolver.parse(id);
-      return _getFullPath(resolver, p);
+      const p2 = resolver.parse(id);
+      return _getFullPath(resolver, p2);
     }
     exports.getFullPath = getFullPath;
-    function _getFullPath(resolver, p) {
-      const serialized = resolver.serialize(p);
+    function _getFullPath(resolver, p2) {
+      const serialized = resolver.serialize(p2);
       return serialized.split("#")[0] + "#";
     }
     exports._getFullPath = _getFullPath;
@@ -47511,7 +47568,7 @@ var require_resolve = __commonJS({
       const pathPrefix = getFullPath(uriResolver, schId, false);
       const localRefs = {};
       const schemaRefs = /* @__PURE__ */ new Set();
-      traverse(schema, { allKeys: true }, (sch, jsonPtr, _, parentJsonPtr) => {
+      traverse(schema, { allKeys: true }, (sch, jsonPtr, _2, parentJsonPtr) => {
         if (parentJsonPtr === void 0)
           return;
         const fullPath = pathPrefix + jsonPtr;
@@ -48262,11 +48319,11 @@ var require_compile = __commonJS({
       return sch || this.schemas[ref] || resolveSchema.call(this, root, ref);
     }
     function resolveSchema(root, ref) {
-      const p = this.opts.uriResolver.parse(ref);
-      const refPath = (0, resolve_1._getFullPath)(this.opts.uriResolver, p);
+      const p2 = this.opts.uriResolver.parse(ref);
+      const refPath = (0, resolve_1._getFullPath)(this.opts.uriResolver, p2);
       let baseId = (0, resolve_1.getFullPath)(this.opts.uriResolver, root.baseId, void 0);
       if (Object.keys(root.schema).length > 0 && refPath === baseId) {
-        return getJsonPointer.call(this, p, root);
+        return getJsonPointer.call(this, p2, root);
       }
       const id = (0, resolve_1.normalizeId)(refPath);
       const schOrRef = this.refs[id] || this.schemas[id];
@@ -48274,7 +48331,7 @@ var require_compile = __commonJS({
         const sch = resolveSchema.call(this, root, schOrRef);
         if (typeof (sch === null || sch === void 0 ? void 0 : sch.schema) !== "object")
           return;
-        return getJsonPointer.call(this, p, sch);
+        return getJsonPointer.call(this, p2, sch);
       }
       if (typeof (schOrRef === null || schOrRef === void 0 ? void 0 : schOrRef.schema) !== "object")
         return;
@@ -48288,7 +48345,7 @@ var require_compile = __commonJS({
           baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId);
         return new SchemaEnv({ schema, schemaId, root, baseId });
       }
-      return getJsonPointer.call(this, p, schOrRef);
+      return getJsonPointer.call(this, p2, schOrRef);
     }
     exports.resolveSchema = resolveSchema;
     var PREVENT_SCOPE_CHANGE = /* @__PURE__ */ new Set([
@@ -49689,17 +49746,17 @@ var require_core = __commonJS({
         return this.opts.defaultMeta = typeof meta3 == "object" ? meta3[schemaId] || meta3 : void 0;
       }
       validate(schemaKeyRef, data) {
-        let v;
+        let v2;
         if (typeof schemaKeyRef == "string") {
-          v = this.getSchema(schemaKeyRef);
-          if (!v)
+          v2 = this.getSchema(schemaKeyRef);
+          if (!v2)
             throw new Error(`no schema with key or ref "${schemaKeyRef}"`);
         } else {
-          v = this.compile(schemaKeyRef);
+          v2 = this.compile(schemaKeyRef);
         }
-        const valid = v(data);
-        if (!("$async" in v))
-          this.errors = v.errors;
+        const valid = v2(data);
+        if (!("$async" in v2))
+          this.errors = v2.errors;
         return valid;
       }
       compile(schema, _meta) {
@@ -49746,9 +49803,9 @@ var require_core = __commonJS({
             this.addSchema(_schema, ref, meta3);
         }
         async function _loadSchema(ref) {
-          const p = this._loading[ref];
-          if (p)
-            return p;
+          const p2 = this._loading[ref];
+          if (p2)
+            return p2;
           try {
             return await (this._loading[ref] = loadSchema(ref));
           } finally {
@@ -49848,8 +49905,8 @@ var require_core = __commonJS({
             return this;
           }
           case "object": {
-            const cacheKey = schemaKeyRef;
-            this._cache.delete(cacheKey);
+            const cacheKey2 = schemaKeyRef;
+            this._cache.delete(cacheKey2);
             let id = schemaKeyRef[this.opts.schemaId];
             if (id) {
               id = (0, resolve_1.normalizeId)(id);
@@ -49896,7 +49953,7 @@ var require_core = __commonJS({
           type: (0, dataType_1.getJSONTypes)(def.type),
           schemaType: (0, dataType_1.getJSONTypes)(def.schemaType)
         };
-        (0, util_1.eachItem)(keyword, definition.type.length === 0 ? (k) => addRule.call(this, k, definition) : (k) => definition.type.forEach((t) => addRule.call(this, k, definition, t)));
+        (0, util_1.eachItem)(keyword, definition.type.length === 0 ? (k2) => addRule.call(this, k2, definition) : (k2) => definition.type.forEach((t) => addRule.call(this, k2, definition, t)));
         return this;
       }
       getKeyword(keyword) {
@@ -50193,8 +50250,8 @@ var require_ref = __commonJS({
           return callRef(cxt, (0, codegen_1._)`${rootName}.validate`, root, root.$async);
         }
         function callValidate(sch) {
-          const v = getValidate(cxt, sch);
-          callRef(cxt, v, sch, sch.$async);
+          const v2 = getValidate(cxt, sch);
+          callRef(cxt, v2, sch, sch.$async);
         }
         function inlineRefSchema(sch) {
           const schName = gen.scopeValue("schema", opts.code.source === true ? { ref: sch, code: (0, codegen_1.stringify)(sch) } : { ref: sch });
@@ -50216,7 +50273,7 @@ var require_ref = __commonJS({
       return sch.validate ? gen.scopeValue("validate", { ref: sch.validate }) : (0, codegen_1._)`${gen.scopeValue("wrapper", { ref: sch })}.validate`;
     }
     exports.getValidate = getValidate;
-    function callRef(cxt, v, sch, $async) {
+    function callRef(cxt, v2, sch, $async) {
       const { gen, it } = cxt;
       const { allErrors, schemaEnv: env, opts } = it;
       const passCxt = opts.passContext ? names_1.default.this : codegen_1.nil;
@@ -50229,8 +50286,8 @@ var require_ref = __commonJS({
           throw new Error("async schema referenced by sync schema");
         const valid = gen.let("valid");
         gen.try(() => {
-          gen.code((0, codegen_1._)`await ${(0, code_1.callValidateCode)(cxt, v, passCxt)}`);
-          addEvaluatedFrom(v);
+          gen.code((0, codegen_1._)`await ${(0, code_1.callValidateCode)(cxt, v2, passCxt)}`);
+          addEvaluatedFrom(v2);
           if (!allErrors)
             gen.assign(valid, true);
         }, (e) => {
@@ -50242,7 +50299,7 @@ var require_ref = __commonJS({
         cxt.ok(valid);
       }
       function callSyncRef() {
-        cxt.result((0, code_1.callValidateCode)(cxt, v, passCxt), () => addEvaluatedFrom(v), () => addErrorsFrom(v));
+        cxt.result((0, code_1.callValidateCode)(cxt, v2, passCxt), () => addEvaluatedFrom(v2), () => addErrorsFrom(v2));
       }
       function addErrorsFrom(source) {
         const errs = (0, codegen_1._)`${source}.errors`;
@@ -50440,12 +50497,12 @@ var require_pattern = __commonJS({
       error: error64,
       code(cxt) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
-        const u = it.opts.unicodeRegExp ? "u" : "";
+        const u2 = it.opts.unicodeRegExp ? "u" : "";
         if ($data) {
           const { regExp } = it.opts.code;
           const regExpCode = regExp.code === "new RegExp" ? (0, codegen_1._)`new RegExp` : (0, util_1.useFunc)(gen, regExp);
           const valid = gen.let("valid");
-          gen.try(() => gen.assign(valid, (0, codegen_1._)`${regExpCode}(${schemaCode}, ${u}).test(${data})`), () => gen.assign(valid, false));
+          gen.try(() => gen.assign(valid, (0, codegen_1._)`${regExpCode}(${schemaCode}, ${u2}).test(${data})`), () => gen.assign(valid, false));
           cxt.fail$data((0, codegen_1._)`!${valid}`);
         } else {
           const regExp = (0, code_1.usePattern)(cxt, schema);
@@ -50618,8 +50675,8 @@ var require_uniqueItems = __commonJS({
     var util_1 = require_util();
     var equal_1 = require_equal();
     var error64 = {
-      message: ({ params: { i, j } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j} and ${i} are identical)`,
-      params: ({ params: { i, j } }) => (0, codegen_1._)`{i: ${i}, j: ${j}}`
+      message: ({ params: { i, j: j2 } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j2} and ${i} are identical)`,
+      params: ({ params: { i, j: j2 } }) => (0, codegen_1._)`{i: ${i}, j: ${j2}}`
     };
     var def = {
       keyword: "uniqueItems",
@@ -50637,15 +50694,15 @@ var require_uniqueItems = __commonJS({
         cxt.ok(valid);
         function validateUniqueItems() {
           const i = gen.let("i", (0, codegen_1._)`${data}.length`);
-          const j = gen.let("j");
-          cxt.setParams({ i, j });
+          const j2 = gen.let("j");
+          cxt.setParams({ i, j: j2 });
           gen.assign(valid, true);
-          gen.if((0, codegen_1._)`${i} > 1`, () => (canOptimize() ? loopN : loopN2)(i, j));
+          gen.if((0, codegen_1._)`${i} > 1`, () => (canOptimize() ? loopN : loopN2)(i, j2));
         }
         function canOptimize() {
           return itemTypes.length > 0 && !itemTypes.some((t) => t === "object" || t === "array");
         }
-        function loopN(i, j) {
+        function loopN(i, j2) {
           const item = gen.name("item");
           const wrongType = (0, dataType_1.checkDataTypes)(itemTypes, item, it.opts.strictNumbers, dataType_1.DataType.Wrong);
           const indices = gen.const("indices", (0, codegen_1._)`{}`);
@@ -50655,16 +50712,16 @@ var require_uniqueItems = __commonJS({
             if (itemTypes.length > 1)
               gen.if((0, codegen_1._)`typeof ${item} == "string"`, (0, codegen_1._)`${item} += "_"`);
             gen.if((0, codegen_1._)`typeof ${indices}[${item}] == "number"`, () => {
-              gen.assign(j, (0, codegen_1._)`${indices}[${item}]`);
+              gen.assign(j2, (0, codegen_1._)`${indices}[${item}]`);
               cxt.error();
               gen.assign(valid, false).break();
             }).code((0, codegen_1._)`${indices}[${item}] = ${i}`);
           });
         }
-        function loopN2(i, j) {
+        function loopN2(i, j2) {
           const eql = (0, util_1.useFunc)(gen, equal_1.default);
           const outer = gen.name("outer");
-          gen.label(outer).for((0, codegen_1._)`;${i}--;`, () => gen.for((0, codegen_1._)`${j} = ${i}; ${j}--;`, () => gen.if((0, codegen_1._)`${eql}(${data}[${i}], ${data}[${j}])`, () => {
+          gen.label(outer).for((0, codegen_1._)`;${i}--;`, () => gen.for((0, codegen_1._)`${j2} = ${i}; ${j2}--;`, () => gen.if((0, codegen_1._)`${eql}(${data}[${i}], ${data}[${j2}])`, () => {
             cxt.error();
             gen.assign(valid, false).break(outer);
           })));
@@ -50741,7 +50798,7 @@ var require_enum = __commonJS({
         cxt.pass(valid);
         function loopEnum() {
           gen.assign(valid, false);
-          gen.forOf("v", schemaCode, (v) => gen.if((0, codegen_1._)`${getEql()}(${data}, ${v})`, () => gen.assign(valid, true).break()));
+          gen.forOf("v", schemaCode, (v2) => gen.if((0, codegen_1._)`${getEql()}(${data}, ${v2})`, () => gen.assign(valid, true).break()));
         }
         function equalCode(vSchema, i) {
           const sch = schema[i];
@@ -51230,12 +51287,12 @@ var require_additionalProperties = __commonJS({
             const propsSchema = (0, util_1.schemaRefOrVal)(it, parentSchema.properties, "properties");
             definedProp = (0, code_1.isOwnProperty)(gen, propsSchema, key);
           } else if (props.length) {
-            definedProp = (0, codegen_1.or)(...props.map((p) => (0, codegen_1._)`${key} === ${p}`));
+            definedProp = (0, codegen_1.or)(...props.map((p2) => (0, codegen_1._)`${key} === ${p2}`));
           } else {
             definedProp = codegen_1.nil;
           }
           if (patProps.length) {
-            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p)}.test(${key})`));
+            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p2) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p2)}.test(${key})`));
           }
           return (0, codegen_1.not)(definedProp);
         }
@@ -51315,7 +51372,7 @@ var require_properties = __commonJS({
         if (it.opts.unevaluated && allProps.length && it.props !== true) {
           it.props = util_1.mergeEvaluated.props(gen, (0, util_1.toHash)(allProps), it.props);
         }
-        const properties = allProps.filter((p) => !(0, util_1.alwaysValidSchema)(it, schema[p]));
+        const properties = allProps.filter((p2) => !(0, util_1.alwaysValidSchema)(it, schema[p2]));
         if (properties.length === 0)
           return;
         const valid = gen.name("valid");
@@ -51365,7 +51422,7 @@ var require_patternProperties = __commonJS({
         const { gen, schema, data, parentSchema, it } = cxt;
         const { opts } = it;
         const patterns = (0, code_1.allSchemaProperties)(schema);
-        const alwaysValidPatterns = patterns.filter((p) => (0, util_1.alwaysValidSchema)(it, schema[p]));
+        const alwaysValidPatterns = patterns.filter((p2) => (0, util_1.alwaysValidSchema)(it, schema[p2]));
         if (patterns.length === 0 || alwaysValidPatterns.length === patterns.length && (!it.opts.unevaluated || it.props === true)) {
           return;
         }
@@ -52127,7 +52184,7 @@ var require_ajv = __commonJS({
     var Ajv2 = class extends core_1.default {
       _addVocabularies() {
         super._addVocabularies();
-        draft7_1.default.forEach((v) => this.addVocabulary(v));
+        draft7_1.default.forEach((v2) => this.addVocabulary(v2));
         if (this.opts.discriminator)
           this.addKeyword(discriminator_1.default);
       }
@@ -52481,17 +52538,17 @@ var require_dist = __commonJS({
     };
     formatsPlugin.get = (name2, mode = "full") => {
       const formats = mode === "fast" ? formats_1.fastFormats : formats_1.fullFormats;
-      const f = formats[name2];
-      if (!f)
+      const f2 = formats[name2];
+      if (!f2)
         throw new Error(`Unknown format "${name2}"`);
-      return f;
+      return f2;
     };
-    function addFormats(ajv, list, fs7, exportName) {
+    function addFormats(ajv, list, fs8, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
-      for (const f of list)
-        ajv.addFormat(f, fs7[f]);
+      for (const f2 of list)
+        ajv.addFormat(f2, fs8[f2]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -53751,7 +53808,7 @@ var init_mcp = __esm({
           }
         });
         this.server.setRequestHandler(ListResourcesRequestSchema, async (request, extra) => {
-          const resources = Object.entries(this._registeredResources).filter(([_, resource]) => resource.enabled).map(([uri2, resource]) => ({
+          const resources = Object.entries(this._registeredResources).filter(([_2, resource]) => resource.enabled).map(([uri2, resource]) => ({
             uri: uri2,
             name: resource.name,
             ...resource.metadata
@@ -53952,7 +54009,7 @@ var init_mcp = __esm({
         };
         this._registeredResourceTemplates[name2] = registeredResourceTemplate;
         const variableNames = template.uriTemplate.variableNames;
-        const hasCompleter = Array.isArray(variableNames) && variableNames.some((v) => !!template.completeCallback(v));
+        const hasCompleter = Array.isArray(variableNames) && variableNames.some((v2) => !!template.completeCallback(v2));
         if (hasCompleter) {
           this.setCompletionRequestHandler();
         }
@@ -54069,7 +54126,7 @@ var init_mcp = __esm({
               annotations = rest2.shift();
             }
           } else if (typeof firstArg === "object" && firstArg !== null) {
-            if (Object.values(firstArg).some((v) => typeof v === "object" && v !== null)) {
+            if (Object.values(firstArg).some((v2) => typeof v2 === "object" && v2 !== null)) {
               throw new Error(`Tool ${name2} expected a Zod schema or ToolAnnotations, but received an unrecognized object`);
             }
             annotations = rest2.shift();
@@ -54171,6 +54228,111 @@ var init_mcp = __esm({
         hasMore: false
       }
     };
+  }
+});
+
+// node_modules/@modelcontextprotocol/ext-apps/dist/src/server/index.js
+function K3(Z, $, J, X) {
+  let V = J._meta, D = V.ui, L = V[C], W = V;
+  if (D?.resourceUri && !L) W = { ...V, [C]: D.resourceUri };
+  else if (L && !D?.resourceUri) W = { ...V, ui: { ...D, resourceUri: L } };
+  return Z.registerTool($, { ...J, _meta: W }, X);
+}
+function N3(Z, $, J, X, V) {
+  return Z.registerResource($, J, { mimeType: p, ...X }, V);
+}
+var r, v, K, QQ, ZQ, $Q, I, P, w, JQ, Y, j, XQ, H, _, A, f, u, E, VQ, O, DQ, d, h, LQ, WQ, BQ, R, m, GQ, dQ, KQ, NQ, YQ, U, T, k, jQ, FQ, M, C, p;
+var init_server3 = __esm({
+  "node_modules/@modelcontextprotocol/ext-apps/dist/src/server/index.js"() {
+    init_protocol();
+    init_types2();
+    init_protocol();
+    init_types2();
+    init_v4();
+    init_types2();
+    r = ((Z) => typeof __require < "u" ? __require : typeof Proxy < "u" ? new Proxy(Z, { get: ($, J) => (typeof __require < "u" ? __require : $)[J] }) : Z)(function(Z) {
+      if (typeof __require < "u") return __require.apply(this, arguments);
+      throw Error('Dynamic require of "' + Z + '" is not supported');
+    });
+    v = external_exports.union([external_exports.literal("light"), external_exports.literal("dark")]).describe("Color theme preference for the host environment.");
+    K = external_exports.union([external_exports.literal("inline"), external_exports.literal("fullscreen"), external_exports.literal("pip")]).describe("Display mode for UI presentation.");
+    QQ = external_exports.union([external_exports.literal("--color-background-primary"), external_exports.literal("--color-background-secondary"), external_exports.literal("--color-background-tertiary"), external_exports.literal("--color-background-inverse"), external_exports.literal("--color-background-ghost"), external_exports.literal("--color-background-info"), external_exports.literal("--color-background-danger"), external_exports.literal("--color-background-success"), external_exports.literal("--color-background-warning"), external_exports.literal("--color-background-disabled"), external_exports.literal("--color-text-primary"), external_exports.literal("--color-text-secondary"), external_exports.literal("--color-text-tertiary"), external_exports.literal("--color-text-inverse"), external_exports.literal("--color-text-ghost"), external_exports.literal("--color-text-info"), external_exports.literal("--color-text-danger"), external_exports.literal("--color-text-success"), external_exports.literal("--color-text-warning"), external_exports.literal("--color-text-disabled"), external_exports.literal("--color-border-primary"), external_exports.literal("--color-border-secondary"), external_exports.literal("--color-border-tertiary"), external_exports.literal("--color-border-inverse"), external_exports.literal("--color-border-ghost"), external_exports.literal("--color-border-info"), external_exports.literal("--color-border-danger"), external_exports.literal("--color-border-success"), external_exports.literal("--color-border-warning"), external_exports.literal("--color-border-disabled"), external_exports.literal("--color-ring-primary"), external_exports.literal("--color-ring-secondary"), external_exports.literal("--color-ring-inverse"), external_exports.literal("--color-ring-info"), external_exports.literal("--color-ring-danger"), external_exports.literal("--color-ring-success"), external_exports.literal("--color-ring-warning"), external_exports.literal("--font-sans"), external_exports.literal("--font-mono"), external_exports.literal("--font-weight-normal"), external_exports.literal("--font-weight-medium"), external_exports.literal("--font-weight-semibold"), external_exports.literal("--font-weight-bold"), external_exports.literal("--font-text-xs-size"), external_exports.literal("--font-text-sm-size"), external_exports.literal("--font-text-md-size"), external_exports.literal("--font-text-lg-size"), external_exports.literal("--font-heading-xs-size"), external_exports.literal("--font-heading-sm-size"), external_exports.literal("--font-heading-md-size"), external_exports.literal("--font-heading-lg-size"), external_exports.literal("--font-heading-xl-size"), external_exports.literal("--font-heading-2xl-size"), external_exports.literal("--font-heading-3xl-size"), external_exports.literal("--font-text-xs-line-height"), external_exports.literal("--font-text-sm-line-height"), external_exports.literal("--font-text-md-line-height"), external_exports.literal("--font-text-lg-line-height"), external_exports.literal("--font-heading-xs-line-height"), external_exports.literal("--font-heading-sm-line-height"), external_exports.literal("--font-heading-md-line-height"), external_exports.literal("--font-heading-lg-line-height"), external_exports.literal("--font-heading-xl-line-height"), external_exports.literal("--font-heading-2xl-line-height"), external_exports.literal("--font-heading-3xl-line-height"), external_exports.literal("--border-radius-xs"), external_exports.literal("--border-radius-sm"), external_exports.literal("--border-radius-md"), external_exports.literal("--border-radius-lg"), external_exports.literal("--border-radius-xl"), external_exports.literal("--border-radius-full"), external_exports.literal("--border-width-regular"), external_exports.literal("--shadow-hairline"), external_exports.literal("--shadow-sm"), external_exports.literal("--shadow-md"), external_exports.literal("--shadow-lg")]).describe("CSS variable keys available to MCP apps for theming.");
+    ZQ = external_exports.record(QQ.describe(`Style variables for theming MCP apps.
+
+Individual style keys are optional - hosts may provide any subset of these values.
+Values are strings containing CSS values (colors, sizes, font stacks, etc.).
+
+Note: This type uses \`Record<K, string | undefined>\` rather than \`Partial<Record<K, string>>\`
+for compatibility with Zod schema generation. Both are functionally equivalent for validation.`), external_exports.union([external_exports.string(), external_exports.undefined()]).describe(`Style variables for theming MCP apps.
+
+Individual style keys are optional - hosts may provide any subset of these values.
+Values are strings containing CSS values (colors, sizes, font stacks, etc.).
+
+Note: This type uses \`Record<K, string | undefined>\` rather than \`Partial<Record<K, string>>\`
+for compatibility with Zod schema generation. Both are functionally equivalent for validation.`)).describe(`Style variables for theming MCP apps.
+
+Individual style keys are optional - hosts may provide any subset of these values.
+Values are strings containing CSS values (colors, sizes, font stacks, etc.).
+
+Note: This type uses \`Record<K, string | undefined>\` rather than \`Partial<Record<K, string>>\`
+for compatibility with Zod schema generation. Both are functionally equivalent for validation.`);
+    $Q = external_exports.object({ method: external_exports.literal("ui/open-link"), params: external_exports.object({ url: external_exports.string().describe("URL to open in the host's browser") }) });
+    I = external_exports.object({ isError: external_exports.boolean().optional().describe("True if the host failed to open the URL (e.g., due to security policy).") }).passthrough();
+    P = external_exports.object({ isError: external_exports.boolean().optional().describe("True if the download failed (e.g., user cancelled or host denied).") }).passthrough();
+    w = external_exports.object({ isError: external_exports.boolean().optional().describe("True if the host rejected or failed to deliver the message.") }).passthrough();
+    JQ = external_exports.object({ method: external_exports.literal("ui/notifications/sandbox-proxy-ready"), params: external_exports.object({}) });
+    Y = external_exports.object({ connectDomains: external_exports.array(external_exports.string()).optional().describe(`Origins for network requests (fetch/XHR/WebSocket).
+
+- Maps to CSP \`connect-src\` directive
+- Empty or omitted \u2192 no network connections (secure default)`), resourceDomains: external_exports.array(external_exports.string()).optional().describe("Origins for static resources (images, scripts, stylesheets, fonts, media).\n\n- Maps to CSP `img-src`, `script-src`, `style-src`, `font-src`, `media-src` directives\n- Wildcard subdomains supported: `https://*.example.com`\n- Empty or omitted \u2192 no network resources (secure default)"), frameDomains: external_exports.array(external_exports.string()).optional().describe("Origins for nested iframes.\n\n- Maps to CSP `frame-src` directive\n- Empty or omitted \u2192 no nested iframes allowed (`frame-src 'none'`)"), baseUriDomains: external_exports.array(external_exports.string()).optional().describe("Allowed base URIs for the document.\n\n- Maps to CSP `base-uri` directive\n- Empty or omitted \u2192 only same origin allowed (`base-uri 'self'`)") });
+    j = external_exports.object({ camera: external_exports.object({}).optional().describe("Request camera access.\n\nMaps to Permission Policy `camera` feature."), microphone: external_exports.object({}).optional().describe("Request microphone access.\n\nMaps to Permission Policy `microphone` feature."), geolocation: external_exports.object({}).optional().describe("Request geolocation access.\n\nMaps to Permission Policy `geolocation` feature."), clipboardWrite: external_exports.object({}).optional().describe("Request clipboard write access.\n\nMaps to Permission Policy `clipboard-write` feature.") });
+    XQ = external_exports.object({ method: external_exports.literal("ui/notifications/size-changed"), params: external_exports.object({ width: external_exports.number().optional().describe("New width in pixels."), height: external_exports.number().optional().describe("New height in pixels.") }) });
+    H = external_exports.object({ method: external_exports.literal("ui/notifications/tool-input"), params: external_exports.object({ arguments: external_exports.record(external_exports.string(), external_exports.unknown().describe("Complete tool call arguments as key-value pairs.")).optional().describe("Complete tool call arguments as key-value pairs.") }) });
+    _ = external_exports.object({ method: external_exports.literal("ui/notifications/tool-input-partial"), params: external_exports.object({ arguments: external_exports.record(external_exports.string(), external_exports.unknown().describe("Partial tool call arguments (incomplete, may change).")).optional().describe("Partial tool call arguments (incomplete, may change).") }) });
+    A = external_exports.object({ method: external_exports.literal("ui/notifications/tool-cancelled"), params: external_exports.object({ reason: external_exports.string().optional().describe('Optional reason for the cancellation (e.g., "user action", "timeout").') }) });
+    f = external_exports.object({ fonts: external_exports.string().optional() });
+    u = external_exports.object({ variables: ZQ.optional().describe("CSS variables for theming the app."), css: f.optional().describe("CSS blocks that apps can inject.") });
+    E = external_exports.object({ method: external_exports.literal("ui/resource-teardown"), params: external_exports.object({}) });
+    VQ = external_exports.record(external_exports.string(), external_exports.unknown());
+    O = external_exports.object({ text: external_exports.object({}).optional().describe("Host supports text content blocks."), image: external_exports.object({}).optional().describe("Host supports image content blocks."), audio: external_exports.object({}).optional().describe("Host supports audio content blocks."), resource: external_exports.object({}).optional().describe("Host supports resource content blocks."), resourceLink: external_exports.object({}).optional().describe("Host supports resource link content blocks."), structuredContent: external_exports.object({}).optional().describe("Host supports structured content.") });
+    DQ = external_exports.object({ method: external_exports.literal("ui/notifications/request-teardown"), params: external_exports.object({}).optional() });
+    d = external_exports.object({ experimental: external_exports.record(external_exports.string(), external_exports.record(external_exports.string(), external_exports.any()).describe("Experimental features keyed by identifier.")).optional().describe("Experimental features keyed by identifier."), openLinks: external_exports.object({}).optional().describe("Host supports opening external URLs."), downloadFile: external_exports.object({}).optional().describe("Host supports file downloads via ui/download-file."), serverTools: external_exports.object({ listChanged: external_exports.boolean().optional().describe("Host supports tools/list_changed notifications.") }).optional().describe("Host can proxy tool calls to the MCP server."), serverResources: external_exports.object({ listChanged: external_exports.boolean().optional().describe("Host supports resources/list_changed notifications.") }).optional().describe("Host can proxy resource reads to the MCP server."), logging: external_exports.object({}).optional().describe("Host accepts log messages."), sandbox: external_exports.object({ permissions: j.optional().describe("Permissions granted by the host (camera, microphone, geolocation)."), csp: Y.optional().describe("CSP domains approved by the host.") }).optional().describe("Sandbox configuration applied by the host."), updateModelContext: O.optional().describe("Host accepts context updates (ui/update-model-context) to be included in the model's context for future turns."), message: O.optional().describe("Host supports receiving content messages (ui/message) from the view."), sampling: external_exports.object({ tools: external_exports.object({}).optional().describe("Host supports tool use via `tools` and `toolChoice` parameters.") }).optional().describe("Host supports LLM sampling (sampling/createMessage) from the view.\nMirrors the MCP `ClientCapabilities.sampling` shape so hosts can pass it through.") });
+    h = external_exports.object({ experimental: external_exports.record(external_exports.string(), external_exports.record(external_exports.string(), external_exports.any()).describe("Experimental features keyed by identifier.")).optional().describe("Experimental features keyed by identifier."), tools: external_exports.object({ listChanged: external_exports.boolean().optional().describe("App supports tools/list_changed notifications.") }).optional().describe("App exposes MCP-style tools that the host can call."), availableDisplayModes: external_exports.array(K).optional().describe("Display modes the app supports.") });
+    LQ = external_exports.object({ method: external_exports.literal("ui/notifications/initialized"), params: external_exports.object({}).optional() });
+    WQ = external_exports.object({ csp: Y.optional().describe("Content Security Policy configuration for UI resources."), permissions: j.optional().describe("Sandbox permissions requested by the UI resource."), domain: external_exports.string().optional().describe(`Dedicated origin for view sandbox.
+
+Useful when views need stable, dedicated origins for OAuth callbacks, CORS policies, or API key allowlists.
+
+**Host-dependent:** The format and validation rules for this field are determined by each host. Servers MUST consult host-specific documentation for the expected domain format. Common patterns include:
+- Hash-based subdomains (e.g., \`{hash}.claudemcpcontent.com\`)
+- URL-derived subdomains (e.g., \`www-example-com.oaiusercontent.com\`)
+
+If omitted, host uses default sandbox origin (typically per-conversation).`), prefersBorder: external_exports.boolean().optional().describe(`Visual boundary preference - true if view prefers a visible border.
+
+Boolean requesting whether a visible border and background is provided by the host. Specifying an explicit value for this is recommended because hosts' defaults may vary.
+
+- \`true\`: request visible border + background
+- \`false\`: request no visible border + background
+- omitted: host decides border`) });
+    BQ = external_exports.object({ method: external_exports.literal("ui/request-display-mode"), params: external_exports.object({ mode: K.describe("The display mode being requested.") }) });
+    R = external_exports.object({ mode: K.describe("The display mode that was actually set. May differ from requested if not supported.") }).passthrough();
+    m = external_exports.union([external_exports.literal("model"), external_exports.literal("app")]).describe("Tool visibility scope - who can access the tool.");
+    GQ = external_exports.object({ resourceUri: external_exports.string().optional(), visibility: external_exports.array(m).optional().describe(`Who can access this tool. Default: ["model", "app"]
+- "model": Tool visible to and callable by the agent
+- "app": Tool callable by the app from this server only`), csp: external_exports.never().optional(), permissions: external_exports.never().optional() });
+    dQ = external_exports.object({ mimeTypes: external_exports.array(external_exports.string()).optional().describe('Array of supported MIME types for UI resources.\nMust include `"text/html;profile=mcp-app"` for MCP Apps support.') });
+    KQ = external_exports.object({ method: external_exports.literal("ui/download-file"), params: external_exports.object({ contents: external_exports.array(external_exports.union([EmbeddedResourceSchema, ResourceLinkSchema])).describe("Resource contents to download \u2014 embedded (inline data) or linked (host fetches). Uses standard MCP resource types.") }) });
+    NQ = external_exports.object({ method: external_exports.literal("ui/message"), params: external_exports.object({ role: external_exports.literal("user").describe('Message role, currently only "user" is supported.'), content: external_exports.array(ContentBlockSchema).describe("Message content blocks (text, image, etc.).") }) });
+    YQ = external_exports.object({ method: external_exports.literal("ui/notifications/sandbox-resource-ready"), params: external_exports.object({ html: external_exports.string().describe("HTML content to load into the inner iframe."), sandbox: external_exports.string().optional().describe("Optional override for the inner iframe's sandbox attribute."), csp: Y.optional().describe("CSP configuration from resource metadata."), permissions: j.optional().describe("Sandbox permissions from resource metadata.") }) });
+    U = external_exports.object({ method: external_exports.literal("ui/notifications/tool-result"), params: CallToolResultSchema.describe("Standard MCP tool execution result.") });
+    T = external_exports.object({ toolInfo: external_exports.object({ id: RequestIdSchema.optional().describe("JSON-RPC id of the tools/call request."), tool: ToolSchema.describe("Tool definition including name, inputSchema, etc.") }).optional().describe("Metadata of the tool call that instantiated this App."), theme: v.optional().describe("Current color theme preference."), styles: u.optional().describe("Style configuration for theming the app."), displayMode: K.optional().describe("How the UI is currently displayed."), availableDisplayModes: external_exports.array(K).optional().describe("Display modes the host supports."), containerDimensions: external_exports.union([external_exports.object({ height: external_exports.number().describe("Fixed container height in pixels.") }), external_exports.object({ maxHeight: external_exports.union([external_exports.number(), external_exports.undefined()]).optional().describe("Maximum container height in pixels.") })]).and(external_exports.union([external_exports.object({ width: external_exports.number().describe("Fixed container width in pixels.") }), external_exports.object({ maxWidth: external_exports.union([external_exports.number(), external_exports.undefined()]).optional().describe("Maximum container width in pixels.") })])).optional().describe(`Container dimensions. Represents the dimensions of the iframe or other
+container holding the app. Specify either width or maxWidth, and either height or maxHeight.`), locale: external_exports.string().optional().describe("User's language and region preference in BCP 47 format."), timeZone: external_exports.string().optional().describe("User's timezone in IANA format."), userAgent: external_exports.string().optional().describe("Host application identifier."), platform: external_exports.union([external_exports.literal("web"), external_exports.literal("desktop"), external_exports.literal("mobile")]).optional().describe("Platform type for responsive design decisions."), deviceCapabilities: external_exports.object({ touch: external_exports.boolean().optional().describe("Whether the device supports touch input."), hover: external_exports.boolean().optional().describe("Whether the device supports hover interactions.") }).optional().describe("Device input capabilities."), safeAreaInsets: external_exports.object({ top: external_exports.number().describe("Top safe area inset in pixels."), right: external_exports.number().describe("Right safe area inset in pixels."), bottom: external_exports.number().describe("Bottom safe area inset in pixels."), left: external_exports.number().describe("Left safe area inset in pixels.") }).optional().describe("Mobile safe area boundaries in pixels.") }).passthrough();
+    k = external_exports.object({ method: external_exports.literal("ui/notifications/host-context-changed"), params: T.describe("Partial context update containing only changed fields.") });
+    jQ = external_exports.object({ method: external_exports.literal("ui/update-model-context"), params: external_exports.object({ content: external_exports.array(ContentBlockSchema).optional().describe("Context content blocks (text, image, etc.)."), structuredContent: external_exports.record(external_exports.string(), external_exports.unknown().describe("Structured content for machine-readable context data.")).optional().describe("Structured content for machine-readable context data.") }) });
+    FQ = external_exports.object({ method: external_exports.literal("ui/initialize"), params: external_exports.object({ appInfo: ImplementationSchema.describe("App identification (name and version)."), appCapabilities: h.describe("Features and capabilities this app provides."), protocolVersion: external_exports.string().describe("Protocol version this app supports.") }) });
+    M = external_exports.object({ protocolVersion: external_exports.string().describe('Negotiated protocol version string (e.g., "2025-11-21").'), hostInfo: ImplementationSchema.describe("Host application identification and version."), hostCapabilities: d.describe("Features and capabilities provided by the host."), hostContext: T.describe("Rich context about the host environment.") }).passthrough();
+    C = "ui/resourceUri";
+    p = "text/html;profile=mcp-app";
   }
 });
 
@@ -54279,8 +54441,8 @@ var init_stdio2 = __esm({
       }
       send(message) {
         return new Promise((resolve) => {
-          const json3 = serializeMessage(message);
-          if (this._stdout.write(json3)) {
+          const json4 = serializeMessage(message);
+          if (this._stdout.write(json4)) {
             resolve();
           } else {
             this._stdout.once("drain", resolve);
@@ -54291,15 +54453,2310 @@ var init_stdio2 = __esm({
   }
 });
 
+// node_modules/@hono/node-server/dist/constants-BLSFu_RU.mjs
+var X_ALREADY_SENT;
+var init_constants_BLSFu_RU = __esm({
+  "node_modules/@hono/node-server/dist/constants-BLSFu_RU.mjs"() {
+    X_ALREADY_SENT = "x-hono-already-sent";
+  }
+});
+
+// node_modules/hono/dist/helper/websocket/index.js
+var defineWebSocketHelper;
+var init_websocket = __esm({
+  "node_modules/hono/dist/helper/websocket/index.js"() {
+    defineWebSocketHelper = (handler) => {
+      return ((...args) => {
+        if (typeof args[0] === "function") {
+          const [createEvents, options] = args;
+          return async function upgradeWebSocket2(c, next) {
+            const result = await handler(c, await createEvents(c), options);
+            if (result) return result;
+            await next();
+          };
+        } else {
+          const [c, events, options] = args;
+          return (async () => {
+            const upgraded = await handler(c, events, options);
+            if (!upgraded) throw new Error("Failed to upgrade WebSocket");
+            return upgraded;
+          })();
+        }
+      });
+    };
+  }
+});
+
+// node_modules/@hono/node-server/dist/index.mjs
+import { STATUS_CODES, ServerResponse, createServer } from "node:http";
+import { Http2ServerRequest, constants } from "node:http2";
+import { Readable } from "node:stream";
+async function readWithoutBlocking(readPromise) {
+  return Promise.race([readPromise, Promise.resolve().then(() => Promise.resolve(void 0))]);
+}
+function writeFromReadableStreamDefaultReader(reader, writable, currentReadPromise) {
+  const cancel = (error64) => {
+    reader.cancel(error64).catch(() => {
+    });
+  };
+  writable.on("close", cancel);
+  writable.on("error", cancel);
+  (currentReadPromise ?? reader.read()).then(flow, handleStreamError);
+  return reader.closed.finally(() => {
+    writable.off("close", cancel);
+    writable.off("error", cancel);
+  });
+  function handleStreamError(error64) {
+    if (error64) writable.destroy(error64);
+  }
+  function onDrain() {
+    reader.read().then(flow, handleStreamError);
+  }
+  function flow({ done, value }) {
+    try {
+      if (done) writable.end();
+      else if (!writable.write(value)) writable.once("drain", onDrain);
+      else return reader.read().then(flow, handleStreamError);
+    } catch (e) {
+      handleStreamError(e);
+    }
+  }
+}
+function writeFromReadableStream(stream, writable) {
+  if (stream.locked) throw new TypeError("ReadableStream is locked.");
+  else if (writable.destroyed) return;
+  return writeFromReadableStreamDefaultReader(stream.getReader(), writable);
+}
+var RequestError, nonJoinedHeaders, validHeaderName, isHttpWhitespace, normalizeHeaderValue, forbiddenHeaderValue, GlobalHeaders, materializeHeaders, RequestHeaders, newHeadersFromIncoming, reValidRequestUrl, reDotSegment, reValidHost, validateRequestTarget, buildUrl, toRequestError, GlobalRequest, Request$1, wrapBodyStream, byteExactEncodings, isByteExactEncoding, bodyBufferedBeforeDisconnectKey, bodyBufferedLengthBeforeDisconnectKey, toBufferChunk, isRecoverableDisconnectedIncoming, recordBodyBufferedBeforeDisconnect, readBodyBufferedBeforeDisconnect, enqueueBufferedBody, newRequestFromIncoming, getRequestCache, requestCache, incomingKey, urlKey, methodKey, headersKey, abortControllerKey, getAbortController, abortRequest, bodyBufferKey, bodyReadPromiseKey, bodyConsumedDirectlyKey, bodyLockReaderKey, abortReasonKey, newBodyUnusableError, rejectBodyUnusable, textDecoder, consumeBodyDirectOnce, toArrayBuffer, contentType, methodTokenRegExp, normalizeIncomingMethod, validateDirectReadMethod, readBodyWithFastPath, readRawBodyIfAvailable, normalizeAbortError, readBodyDirect, requestPrototype, newRequest, defaultContentType, responseCache, getResponseCache, cacheKey, GlobalResponse, Response$1, validRedirectUrl, parseRedirectUrl, validRedirectStatuses, buildOutgoingHttpHeaders, outgoingEnded, incomingDraining, DRAIN_TIMEOUT_MS, MAX_DRAIN_BYTES, drainIncoming, makeCloseHandler, isImmediateCacheableResponse, handleRequestError, handleFetchError, handleResponseError, flushHeaders, trySetContentLength, writeDefaultHeaders, responseViaCache, isPromise, responseViaResponseObject, getRequestListener, CloseEvent, ErrorEvent, generateConnectionSymbol, CONNECTION_SYMBOL_KEY, WAIT_FOR_WEBSOCKET_SYMBOL, upgradeWebSocket;
+var init_dist8 = __esm({
+  "node_modules/@hono/node-server/dist/index.mjs"() {
+    init_constants_BLSFu_RU();
+    init_websocket();
+    RequestError = class extends Error {
+      constructor(message, options) {
+        super(message, options);
+        this.name = "RequestError";
+      }
+    };
+    nonJoinedHeaders = /* @__PURE__ */ new Set([
+      "age",
+      "authorization",
+      "content-length",
+      "content-type",
+      "etag",
+      "expires",
+      "from",
+      "host",
+      "if-modified-since",
+      "if-unmodified-since",
+      "last-modified",
+      "location",
+      "max-forwards",
+      "proxy-authorization",
+      "referer",
+      "retry-after",
+      "server",
+      "user-agent"
+    ]);
+    validHeaderName = /^[!#$%&'*+\-.^_`|~\dA-Za-z]+$/;
+    isHttpWhitespace = (code) => code === 9 || code === 10 || code === 13 || code === 32;
+    normalizeHeaderValue = (value) => {
+      if (!isHttpWhitespace(value.charCodeAt(0)) && !isHttpWhitespace(value.charCodeAt(value.length - 1))) return value;
+      let start = 0;
+      let end = value.length;
+      while (start < end && isHttpWhitespace(value.charCodeAt(start))) start++;
+      while (end > start && isHttpWhitespace(value.charCodeAt(end - 1))) end--;
+      return value.slice(start, end);
+    };
+    forbiddenHeaderValue = /[\0\r\n]/;
+    GlobalHeaders = globalThis.Headers;
+    materializeHeaders = (rawHeaders, HeadersCtor = GlobalHeaders) => {
+      const headers = new HeadersCtor();
+      for (let i = 0; i < rawHeaders.length; i += 2) {
+        const name2 = rawHeaders[i];
+        if (!name2.startsWith(":")) headers.append(name2, rawHeaders[i + 1]);
+      }
+      return headers;
+    };
+    RequestHeaders = class {
+      #incoming;
+      #rawHeaders;
+      #headers;
+      #invalidValue;
+      constructor(incoming) {
+        this.#incoming = incoming;
+        if (incoming instanceof Http2ServerRequest) this.#rawHeaders = incoming.rawHeaders.slice();
+      }
+      get #lazyRawHeaders() {
+        return this.#rawHeaders ??= this.#incoming.rawHeaders.slice();
+      }
+      get #native() {
+        if (!this.#headers) {
+          this.#headers = materializeHeaders(this.#lazyRawHeaders);
+          this.#rawHeaders = void 0;
+        }
+        return this.#headers;
+      }
+      #normalizedName(name2) {
+        if (typeof name2 !== "string") return;
+        if (!validHeaderName.test(name2)) throw new TypeError(`Invalid header name: ${name2}`);
+        return name2.toLowerCase();
+      }
+      #lookupHttp1(lowerName) {
+        const headers = this.#incoming instanceof Http2ServerRequest ? void 0 : this.#incoming.headers;
+        if (!headers || nonJoinedHeaders.has(lowerName) || lowerName === "set-cookie" || lowerName === "__proto__") return;
+        if (!Object.hasOwn(headers, lowerName)) return null;
+        const rawValue = headers[lowerName];
+        if (typeof rawValue === "string") {
+          const value = normalizeHeaderValue(rawValue);
+          return forbiddenHeaderValue.test(value) ? void 0 : value;
+        }
+      }
+      #lookup(rawHeaders, lowerName) {
+        const separator = lowerName === "cookie" ? "; " : ", ";
+        let value = null;
+        for (let i = 0; i < rawHeaders.length; i += 2) {
+          const rawName = rawHeaders[i];
+          if (rawName.length === lowerName.length && rawName.toLowerCase() === lowerName) {
+            const rawValue = normalizeHeaderValue(rawHeaders[i + 1]);
+            if (forbiddenHeaderValue.test(rawValue)) {
+              this.#invalidValue = true;
+              return;
+            }
+            value = value === null ? rawValue : value + separator + rawValue;
+          }
+        }
+        return value;
+      }
+      append(name2, value) {
+        this.#native.append(name2, value);
+      }
+      delete(name2) {
+        this.#native.delete(name2);
+      }
+      get(name2) {
+        const lowerName = this.#normalizedName(name2);
+        if (lowerName && !this.#headers && !this.#invalidValue) {
+          const http1Value = this.#lookupHttp1(lowerName);
+          if (http1Value !== void 0) return http1Value;
+          const value = this.#lookup(this.#lazyRawHeaders, lowerName);
+          if (value !== void 0) return value;
+        }
+        return this.#native.get(name2);
+      }
+      has(name2) {
+        const lowerName = this.#normalizedName(name2);
+        if (lowerName && !this.#headers && !this.#invalidValue) {
+          const http1Value = this.#lookupHttp1(lowerName);
+          if (http1Value !== void 0) return http1Value !== null;
+          const value = this.#lookup(this.#lazyRawHeaders, lowerName);
+          if (value !== void 0) return value !== null;
+        }
+        return this.#native.has(name2);
+      }
+      set(name2, value) {
+        this.#native.set(name2, value);
+      }
+      getSetCookie() {
+        return this.#native.getSetCookie();
+      }
+      keys() {
+        return this.#native.keys();
+      }
+      values() {
+        return this.#native.values();
+      }
+      entries() {
+        return this.#native.entries();
+      }
+      forEach(callback, thisArg) {
+        this.#native.forEach((value, key) => {
+          callback.call(thisArg, value, key, this);
+        });
+      }
+      [Symbol.iterator]() {
+        return this.entries();
+      }
+    };
+    Object.defineProperty(RequestHeaders.prototype, /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom"), { value: function(depth, options, inspectFn) {
+      return `Headers (lightweight) ${inspectFn(Object.fromEntries(this), {
+        ...options,
+        depth: depth == null ? null : depth - 1
+      })}`;
+    } });
+    Object.setPrototypeOf(RequestHeaders.prototype, GlobalHeaders.prototype);
+    newHeadersFromIncoming = (incoming) => globalThis.Headers === GlobalHeaders ? new RequestHeaders(incoming) : materializeHeaders(incoming.rawHeaders, globalThis.Headers);
+    reValidRequestUrl = /^\/[!#$&-;=?-\[\]_a-z~]*$/;
+    reDotSegment = /\/\.\.?(?:[/?#]|$)/;
+    reValidHost = /^[a-z0-9._-]+(?::(?:[1-5]\d{3,4}|[6-9]\d{3}))?$/;
+    validateRequestTarget = (target) => {
+      const backslash = target.indexOf("\\");
+      if (backslash !== -1) {
+        const query = target.indexOf("?");
+        if (query === -1 || backslash < query) throw new RequestError("Backslash in request path");
+      }
+    };
+    buildUrl = (scheme, host, incomingUrl) => {
+      const url2 = `${scheme}://${host}${incomingUrl}`;
+      if (!reValidHost.test(host)) {
+        validateRequestTarget(incomingUrl);
+        const urlObj = new URL(url2);
+        if (urlObj.hostname.length !== host.length && urlObj.hostname !== (host.includes(":") ? host.replace(/:\d+$/, "") : host).toLowerCase()) throw new RequestError("Invalid host header");
+        return urlObj.href;
+      } else if (incomingUrl.length === 0) return url2 + "/";
+      else {
+        if (incomingUrl.charCodeAt(0) !== 47) throw new RequestError("Invalid URL");
+        if (!reValidRequestUrl.test(incomingUrl) || reDotSegment.test(incomingUrl)) {
+          validateRequestTarget(incomingUrl);
+          return new URL(url2).href;
+        }
+        return url2;
+      }
+    };
+    toRequestError = (e) => {
+      if (e instanceof RequestError) return e;
+      return new RequestError(e.message, { cause: e });
+    };
+    GlobalRequest = global.Request;
+    Request$1 = class extends GlobalRequest {
+      constructor(input2, options) {
+        if (typeof input2 === "object" && getRequestCache in input2) {
+          const hasReplacementBody = options !== void 0 && "body" in options && options.body != null;
+          if (input2[bodyConsumedDirectlyKey] && !hasReplacementBody) throw new TypeError("Cannot construct a Request with a Request object that has already been used.");
+          input2 = input2[getRequestCache]();
+        }
+        if (typeof options?.body?.getReader !== "undefined") options.duplex ??= "half";
+        super(input2, options);
+      }
+    };
+    wrapBodyStream = /* @__PURE__ */ Symbol("wrapBodyStream");
+    byteExactEncodings = /* @__PURE__ */ new Set([
+      "latin1",
+      "binary",
+      "hex",
+      "base64",
+      "base64url"
+    ]);
+    isByteExactEncoding = (encoding) => encoding === null || byteExactEncodings.has(encoding);
+    bodyBufferedBeforeDisconnectKey = /* @__PURE__ */ Symbol("bodyBufferedBeforeDisconnect");
+    bodyBufferedLengthBeforeDisconnectKey = /* @__PURE__ */ Symbol("bodyBufferedLengthBeforeDisconnect");
+    toBufferChunk = (chunk, encoding) => Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, encoding ?? "utf8");
+    isRecoverableDisconnectedIncoming = (incoming) => !(incoming instanceof Http2ServerRequest) && !!incoming.complete && !!incoming.readableAborted && typeof incoming.read === "function" && isByteExactEncoding(incoming.readableEncoding);
+    recordBodyBufferedBeforeDisconnect = (incoming) => {
+      if (incoming.readableDidRead || !isRecoverableDisconnectedIncoming(incoming)) return;
+      const incomingWithRecovery = incoming;
+      incomingWithRecovery[bodyBufferedLengthBeforeDisconnectKey] ??= incoming.readableLength;
+    };
+    readBodyBufferedBeforeDisconnect = (incoming, chunks) => {
+      if (incoming.readableDidRead && !chunks || !isRecoverableDisconnectedIncoming(incoming)) return;
+      const incomingWithRecovery = incoming;
+      if (incomingWithRecovery[bodyBufferedBeforeDisconnectKey] !== void 0) return incomingWithRecovery[bodyBufferedBeforeDisconnectKey];
+      let result;
+      const errored = incoming.errored;
+      if (errored && errored.code !== "ECONNRESET") result = errored;
+      else if (incomingWithRecovery[bodyBufferedLengthBeforeDisconnectKey] !== void 0 && incoming.readableLength !== incomingWithRecovery[bodyBufferedLengthBeforeDisconnectKey]) result = newBodyUnusableError();
+      else {
+        const bodyChunks = chunks ?? [];
+        const chunk = incoming.read();
+        if (chunk !== null) bodyChunks.push(toBufferChunk(chunk, incoming.readableEncoding));
+        const buffer = bodyChunks.length === 1 ? bodyChunks[0] : Buffer.concat(bodyChunks);
+        result = buffer;
+        const contentLength = incoming.headers["content-length"];
+        if (typeof contentLength === "string" && /^\d+$/.test(contentLength)) {
+          const expectedLength = Number(contentLength);
+          if (Number.isSafeInteger(expectedLength) && buffer.length !== expectedLength) result = newBodyUnusableError();
+        }
+      }
+      incomingWithRecovery[bodyBufferedBeforeDisconnectKey] = result;
+      return result;
+    };
+    enqueueBufferedBody = (controller, buffered) => {
+      if (buffered instanceof Error) {
+        controller.error(buffered);
+        return;
+      }
+      if (buffered.length > 0) controller.enqueue(buffered);
+      controller.close();
+    };
+    newRequestFromIncoming = (method, url2, headers, incoming, abortController) => {
+      const init = {
+        method,
+        headers,
+        signal: abortController.signal
+      };
+      if (method === "TRACE") {
+        init.method = "GET";
+        const req = new Request$1(url2, init);
+        Object.defineProperty(req, "method", { get() {
+          return "TRACE";
+        } });
+        return req;
+      }
+      if (!(method === "GET" || method === "HEAD")) if ("rawBody" in incoming && incoming.rawBody instanceof Buffer) init.body = new ReadableStream({ start(controller) {
+        controller.enqueue(incoming.rawBody);
+        controller.close();
+      } });
+      else if (incoming[wrapBodyStream]) {
+        let reader;
+        init.body = new ReadableStream({ async pull(controller) {
+          try {
+            if (!reader) {
+              const buffered = readBodyBufferedBeforeDisconnect(incoming);
+              if (buffered !== void 0) {
+                enqueueBufferedBody(controller, buffered);
+                return;
+              }
+            }
+            reader ||= Readable.toWeb(incoming).getReader();
+            const { done, value } = await reader.read();
+            if (done) controller.close();
+            else controller.enqueue(value);
+          } catch (error64) {
+            controller.error(error64);
+          }
+        } });
+      } else {
+        const buffered = readBodyBufferedBeforeDisconnect(incoming);
+        if (buffered !== void 0) init.body = new ReadableStream({ start(controller) {
+          enqueueBufferedBody(controller, buffered);
+        } });
+        else init.body = Readable.toWeb(incoming);
+      }
+      return new Request$1(url2, init);
+    };
+    getRequestCache = /* @__PURE__ */ Symbol("getRequestCache");
+    requestCache = /* @__PURE__ */ Symbol("requestCache");
+    incomingKey = /* @__PURE__ */ Symbol("incomingKey");
+    urlKey = /* @__PURE__ */ Symbol("urlKey");
+    methodKey = /* @__PURE__ */ Symbol("methodKey");
+    headersKey = /* @__PURE__ */ Symbol("headersKey");
+    abortControllerKey = /* @__PURE__ */ Symbol("abortControllerKey");
+    getAbortController = /* @__PURE__ */ Symbol("getAbortController");
+    abortRequest = /* @__PURE__ */ Symbol("abortRequest");
+    bodyBufferKey = /* @__PURE__ */ Symbol("bodyBuffer");
+    bodyReadPromiseKey = /* @__PURE__ */ Symbol("bodyReadPromise");
+    bodyConsumedDirectlyKey = /* @__PURE__ */ Symbol("bodyConsumedDirectly");
+    bodyLockReaderKey = /* @__PURE__ */ Symbol("bodyLockReader");
+    abortReasonKey = /* @__PURE__ */ Symbol("abortReason");
+    newBodyUnusableError = () => {
+      return /* @__PURE__ */ new TypeError("Body is unusable");
+    };
+    rejectBodyUnusable = () => {
+      return Promise.reject(newBodyUnusableError());
+    };
+    textDecoder = new TextDecoder();
+    consumeBodyDirectOnce = (request) => {
+      if (request[bodyConsumedDirectlyKey]) return rejectBodyUnusable();
+      request[bodyConsumedDirectlyKey] = true;
+    };
+    toArrayBuffer = (buf) => {
+      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    };
+    contentType = (request) => {
+      return (request[headersKey] ||= newHeadersFromIncoming(request[incomingKey])).get("content-type") || "";
+    };
+    methodTokenRegExp = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+    normalizeIncomingMethod = (method) => {
+      if (typeof method !== "string" || method.length === 0) return "GET";
+      switch (method) {
+        case "DELETE":
+        case "GET":
+        case "HEAD":
+        case "OPTIONS":
+        case "PATCH":
+        case "POST":
+        case "PUT":
+        case "QUERY":
+          return method;
+      }
+      const upper = method.toUpperCase();
+      switch (upper) {
+        case "DELETE":
+        case "GET":
+        case "HEAD":
+        case "OPTIONS":
+        case "POST":
+        case "PUT":
+          return upper;
+        default:
+          return method;
+      }
+    };
+    validateDirectReadMethod = (method) => {
+      if (!methodTokenRegExp.test(method)) return /* @__PURE__ */ new TypeError(`'${method}' is not a valid HTTP method.`);
+      const normalized = method.toUpperCase();
+      if (normalized === "CONNECT" || normalized === "TRACK" || normalized === "TRACE" && method !== "TRACE") return /* @__PURE__ */ new TypeError(`'${method}' HTTP method is unsupported.`);
+    };
+    readBodyWithFastPath = (request, method, fromBuffer) => {
+      if (request[bodyConsumedDirectlyKey]) return rejectBodyUnusable();
+      const methodName = request.method;
+      if (methodName === "GET" || methodName === "HEAD") return request[getRequestCache]()[method]();
+      const methodValidationError = validateDirectReadMethod(methodName);
+      if (methodValidationError) return Promise.reject(methodValidationError);
+      if (request[requestCache]) {
+        if (methodName !== "TRACE") return request[requestCache][method]();
+      }
+      const alreadyUsedError = consumeBodyDirectOnce(request);
+      if (alreadyUsedError) return alreadyUsedError;
+      const raw = readRawBodyIfAvailable(request);
+      if (raw) {
+        const result = Promise.resolve(fromBuffer(raw, request));
+        request[bodyBufferKey] = void 0;
+        return result;
+      }
+      return readBodyDirect(request).then((buf) => {
+        const result = fromBuffer(buf, request);
+        request[bodyBufferKey] = void 0;
+        return result;
+      });
+    };
+    readRawBodyIfAvailable = (request) => {
+      const incoming = request[incomingKey];
+      if ("rawBody" in incoming && incoming.rawBody instanceof Buffer) return incoming.rawBody;
+    };
+    normalizeAbortError = (request, incoming) => {
+      if (incoming.errored) return incoming.errored;
+      const reason = request[abortReasonKey];
+      if (reason !== void 0) return reason instanceof Error ? reason : new Error(String(reason));
+      return /* @__PURE__ */ new Error("Client connection prematurely closed.");
+    };
+    readBodyDirect = (request) => {
+      if (request[bodyBufferKey]) return Promise.resolve(request[bodyBufferKey]);
+      if (request[bodyReadPromiseKey]) return request[bodyReadPromiseKey];
+      const incoming = request[incomingKey];
+      if (incoming.readableDidRead) return rejectBodyUnusable();
+      const buffered = readBodyBufferedBeforeDisconnect(incoming);
+      if (buffered !== void 0) {
+        if (buffered instanceof Error) return Promise.reject(buffered);
+        request[bodyBufferKey] = buffered;
+        return Promise.resolve(buffered);
+      }
+      const promise2 = new Promise((resolve, reject) => {
+        const chunks = [];
+        let settled = false;
+        const finish = (callback) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          callback();
+        };
+        const recoverCompleteBodyAfterDisconnect = (error64) => {
+          const streamError = incoming.errored ?? error64;
+          if (!isRecoverableDisconnectedIncoming(incoming) || streamError && streamError.code !== "ECONNRESET") return false;
+          finish(() => {
+            const recovered = readBodyBufferedBeforeDisconnect(incoming, chunks);
+            if (recovered instanceof Error) reject(recovered);
+            else if (recovered === void 0) reject(error64 ?? normalizeAbortError(request, incoming));
+            else {
+              request[bodyBufferKey] = recovered;
+              resolve(recovered);
+            }
+          });
+          return true;
+        };
+        const onData = (chunk) => {
+          chunks.push(toBufferChunk(chunk, incoming.readableEncoding));
+        };
+        const onEnd = () => {
+          finish(() => {
+            const buffer = chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
+            request[bodyBufferKey] = buffer;
+            resolve(buffer);
+          });
+        };
+        const onError = (error64) => {
+          if (recoverCompleteBodyAfterDisconnect(error64)) return;
+          finish(() => {
+            reject(error64);
+          });
+        };
+        const onClose = () => {
+          if (incoming.readableEnded) {
+            onEnd();
+            return;
+          }
+          if (recoverCompleteBodyAfterDisconnect()) return;
+          finish(() => {
+            reject(normalizeAbortError(request, incoming));
+          });
+        };
+        const cleanup = () => {
+          incoming.off("data", onData);
+          incoming.off("end", onEnd);
+          incoming.off("error", onError);
+          incoming.off("close", onClose);
+          request[bodyReadPromiseKey] = void 0;
+        };
+        incoming.on("data", onData);
+        incoming.on("end", onEnd);
+        incoming.on("error", onError);
+        incoming.on("close", onClose);
+        queueMicrotask(() => {
+          if (settled) return;
+          if (incoming.readableEnded) onEnd();
+          else if (incoming.errored) onError(incoming.errored);
+          else if (incoming.destroyed) onClose();
+        });
+      });
+      request[bodyReadPromiseKey] = promise2;
+      return promise2;
+    };
+    requestPrototype = {
+      get method() {
+        return this[methodKey];
+      },
+      get url() {
+        return this[urlKey];
+      },
+      get headers() {
+        return this[headersKey] ||= newHeadersFromIncoming(this[incomingKey]);
+      },
+      [abortRequest](reason) {
+        if (this[abortReasonKey] === void 0) this[abortReasonKey] = reason;
+        const abortController = this[abortControllerKey];
+        if (abortController && !abortController.signal.aborted) abortController.abort(reason);
+      },
+      [getAbortController]() {
+        this[abortControllerKey] ||= new AbortController();
+        if (this[abortReasonKey] !== void 0 && !this[abortControllerKey].signal.aborted) this[abortControllerKey].abort(this[abortReasonKey]);
+        return this[abortControllerKey];
+      },
+      [getRequestCache]() {
+        const abortController = this[getAbortController]();
+        if (this[requestCache]) return this[requestCache];
+        const method = this.method;
+        if (this[bodyConsumedDirectlyKey] && !(method === "GET" || method === "HEAD")) {
+          this[bodyBufferKey] = void 0;
+          const init = {
+            method: method === "TRACE" ? "GET" : method,
+            headers: this.headers,
+            signal: abortController.signal
+          };
+          if (method !== "TRACE") {
+            init.body = new ReadableStream({ start(c) {
+              c.close();
+            } });
+            init.duplex = "half";
+          }
+          const req = new Request$1(this[urlKey], init);
+          if (method === "TRACE") Object.defineProperty(req, "method", { get() {
+            return "TRACE";
+          } });
+          return this[requestCache] = req;
+        }
+        return this[requestCache] = newRequestFromIncoming(this.method, this[urlKey], this.headers, this[incomingKey], abortController);
+      },
+      get body() {
+        if (!this[bodyConsumedDirectlyKey]) return this[getRequestCache]().body;
+        const request = this[getRequestCache]();
+        if (!this[bodyLockReaderKey] && request.body) this[bodyLockReaderKey] = request.body.getReader();
+        return request.body;
+      },
+      get bodyUsed() {
+        if (this[bodyConsumedDirectlyKey]) return true;
+        if (this[requestCache]) return this[requestCache].bodyUsed;
+        return false;
+      }
+    };
+    Object.defineProperty(requestPrototype, "signal", { get() {
+      return this[getAbortController]().signal;
+    } });
+    [
+      "cache",
+      "credentials",
+      "destination",
+      "integrity",
+      "mode",
+      "redirect",
+      "referrer",
+      "referrerPolicy",
+      "keepalive"
+    ].forEach((k2) => {
+      Object.defineProperty(requestPrototype, k2, { get() {
+        return this[getRequestCache]()[k2];
+      } });
+    });
+    ["clone", "formData"].forEach((k2) => {
+      Object.defineProperty(requestPrototype, k2, { value: function() {
+        if (this[bodyConsumedDirectlyKey]) {
+          if (k2 === "clone") throw newBodyUnusableError();
+          return rejectBodyUnusable();
+        }
+        return this[getRequestCache]()[k2]();
+      } });
+    });
+    Object.defineProperty(requestPrototype, "text", { value: function() {
+      return readBodyWithFastPath(this, "text", (buf) => textDecoder.decode(buf));
+    } });
+    Object.defineProperty(requestPrototype, "arrayBuffer", { value: function() {
+      return readBodyWithFastPath(this, "arrayBuffer", (buf) => toArrayBuffer(buf));
+    } });
+    Object.defineProperty(requestPrototype, "blob", { value: function() {
+      return readBodyWithFastPath(this, "blob", (buf, request) => {
+        const type = contentType(request);
+        const init = type ? { headers: { "content-type": type } } : void 0;
+        return new Response(buf, init).blob();
+      });
+    } });
+    Object.defineProperty(requestPrototype, "json", { value: function() {
+      if (this[bodyConsumedDirectlyKey]) return rejectBodyUnusable();
+      return this.text().then(JSON.parse);
+    } });
+    Object.defineProperty(requestPrototype, /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom"), { value: function(depth, options, inspectFn) {
+      return `Request (lightweight) ${inspectFn({
+        method: this.method,
+        url: this.url,
+        headers: this.headers,
+        nativeRequest: this[requestCache]
+      }, {
+        ...options,
+        depth: depth == null ? null : depth - 1
+      })}`;
+    } });
+    Object.setPrototypeOf(requestPrototype, Request$1.prototype);
+    newRequest = (incoming, defaultHostname) => {
+      const req = Object.create(requestPrototype);
+      req[incomingKey] = incoming;
+      req[methodKey] = normalizeIncomingMethod(incoming.method);
+      const incomingUrl = incoming.url || "";
+      if (incomingUrl[0] !== "/" && (incomingUrl.startsWith("http://") || incomingUrl.startsWith("https://"))) {
+        if (incoming instanceof Http2ServerRequest) throw new RequestError("Absolute URL for :path is not allowed in HTTP/2");
+        try {
+          validateRequestTarget(incomingUrl);
+          req[urlKey] = new URL(incomingUrl).href;
+        } catch (e) {
+          throw new RequestError("Invalid absolute URL", { cause: e });
+        }
+        return req;
+      }
+      const host = (incoming instanceof Http2ServerRequest ? incoming.authority : incoming.headers.host) || defaultHostname;
+      if (!host) throw new RequestError("Missing host header");
+      let scheme;
+      if (incoming instanceof Http2ServerRequest) {
+        scheme = incoming.scheme;
+        if (!(scheme === "http" || scheme === "https")) throw new RequestError("Unsupported scheme");
+      } else scheme = incoming.socket && incoming.socket.encrypted ? "https" : "http";
+      try {
+        req[urlKey] = buildUrl(scheme, host, incomingUrl);
+      } catch (e) {
+        if (e instanceof RequestError) throw e;
+        else throw new RequestError("Invalid URL", { cause: e });
+      }
+      return req;
+    };
+    defaultContentType = "text/plain; charset=UTF-8";
+    responseCache = /* @__PURE__ */ Symbol("responseCache");
+    getResponseCache = /* @__PURE__ */ Symbol("getResponseCache");
+    cacheKey = /* @__PURE__ */ Symbol("cache");
+    GlobalResponse = global.Response;
+    Response$1 = class Response$12 {
+      #body;
+      #init;
+      [getResponseCache]() {
+        const cache = this[cacheKey];
+        const liveHeaders = cache && cache[2] instanceof Headers ? cache[2] : void 0;
+        delete this[cacheKey];
+        return this[responseCache] ||= new GlobalResponse(this.#body, liveHeaders ? {
+          status: this.#init?.status,
+          statusText: this.#init?.statusText,
+          headers: liveHeaders
+        } : this.#init);
+      }
+      constructor(body2, init) {
+        let headers;
+        this.#body = body2;
+        if (init instanceof GlobalResponse) {
+          const cachedGlobalResponse = init[responseCache];
+          if (cachedGlobalResponse) {
+            this.#init = cachedGlobalResponse;
+            this[getResponseCache]();
+            return;
+          }
+          this.#init = init instanceof Response$12 ? init.#init : init;
+          headers = new Headers(init.headers);
+        } else this.#init = init;
+        if (body2 == null || typeof body2 === "string" || typeof body2?.getReader !== "undefined" || body2 instanceof Blob || body2 instanceof Uint8Array) this[cacheKey] = [
+          init?.status || 200,
+          body2 ?? null,
+          headers || init?.headers
+        ];
+      }
+      get headers() {
+        const cache = this[cacheKey];
+        if (cache) {
+          if (!(cache[2] instanceof Headers)) cache[2] = new Headers(cache[2] || (cache[1] === null ? void 0 : { "content-type": defaultContentType }));
+          return cache[2];
+        }
+        return this[getResponseCache]().headers;
+      }
+      get status() {
+        return this[cacheKey]?.[0] ?? this[getResponseCache]().status;
+      }
+      get ok() {
+        const status = this.status;
+        return status >= 200 && status < 300;
+      }
+    };
+    [
+      "body",
+      "bodyUsed",
+      "redirected",
+      "statusText",
+      "trailers",
+      "type",
+      "url"
+    ].forEach((k2) => {
+      Object.defineProperty(Response$1.prototype, k2, { get() {
+        return this[getResponseCache]()[k2];
+      } });
+    });
+    [
+      "arrayBuffer",
+      "blob",
+      "clone",
+      "formData",
+      "json",
+      "text"
+    ].forEach((k2) => {
+      Object.defineProperty(Response$1.prototype, k2, { value: function() {
+        return this[getResponseCache]()[k2]();
+      } });
+    });
+    Object.defineProperty(Response$1.prototype, /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom"), { value: function(depth, options, inspectFn) {
+      return `Response (lightweight) ${inspectFn({
+        status: this.status,
+        headers: this.headers,
+        ok: this.ok,
+        nativeResponse: this[responseCache]
+      }, {
+        ...options,
+        depth: depth == null ? null : depth - 1
+      })}`;
+    } });
+    Object.setPrototypeOf(Response$1, GlobalResponse);
+    Object.setPrototypeOf(Response$1.prototype, GlobalResponse.prototype);
+    validRedirectUrl = /^https?:\/\/[!#-;=?-[\]_a-z~A-Z]+$/;
+    parseRedirectUrl = (url2) => {
+      if (url2 instanceof URL) return url2.href;
+      if (validRedirectUrl.test(url2)) return url2;
+      return new URL(url2).href;
+    };
+    validRedirectStatuses = /* @__PURE__ */ new Set([
+      301,
+      302,
+      303,
+      307,
+      308
+    ]);
+    Object.defineProperty(Response$1, "redirect", {
+      value: function redirect(url2, status = 302) {
+        if (!validRedirectStatuses.has(status)) throw new RangeError("Invalid status code");
+        return new Response$1(null, {
+          status,
+          headers: { location: parseRedirectUrl(url2) }
+        });
+      },
+      writable: true,
+      configurable: true
+    });
+    Object.defineProperty(Response$1, "json", {
+      value: function json2(data, init) {
+        const body2 = JSON.stringify(data);
+        if (body2 === void 0) throw new TypeError("The data is not JSON serializable");
+        const initHeaders = init?.headers;
+        let headers;
+        if (initHeaders) {
+          headers = new Headers(initHeaders);
+          if (!headers.has("content-type")) headers.set("content-type", "application/json");
+        } else headers = { "content-type": "application/json" };
+        return new Response$1(body2, {
+          status: init?.status ?? 200,
+          statusText: init?.statusText,
+          headers
+        });
+      },
+      writable: true,
+      configurable: true
+    });
+    buildOutgoingHttpHeaders = (headers, defaultContentType2) => {
+      const res = {};
+      if (!(headers instanceof Headers)) headers = new Headers(headers ?? void 0);
+      if (headers.has("set-cookie")) {
+        const cookies = [];
+        for (const [k2, v2] of headers) if (k2 === "set-cookie") cookies.push(v2);
+        else res[k2] = v2;
+        if (cookies.length > 0) res["set-cookie"] = cookies;
+      } else for (const [k2, v2] of headers) res[k2] = v2;
+      if (defaultContentType2) res["content-type"] ??= defaultContentType2;
+      return res;
+    };
+    outgoingEnded = /* @__PURE__ */ Symbol("outgoingEnded");
+    incomingDraining = /* @__PURE__ */ Symbol("incomingDraining");
+    DRAIN_TIMEOUT_MS = 500;
+    MAX_DRAIN_BYTES = 64 * 1024 * 1024;
+    drainIncoming = (incoming) => {
+      const incomingWithDrainState = incoming;
+      if (incoming.destroyed || incomingWithDrainState[incomingDraining]) return;
+      incomingWithDrainState[incomingDraining] = true;
+      if (incoming instanceof Http2ServerRequest) {
+        try {
+          incoming.stream?.close?.(constants.NGHTTP2_NO_ERROR);
+        } catch {
+        }
+        return;
+      }
+      let bytesRead = 0;
+      const cleanup = () => {
+        clearTimeout(timer);
+        incoming.off("data", onData);
+        incoming.off("end", cleanup);
+        incoming.off("error", cleanup);
+      };
+      const forceClose = () => {
+        cleanup();
+        const socket = incoming.socket;
+        if (socket && !socket.destroyed) {
+          if (typeof socket.destroySoon === "function") socket.destroySoon();
+          else if (typeof socket.destroy === "function") socket.destroy();
+        }
+      };
+      const timer = setTimeout(forceClose, DRAIN_TIMEOUT_MS);
+      timer.unref?.();
+      const onData = (chunk) => {
+        bytesRead += chunk.length;
+        if (bytesRead > MAX_DRAIN_BYTES) forceClose();
+      };
+      incoming.on("data", onData);
+      incoming.on("end", cleanup);
+      incoming.on("error", cleanup);
+      incoming.resume();
+    };
+    makeCloseHandler = (req, incoming, outgoing, needsBodyCleanup) => () => {
+      if (incoming.errored) {
+        recordBodyBufferedBeforeDisconnect(incoming);
+        req[abortRequest](incoming.errored.toString());
+      } else if (!outgoing.writableFinished || incoming instanceof Http2ServerRequest && incoming.aborted) {
+        recordBodyBufferedBeforeDisconnect(incoming);
+        req[abortRequest]("Client connection prematurely closed.");
+      }
+      if (needsBodyCleanup && !incoming.readableEnded) setTimeout(() => {
+        if (!incoming.readableEnded) setTimeout(() => {
+          drainIncoming(incoming);
+        });
+      });
+    };
+    isImmediateCacheableResponse = (res) => {
+      if (!(cacheKey in res)) return false;
+      const body2 = res[cacheKey][1];
+      return body2 === null || typeof body2 === "string" || body2 instanceof Uint8Array;
+    };
+    handleRequestError = () => new Response(null, { status: 400 });
+    handleFetchError = (e) => new Response(null, { status: e instanceof Error && (e.name === "TimeoutError" || e.constructor.name === "TimeoutError") ? 504 : 500 });
+    handleResponseError = (e, outgoing) => {
+      const err = e instanceof Error ? e : new Error("unknown error", { cause: e });
+      if (err.code === "ERR_STREAM_PREMATURE_CLOSE") console.info("The user aborted a request.");
+      else {
+        console.error(e);
+        if (!outgoing.headersSent) {
+          if (outgoing instanceof ServerResponse) outgoing._contentLength = null;
+          outgoing.writeHead(500, { "Content-Type": "text/plain" });
+        }
+        outgoing.end(`Error: ${err.message}`);
+        outgoing.destroy(err);
+      }
+    };
+    flushHeaders = (outgoing) => {
+      if ("flushHeaders" in outgoing && outgoing.writable) outgoing.flushHeaders();
+    };
+    trySetContentLength = (outgoing, status, length) => {
+      const http1 = outgoing;
+      if (http1._contentLength === null && http1._hasBody && http1.useChunkedEncodingByDefault && !http1._removedContLen && status >= 200 && status !== 204 && status !== 304 && !outgoing.hasHeader("content-length") && !outgoing.hasHeader("transfer-encoding") && !outgoing.hasHeader("trailer")) {
+        http1._contentLength = length;
+        return true;
+      }
+      return false;
+    };
+    writeDefaultHeaders = (outgoing, status, length) => {
+      if (trySetContentLength(outgoing, status, length)) outgoing.writeHead(status, { "Content-Type": defaultContentType });
+      else outgoing.writeHead(status, {
+        "Content-Type": defaultContentType,
+        "Content-Length": length
+      });
+    };
+    responseViaCache = async (res, outgoing) => {
+      let [status, body2, header] = res[cacheKey];
+      if (!header) {
+        if (body2 === null) {
+          outgoing.writeHead(status);
+          outgoing.end();
+        } else if (typeof body2 === "string") {
+          writeDefaultHeaders(outgoing, status, Buffer.byteLength(body2));
+          outgoing.end(body2);
+        } else if (body2 instanceof Uint8Array) {
+          writeDefaultHeaders(outgoing, status, body2.byteLength);
+          outgoing.end(body2);
+        } else if (body2 instanceof Blob) {
+          writeDefaultHeaders(outgoing, status, body2.size);
+          outgoing.end(new Uint8Array(await body2.arrayBuffer()));
+        } else {
+          outgoing.writeHead(status, { "Content-Type": defaultContentType });
+          flushHeaders(outgoing);
+          await writeFromReadableStream(body2, outgoing)?.catch((e) => handleResponseError(e, outgoing));
+        }
+        outgoing[outgoingEnded]?.();
+        return;
+      }
+      let hasContentLength = false;
+      let plainHeaders = false;
+      let canAutoLength = true;
+      if (header instanceof Headers) {
+        hasContentLength = header.has("content-length");
+        header = buildOutgoingHttpHeaders(header, body2 === null ? void 0 : defaultContentType);
+      } else if (Array.isArray(header)) {
+        const headerObj = new Headers(header);
+        hasContentLength = headerObj.has("content-length");
+        header = buildOutgoingHttpHeaders(headerObj, body2 === null ? void 0 : defaultContentType);
+      } else {
+        plainHeaders = true;
+        for (const key in header) {
+          if (key.length === 14 && key.toLowerCase() === "content-length") {
+            hasContentLength = true;
+            break;
+          }
+          if (key.length === 17 && key.toLowerCase() === "transfer-encoding" || key.length === 7 && key.toLowerCase() === "trailer") canAutoLength = false;
+        }
+      }
+      if (!hasContentLength) {
+        let length;
+        if (typeof body2 === "string") length = Buffer.byteLength(body2);
+        else if (body2 instanceof Uint8Array) length = body2.byteLength;
+        else if (body2 instanceof Blob) length = body2.size;
+        if (length !== void 0 && (!plainHeaders || !canAutoLength || !trySetContentLength(outgoing, status, length))) {
+          if (plainHeaders) header = { ...header };
+          header["Content-Length"] = length;
+        }
+      }
+      outgoing.writeHead(status, header);
+      if (body2 == null) outgoing.end();
+      else if (typeof body2 === "string" || body2 instanceof Uint8Array) outgoing.end(body2);
+      else if (body2 instanceof Blob) outgoing.end(new Uint8Array(await body2.arrayBuffer()));
+      else {
+        flushHeaders(outgoing);
+        await writeFromReadableStream(body2, outgoing)?.catch((e) => handleResponseError(e, outgoing));
+      }
+      outgoing[outgoingEnded]?.();
+    };
+    isPromise = (res) => typeof res.then === "function";
+    responseViaResponseObject = async (res, outgoing, options = {}) => {
+      if (isPromise(res)) if (options.errorHandler) try {
+        res = await res;
+      } catch (err) {
+        const errRes = await options.errorHandler(err);
+        if (!errRes) return;
+        res = errRes;
+      }
+      else res = await res.catch(handleFetchError);
+      if (cacheKey in res) return responseViaCache(res, outgoing);
+      const resHeaderRecord = buildOutgoingHttpHeaders(res.headers, res.body === null ? void 0 : defaultContentType);
+      if (res.body) {
+        const reader = res.body.getReader();
+        const values = [];
+        let done = false;
+        let currentReadPromise = void 0;
+        if (resHeaderRecord["transfer-encoding"] !== "chunked") {
+          let maxReadCount = 2;
+          for (let i = 0; i < maxReadCount; i++) {
+            currentReadPromise ||= reader.read();
+            const chunk = await readWithoutBlocking(currentReadPromise).catch((e) => {
+              console.error(e);
+              done = true;
+            });
+            if (!chunk) {
+              if (i === 1) {
+                await new Promise((resolve) => setTimeout(resolve));
+                maxReadCount = 3;
+                continue;
+              }
+              break;
+            }
+            currentReadPromise = void 0;
+            if (chunk.value) values.push(chunk.value);
+            if (chunk.done) {
+              done = true;
+              break;
+            }
+          }
+          if (done && !("content-length" in resHeaderRecord)) resHeaderRecord["content-length"] = values.reduce((acc, value) => acc + value.length, 0);
+        }
+        outgoing.writeHead(res.status, resHeaderRecord);
+        values.forEach((value) => {
+          outgoing.write(value);
+        });
+        if (done) outgoing.end();
+        else {
+          if (values.length === 0) flushHeaders(outgoing);
+          await writeFromReadableStreamDefaultReader(reader, outgoing, currentReadPromise);
+        }
+      } else if (resHeaderRecord[X_ALREADY_SENT]) {
+      } else {
+        outgoing.writeHead(res.status, resHeaderRecord);
+        outgoing.end();
+      }
+      outgoing[outgoingEnded]?.();
+    };
+    getRequestListener = (fetchCallback, options = {}) => {
+      const autoCleanupIncoming = options.autoCleanupIncoming ?? true;
+      if (options.overrideGlobalObjects !== false && global.Request !== Request$1) {
+        Object.defineProperty(global, "Request", { value: Request$1 });
+        Object.defineProperty(global, "Response", { value: Response$1 });
+      }
+      return async (incoming, outgoing) => {
+        let res, req;
+        let needsBodyCleanup = false;
+        let closeHandlerAttached = false;
+        const ensureCloseHandler = () => {
+          if (!req || closeHandlerAttached) return;
+          closeHandlerAttached = true;
+          outgoing.on("close", makeCloseHandler(req, incoming, outgoing, needsBodyCleanup));
+        };
+        try {
+          req = newRequest(incoming, options.hostname);
+          needsBodyCleanup = autoCleanupIncoming && !(incoming.method === "GET" || incoming.method === "HEAD");
+          if (needsBodyCleanup) {
+            incoming[wrapBodyStream] = true;
+            if (incoming instanceof Http2ServerRequest) outgoing[outgoingEnded] = () => {
+              if (!incoming.readableEnded) setTimeout(() => {
+                if (!incoming.readableEnded) setTimeout(() => {
+                  incoming.destroy();
+                  outgoing.destroy();
+                });
+              });
+            };
+          }
+          res = fetchCallback(req, {
+            incoming,
+            outgoing
+          });
+          if (!isPromise(res) && isImmediateCacheableResponse(res)) {
+            if (needsBodyCleanup && !incoming.readableEnded) outgoing.once("finish", () => {
+              if (!incoming.readableEnded) drainIncoming(incoming);
+            });
+            return responseViaCache(res, outgoing);
+          }
+          ensureCloseHandler();
+        } catch (e) {
+          if (!res) if (options.errorHandler) {
+            ensureCloseHandler();
+            res = await options.errorHandler(req ? e : toRequestError(e));
+            if (!res) return;
+          } else if (!req) res = handleRequestError();
+          else res = handleFetchError(e);
+          else return handleResponseError(e, outgoing);
+        }
+        try {
+          return await responseViaResponseObject(res, outgoing, options);
+        } catch (e) {
+          return handleResponseError(e, outgoing);
+        }
+      };
+    };
+    CloseEvent = globalThis.CloseEvent ?? class extends Event {
+      #eventInitDict;
+      constructor(type, eventInitDict = {}) {
+        super(type, eventInitDict);
+        this.#eventInitDict = eventInitDict;
+      }
+      get wasClean() {
+        return this.#eventInitDict.wasClean ?? false;
+      }
+      get code() {
+        return this.#eventInitDict.code ?? 0;
+      }
+      get reason() {
+        return this.#eventInitDict.reason ?? "";
+      }
+    };
+    ErrorEvent = globalThis.ErrorEvent ?? class extends Event {
+      #eventInitDict;
+      constructor(type, eventInitDict = {}) {
+        super(type, eventInitDict);
+        this.#eventInitDict = eventInitDict;
+      }
+      get message() {
+        return this.#eventInitDict.message ?? "";
+      }
+      get filename() {
+        return this.#eventInitDict.filename ?? "";
+      }
+      get lineno() {
+        return this.#eventInitDict.lineno ?? 0;
+      }
+      get colno() {
+        return this.#eventInitDict.colno ?? 0;
+      }
+      get error() {
+        return this.#eventInitDict.error ?? null;
+      }
+    };
+    generateConnectionSymbol = () => /* @__PURE__ */ Symbol("connection");
+    CONNECTION_SYMBOL_KEY = /* @__PURE__ */ Symbol("CONNECTION_SYMBOL_KEY");
+    WAIT_FOR_WEBSOCKET_SYMBOL = /* @__PURE__ */ Symbol("WAIT_FOR_WEBSOCKET_SYMBOL");
+    upgradeWebSocket = defineWebSocketHelper(async (c, events, options) => {
+      if (c.req.header("upgrade")?.toLowerCase() !== "websocket") return;
+      const env = c.env;
+      const waitForWebSocket = env[WAIT_FOR_WEBSOCKET_SYMBOL];
+      if (!waitForWebSocket || !env.incoming) return new Response(null, { status: 500 });
+      const connectionSymbol = generateConnectionSymbol();
+      env[CONNECTION_SYMBOL_KEY] = connectionSymbol;
+      (async () => {
+        let ws;
+        try {
+          ws = await waitForWebSocket(env.incoming, connectionSymbol);
+        } catch {
+          return;
+        }
+        const messagesReceivedInStarting = [];
+        const bufferMessage = (data, isBinary) => {
+          messagesReceivedInStarting.push([data, isBinary]);
+        };
+        ws.on("message", bufferMessage);
+        const ctx = {
+          binaryType: "arraybuffer",
+          close(code, reason) {
+            ws.close(code, reason);
+          },
+          protocol: ws.protocol,
+          raw: ws,
+          get readyState() {
+            return ws.readyState;
+          },
+          send(source, opts) {
+            ws.send(source, { compress: opts?.compress });
+          },
+          url: new URL(c.req.url)
+        };
+        try {
+          events?.onOpen?.(new Event("open"), ctx);
+        } catch (e) {
+          (options?.onError ?? console.error)(e);
+        }
+        const handleMessage = (data, isBinary) => {
+          const datas = Array.isArray(data) ? data : [data];
+          for (const data2 of datas) try {
+            events?.onMessage?.(new MessageEvent("message", { data: isBinary ? data2 instanceof ArrayBuffer ? data2 : data2.buffer.slice(data2.byteOffset, data2.byteOffset + data2.byteLength) : typeof data2 === "string" ? data2 : Buffer.from(data2).toString("utf-8") }), ctx);
+          } catch (e) {
+            (options?.onError ?? console.error)(e);
+          }
+        };
+        ws.off("message", bufferMessage);
+        for (const message of messagesReceivedInStarting) handleMessage(...message);
+        ws.on("message", (data, isBinary) => {
+          handleMessage(data, isBinary);
+        });
+        ws.on("close", (code, reason) => {
+          try {
+            events?.onClose?.(new CloseEvent("close", {
+              code,
+              reason: reason.toString()
+            }), ctx);
+          } catch (e) {
+            (options?.onError ?? console.error)(e);
+          }
+        });
+        ws.on("error", (error64) => {
+          try {
+            events?.onError?.(new ErrorEvent("error", { error: error64 }), ctx);
+          } catch (e) {
+            (options?.onError ?? console.error)(e);
+          }
+        });
+      })();
+      return new Response();
+    });
+  }
+});
+
+// node_modules/content-type/index.js
+var require_content_type = __commonJS({
+  "node_modules/content-type/index.js"(exports) {
+    "use strict";
+    var PARAM_REGEXP = /; *([!#$%&'*+.^_`|~0-9A-Za-z-]+) *= *("(?:[\u000b\u0020\u0021\u0023-\u005b\u005d-\u007e\u0080-\u00ff]|\\[\u000b\u0020-\u00ff])*"|[!#$%&'*+.^_`|~0-9A-Za-z-]+) */g;
+    var TEXT_REGEXP = /^[\u000b\u0020-\u007e\u0080-\u00ff]+$/;
+    var TOKEN_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+    var QESC_REGEXP = /\\([\u000b\u0020-\u00ff])/g;
+    var QUOTE_REGEXP = /([\\"])/g;
+    var TYPE_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\/[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+    exports.format = format;
+    exports.parse = parse3;
+    function format(obj) {
+      if (!obj || typeof obj !== "object") {
+        throw new TypeError("argument obj is required");
+      }
+      var parameters = obj.parameters;
+      var type = obj.type;
+      if (!type || !TYPE_REGEXP.test(type)) {
+        throw new TypeError("invalid type");
+      }
+      var string4 = type;
+      if (parameters && typeof parameters === "object") {
+        var param;
+        var params = Object.keys(parameters).sort();
+        for (var i = 0; i < params.length; i++) {
+          param = params[i];
+          if (!TOKEN_REGEXP.test(param)) {
+            throw new TypeError("invalid parameter name");
+          }
+          string4 += "; " + param + "=" + qstring(parameters[param]);
+        }
+      }
+      return string4;
+    }
+    function parse3(string4) {
+      if (!string4) {
+        throw new TypeError("argument string is required");
+      }
+      var header = typeof string4 === "object" ? getcontenttype(string4) : string4;
+      if (typeof header !== "string") {
+        throw new TypeError("argument string is required to be a string");
+      }
+      var index = header.indexOf(";");
+      var type = index !== -1 ? header.slice(0, index).trim() : header.trim();
+      if (!TYPE_REGEXP.test(type)) {
+        throw new TypeError("invalid media type");
+      }
+      var obj = new ContentType(type.toLowerCase());
+      if (index !== -1) {
+        var key;
+        var match;
+        var value;
+        PARAM_REGEXP.lastIndex = index;
+        while (match = PARAM_REGEXP.exec(header)) {
+          if (match.index !== index) {
+            throw new TypeError("invalid parameter format");
+          }
+          index += match[0].length;
+          key = match[1].toLowerCase();
+          value = match[2];
+          if (value.charCodeAt(0) === 34) {
+            value = value.slice(1, -1);
+            if (value.indexOf("\\") !== -1) {
+              value = value.replace(QESC_REGEXP, "$1");
+            }
+          }
+          obj.parameters[key] = value;
+        }
+        if (index !== header.length) {
+          throw new TypeError("invalid parameter format");
+        }
+      }
+      return obj;
+    }
+    function getcontenttype(obj) {
+      var header;
+      if (typeof obj.getHeader === "function") {
+        header = obj.getHeader("content-type");
+      } else if (typeof obj.headers === "object") {
+        header = obj.headers && obj.headers["content-type"];
+      }
+      if (typeof header !== "string") {
+        throw new TypeError("content-type header is missing from object");
+      }
+      return header;
+    }
+    function qstring(val) {
+      var str = String(val);
+      if (TOKEN_REGEXP.test(str)) {
+        return str;
+      }
+      if (str.length > 0 && !TEXT_REGEXP.test(str)) {
+        throw new TypeError("invalid parameter value");
+      }
+      return '"' + str.replace(QUOTE_REGEXP, "\\$1") + '"';
+    }
+    function ContentType(type) {
+      this.parameters = /* @__PURE__ */ Object.create(null);
+      this.type = type;
+    }
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js
+function mediaTypeEssence(header) {
+  if (!header) {
+    return void 0;
+  }
+  try {
+    return import_content_type.default.parse(header).type;
+  } catch {
+    const essence = (header.split(";", 1)[0] ?? "").trim().toLowerCase();
+    if (essence === "" || header.slice(essence.length).includes(",")) {
+      return void 0;
+    }
+    return essence;
+  }
+}
+function isJsonContentType(header) {
+  if (header === "application/json") {
+    return true;
+  }
+  return mediaTypeEssence(header) === "application/json";
+}
+var import_content_type;
+var init_mediaType = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js"() {
+    import_content_type = __toESM(require_content_type(), 1);
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/requestBody.js
+function requestBodyTooLargeMessage(maxBytes) {
+  return `Payload Too Large: Request body must not exceed ${maxBytes} bytes`;
+}
+function resolveMaxRequestBodySize(value) {
+  if (value === void 0) {
+    return DEFAULT_MAX_REQUEST_BODY_SIZE;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`maxRequestBodySize must be a positive number of bytes, got ${String(value)}`);
+  }
+  return value;
+}
+async function readRequestBody(request, maxBytes = DEFAULT_MAX_REQUEST_BODY_SIZE) {
+  if (Number(request.headers.get("content-length")) > maxBytes) {
+    return { tooLarge: true };
+  }
+  if (request.body === null) {
+    return { tooLarge: false, text: "" };
+  }
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text2 = "";
+  try {
+    for (; ; ) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      received += value.byteLength;
+      if (received > maxBytes) {
+        return { tooLarge: true };
+      }
+      text2 += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return { tooLarge: false, text: text2 + decoder.decode() };
+}
+var DEFAULT_MAX_REQUEST_BODY_SIZE, MAX_BATCH_SIZE;
+var init_requestBody = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/server/requestBody.js"() {
+    DEFAULT_MAX_REQUEST_BODY_SIZE = 4 * 1024 * 1024;
+    MAX_BATCH_SIZE = 100;
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/sseKeepAlive.js
+function armSseKeepAlive(intervalMs, onTick) {
+  if (!Number.isFinite(intervalMs) || intervalMs < 1) {
+    return void 0;
+  }
+  const timer = setInterval(onTick, Math.min(intervalMs, MAX_TIMER_DELAY_MS));
+  timer.unref?.();
+  return timer;
+}
+var DEFAULT_SSE_KEEP_ALIVE_MS, MAX_TIMER_DELAY_MS;
+var init_sseKeepAlive = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/server/sseKeepAlive.js"() {
+    DEFAULT_SSE_KEEP_ALIVE_MS = 15e3;
+    MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js
+var WebStandardStreamableHTTPServerTransport;
+var init_webStandardStreamableHttp = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js"() {
+    init_mediaType();
+    init_requestBody();
+    init_sseKeepAlive();
+    init_types2();
+    WebStandardStreamableHTTPServerTransport = class {
+      constructor(options = {}) {
+        this._started = false;
+        this._hasHandledRequest = false;
+        this._streamMapping = /* @__PURE__ */ new Map();
+        this._requestToStreamMapping = /* @__PURE__ */ new Map();
+        this._resumableStreams = /* @__PURE__ */ new Set();
+        this._requestResponseMap = /* @__PURE__ */ new Map();
+        this._initialized = false;
+        this._enableJsonResponse = false;
+        this._standaloneSseStreamId = "_GET_stream";
+        this._closed = false;
+        this.sessionIdGenerator = options.sessionIdGenerator;
+        this._enableJsonResponse = options.enableJsonResponse ?? false;
+        this._eventStore = options.eventStore;
+        this._onsessioninitialized = options.onsessioninitialized;
+        this._onsessionclosed = options.onsessionclosed;
+        this._allowedHosts = options.allowedHosts;
+        this._allowedOrigins = options.allowedOrigins;
+        this._enableDnsRebindingProtection = options.enableDnsRebindingProtection ?? false;
+        this._retryInterval = options.retryInterval;
+        this._keepAliveMs = options.keepAliveMs ?? DEFAULT_SSE_KEEP_ALIVE_MS;
+        this._maxRequestBodySize = resolveMaxRequestBodySize(options.maxRequestBodySize);
+      }
+      /**
+       * Arms a keep-alive interval for an SSE stream that periodically writes an SSE
+       * comment frame so intermediaries and idle timeouts don't kill the connection.
+       * The returned timer is owned by the stream it was armed for: the stream's
+       * cancel/cleanup callbacks must clear it. The interval clears itself if a
+       * write fails (stream already closed/cancelled).
+       */
+      startKeepAlive(controller, encoder) {
+        if (this._closed)
+          return void 0;
+        const timer = armSseKeepAlive(this._keepAliveMs, () => {
+          try {
+            controller.enqueue(encoder.encode(": keepalive\n\n"));
+          } catch {
+            if (timer !== void 0)
+              clearInterval(timer);
+          }
+        });
+        return timer;
+      }
+      /**
+       * Starts the transport. This is required by the Transport interface but is a no-op
+       * for the Streamable HTTP transport as connections are managed per-request.
+       */
+      async start() {
+        if (this._started) {
+          throw new Error("Transport already started");
+        }
+        this._started = true;
+      }
+      /**
+       * Helper to create a JSON error response
+       */
+      createJsonErrorResponse(status, code, message, options) {
+        const error64 = { code, message };
+        if (options?.data !== void 0) {
+          error64.data = options.data;
+        }
+        return new Response(JSON.stringify({
+          jsonrpc: "2.0",
+          error: error64,
+          id: null
+        }), {
+          status,
+          headers: {
+            "Content-Type": "application/json",
+            ...options?.headers
+          }
+        });
+      }
+      /**
+       * Validates request headers for DNS rebinding protection.
+       * @returns Error response if validation fails, undefined if validation passes.
+       */
+      validateRequestHeaders(req) {
+        if (!this._enableDnsRebindingProtection) {
+          return void 0;
+        }
+        if (this._allowedHosts && this._allowedHosts.length > 0) {
+          const hostHeader = req.headers.get("host");
+          if (!hostHeader || !this._allowedHosts.includes(hostHeader)) {
+            const error64 = `Invalid Host header: ${hostHeader}`;
+            this.onerror?.(new Error(error64));
+            return this.createJsonErrorResponse(403, -32e3, error64);
+          }
+        }
+        if (this._allowedOrigins && this._allowedOrigins.length > 0) {
+          const originHeader = req.headers.get("origin");
+          if (originHeader && !this._allowedOrigins.includes(originHeader)) {
+            const error64 = `Invalid Origin header: ${originHeader}`;
+            this.onerror?.(new Error(error64));
+            return this.createJsonErrorResponse(403, -32e3, error64);
+          }
+        }
+        return void 0;
+      }
+      /**
+       * Handles an incoming HTTP request, whether GET, POST, or DELETE
+       * Returns a Response object (Web Standard)
+       */
+      async handleRequest(req, options) {
+        if (this._closed) {
+          return this.createJsonErrorResponse(404, -32001, "Session not found");
+        }
+        if (!this.sessionIdGenerator && this._hasHandledRequest) {
+          throw new Error("Stateless transport cannot be reused across requests. Create a new transport per request.");
+        }
+        this._hasHandledRequest = true;
+        const validationError = this.validateRequestHeaders(req);
+        if (validationError) {
+          return validationError;
+        }
+        switch (req.method) {
+          case "POST":
+            return this.handlePostRequest(req, options);
+          case "GET":
+            return this.handleGetRequest(req);
+          case "DELETE":
+            return this.handleDeleteRequest(req);
+          default:
+            return this.handleUnsupportedRequest();
+        }
+      }
+      /**
+       * Writes a priming event to establish resumption capability.
+       * Only sends if eventStore is configured (opt-in for resumability) and
+       * the client's protocol version supports empty SSE data (>= 2025-11-25).
+       */
+      async writePrimingEvent(controller, encoder, streamId, protocolVersion) {
+        if (!this._eventStore) {
+          return;
+        }
+        if (protocolVersion < "2025-11-25") {
+          return;
+        }
+        const primingEventId = await this._eventStore.storeEvent(streamId, {});
+        let primingEvent = `id: ${primingEventId}
+data: 
+
+`;
+        if (this._retryInterval !== void 0) {
+          primingEvent = `id: ${primingEventId}
+retry: ${this._retryInterval}
+data: 
+
+`;
+        }
+        controller.enqueue(encoder.encode(primingEvent));
+        this._resumableStreams.add(streamId);
+      }
+      /**
+       * Handles GET requests for SSE stream
+       */
+      async handleGetRequest(req) {
+        const acceptHeader = req.headers.get("accept");
+        if (!acceptHeader?.includes("text/event-stream")) {
+          this.onerror?.(new Error("Not Acceptable: Client must accept text/event-stream"));
+          return this.createJsonErrorResponse(406, -32e3, "Not Acceptable: Client must accept text/event-stream");
+        }
+        const sessionError = this.validateSession(req);
+        if (sessionError) {
+          return sessionError;
+        }
+        const protocolError = this.validateProtocolVersion(req);
+        if (protocolError) {
+          return protocolError;
+        }
+        if (this._eventStore) {
+          const lastEventId = req.headers.get("last-event-id");
+          if (lastEventId) {
+            return this.replayEvents(lastEventId);
+          }
+        }
+        if (this._streamMapping.get(this._standaloneSseStreamId) !== void 0) {
+          this.onerror?.(new Error("Conflict: Only one SSE stream is allowed per session"));
+          return this.createJsonErrorResponse(409, -32e3, "Conflict: Only one SSE stream is allowed per session");
+        }
+        const encoder = new TextEncoder();
+        let streamController;
+        let keepAliveTimer = void 0;
+        const readable = new ReadableStream({
+          start: (controller) => {
+            streamController = controller;
+          },
+          cancel: () => {
+            if (keepAliveTimer !== void 0) {
+              clearInterval(keepAliveTimer);
+            }
+            if (this._streamMapping.get(this._standaloneSseStreamId)?.controller === streamController) {
+              this._streamMapping.delete(this._standaloneSseStreamId);
+            }
+          }
+        });
+        const headers = {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no"
+        };
+        if (this.sessionId !== void 0) {
+          headers["mcp-session-id"] = this.sessionId;
+        }
+        this._streamMapping.set(this._standaloneSseStreamId, {
+          controller: streamController,
+          encoder,
+          cleanup: () => {
+            if (keepAliveTimer !== void 0) {
+              clearInterval(keepAliveTimer);
+            }
+            this._streamMapping.delete(this._standaloneSseStreamId);
+            try {
+              streamController.close();
+            } catch {
+            }
+          }
+        });
+        keepAliveTimer = this.startKeepAlive(streamController, encoder);
+        return new Response(readable, { headers });
+      }
+      /**
+       * Replays events that would have been sent after the specified event ID
+       * Only used when resumability is enabled
+       */
+      async replayEvents(lastEventId) {
+        if (!this._eventStore) {
+          this.onerror?.(new Error("Event store not configured"));
+          return this.createJsonErrorResponse(400, -32e3, "Event store not configured");
+        }
+        try {
+          let streamId;
+          if (this._eventStore.getStreamIdForEventId) {
+            streamId = await this._eventStore.getStreamIdForEventId(lastEventId);
+            if (!streamId) {
+              this.onerror?.(new Error("Invalid event ID format"));
+              return this.createJsonErrorResponse(400, -32e3, "Invalid event ID format");
+            }
+            if (this._streamMapping.get(streamId) !== void 0) {
+              this.onerror?.(new Error("Conflict: Stream already has an active connection"));
+              return this.createJsonErrorResponse(409, -32e3, "Conflict: Stream already has an active connection");
+            }
+          }
+          const headers = {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+            "X-Accel-Buffering": "no"
+          };
+          if (this.sessionId !== void 0) {
+            headers["mcp-session-id"] = this.sessionId;
+          }
+          const encoder = new TextEncoder();
+          let streamController;
+          let keepAliveTimer = void 0;
+          let replayedStreamId = void 0;
+          let cancelled = false;
+          const readable = new ReadableStream({
+            start: (controller) => {
+              streamController = controller;
+            },
+            cancel: () => {
+              cancelled = true;
+              if (keepAliveTimer !== void 0) {
+                clearInterval(keepAliveTimer);
+              }
+              if (replayedStreamId !== void 0 && this._streamMapping.get(replayedStreamId)?.controller === streamController) {
+                this._streamMapping.delete(replayedStreamId);
+              }
+            }
+          });
+          const replayedEventIds = /* @__PURE__ */ new Set();
+          replayedStreamId = await this._eventStore.replayEventsAfter(lastEventId, {
+            send: async (eventId, message) => {
+              const success2 = this.writeSSEEvent(streamController, encoder, message, eventId);
+              if (!success2) {
+                this.onerror?.(new Error("Failed replay events"));
+                try {
+                  streamController.close();
+                } catch {
+                }
+              } else {
+                replayedEventIds.add(eventId);
+              }
+            }
+          });
+          if (this._closed || cancelled) {
+            try {
+              streamController.close();
+            } catch {
+            }
+            return this.createJsonErrorResponse(404, -32001, "Session not found");
+          }
+          this._streamMapping.get(replayedStreamId)?.cleanup();
+          this._streamMapping.set(replayedStreamId, {
+            controller: streamController,
+            encoder,
+            replayedEventIds,
+            cleanup: () => {
+              if (keepAliveTimer !== void 0) {
+                clearInterval(keepAliveTimer);
+              }
+              this._streamMapping.delete(replayedStreamId);
+              try {
+                streamController.close();
+              } catch {
+              }
+            }
+          });
+          this._resumableStreams.add(replayedStreamId);
+          keepAliveTimer = this.startKeepAlive(streamController, encoder);
+          return new Response(readable, { headers });
+        } catch (error64) {
+          this.onerror?.(error64);
+          return this.createJsonErrorResponse(500, -32e3, "Error replaying events");
+        }
+      }
+      /**
+       * Writes an event to an SSE stream via controller with proper formatting
+       */
+      writeSSEEvent(controller, encoder, message, eventId) {
+        try {
+          let eventData = `event: message
+`;
+          if (eventId) {
+            eventData += `id: ${eventId}
+`;
+          }
+          eventData += `data: ${JSON.stringify(message)}
+
+`;
+          controller.enqueue(encoder.encode(eventData));
+          return true;
+        } catch (error64) {
+          this.onerror?.(error64);
+          return false;
+        }
+      }
+      /**
+       * Handles unsupported requests (PUT, PATCH, etc.)
+       */
+      handleUnsupportedRequest() {
+        this.onerror?.(new Error("Method not allowed."));
+        return new Response(JSON.stringify({
+          jsonrpc: "2.0",
+          error: {
+            code: -32e3,
+            message: "Method not allowed."
+          },
+          id: null
+        }), {
+          status: 405,
+          headers: {
+            Allow: "GET, POST, DELETE",
+            "Content-Type": "application/json"
+          }
+        });
+      }
+      /**
+       * Handles POST requests containing JSON-RPC messages
+       */
+      async handlePostRequest(req, options) {
+        try {
+          const acceptHeader = req.headers.get("accept");
+          if (!acceptHeader?.includes("application/json") || !acceptHeader.includes("text/event-stream")) {
+            this.onerror?.(new Error("Not Acceptable: Client must accept both application/json and text/event-stream"));
+            return this.createJsonErrorResponse(406, -32e3, "Not Acceptable: Client must accept both application/json and text/event-stream");
+          }
+          const ct = req.headers.get("content-type");
+          if (!isJsonContentType(ct)) {
+            this.onerror?.(new Error("Unsupported Media Type: Content-Type must be application/json"));
+            return this.createJsonErrorResponse(415, -32e3, "Unsupported Media Type: Content-Type must be application/json");
+          }
+          const requestInfo = {
+            headers: Object.fromEntries(req.headers.entries()),
+            url: new URL(req.url)
+          };
+          let rawMessage;
+          if (options?.parsedBody !== void 0) {
+            rawMessage = options.parsedBody;
+          } else {
+            try {
+              const body2 = await readRequestBody(req, this._maxRequestBodySize);
+              if (body2.tooLarge) {
+                const message = requestBodyTooLargeMessage(this._maxRequestBodySize);
+                this.onerror?.(new Error(message));
+                return this.createJsonErrorResponse(413, -32e3, message);
+              }
+              rawMessage = JSON.parse(body2.text);
+            } catch {
+              this.onerror?.(new Error("Parse error: Invalid JSON"));
+              return this.createJsonErrorResponse(400, -32700, "Parse error: Invalid JSON");
+            }
+          }
+          if (Array.isArray(rawMessage) && rawMessage.length > MAX_BATCH_SIZE) {
+            this.onerror?.(new Error(`Invalid Request: Batch must not exceed ${MAX_BATCH_SIZE} messages`));
+            return this.createJsonErrorResponse(400, -32600, `Invalid Request: Batch must not exceed ${MAX_BATCH_SIZE} messages`);
+          }
+          let messages;
+          try {
+            if (Array.isArray(rawMessage)) {
+              messages = rawMessage.map((msg) => JSONRPCMessageSchema.parse(msg));
+            } else {
+              messages = [JSONRPCMessageSchema.parse(rawMessage)];
+            }
+          } catch {
+            this.onerror?.(new Error("Parse error: Invalid JSON-RPC message"));
+            return this.createJsonErrorResponse(400, -32700, "Parse error: Invalid JSON-RPC message");
+          }
+          if (this._closed) {
+            return this.createJsonErrorResponse(404, -32001, "Session not found");
+          }
+          const isInitializationRequest = messages.some(isInitializeRequest);
+          if (isInitializationRequest) {
+            if (this._initialized && this.sessionId !== void 0) {
+              this.onerror?.(new Error("Invalid Request: Server already initialized"));
+              return this.createJsonErrorResponse(400, -32600, "Invalid Request: Server already initialized");
+            }
+            if (messages.length > 1) {
+              this.onerror?.(new Error("Invalid Request: Only one initialization request is allowed"));
+              return this.createJsonErrorResponse(400, -32600, "Invalid Request: Only one initialization request is allowed");
+            }
+            this.sessionId = this.sessionIdGenerator?.();
+            this._initialized = true;
+            if (this.sessionId && this._onsessioninitialized) {
+              await Promise.resolve(this._onsessioninitialized(this.sessionId));
+            }
+          }
+          if (!isInitializationRequest) {
+            const sessionError = this.validateSession(req);
+            if (sessionError) {
+              return sessionError;
+            }
+            const protocolError = this.validateProtocolVersion(req);
+            if (protocolError) {
+              return protocolError;
+            }
+          }
+          if (this._closed) {
+            return this.createJsonErrorResponse(404, -32001, "Session not found");
+          }
+          const hasRequests = messages.some(isJSONRPCRequest);
+          if (!hasRequests) {
+            for (const message of messages) {
+              this.onmessage?.(message, { authInfo: options?.authInfo, requestInfo });
+            }
+            return new Response(null, { status: 202 });
+          }
+          const streamId = crypto.randomUUID();
+          const initRequest = messages.find((m2) => isInitializeRequest(m2));
+          const clientProtocolVersion = initRequest ? initRequest.params.protocolVersion : req.headers.get("mcp-protocol-version") ?? DEFAULT_NEGOTIATED_PROTOCOL_VERSION;
+          if (this._enableJsonResponse) {
+            return new Promise((resolve) => {
+              this._streamMapping.set(streamId, {
+                resolveJson: resolve,
+                cleanup: () => {
+                  this._streamMapping.delete(streamId);
+                }
+              });
+              for (const message of messages) {
+                if (isJSONRPCRequest(message)) {
+                  this._requestToStreamMapping.set(message.id, streamId);
+                }
+              }
+              for (const message of messages) {
+                this.onmessage?.(message, { authInfo: options?.authInfo, requestInfo });
+              }
+            });
+          }
+          const encoder = new TextEncoder();
+          let streamController;
+          let keepAliveTimer = void 0;
+          const readable = new ReadableStream({
+            start: (controller) => {
+              streamController = controller;
+            },
+            cancel: () => {
+              if (keepAliveTimer !== void 0) {
+                clearInterval(keepAliveTimer);
+              }
+              if (this._streamMapping.get(streamId)?.controller === streamController) {
+                this._streamMapping.delete(streamId);
+              }
+            }
+          });
+          const headers = {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+            "X-Accel-Buffering": "no"
+          };
+          if (this.sessionId !== void 0) {
+            headers["mcp-session-id"] = this.sessionId;
+          }
+          for (const message of messages) {
+            if (isJSONRPCRequest(message)) {
+              this._streamMapping.set(streamId, {
+                controller: streamController,
+                encoder,
+                cleanup: () => {
+                  if (keepAliveTimer !== void 0) {
+                    clearInterval(keepAliveTimer);
+                  }
+                  this._streamMapping.delete(streamId);
+                  try {
+                    streamController.close();
+                  } catch {
+                  }
+                }
+              });
+              this._requestToStreamMapping.set(message.id, streamId);
+            }
+          }
+          try {
+            await this.writePrimingEvent(streamController, encoder, streamId, clientProtocolVersion);
+            for (const message of messages) {
+              let closeSSEStream;
+              let closeStandaloneSSEStream;
+              if (isJSONRPCRequest(message) && this._eventStore && clientProtocolVersion >= "2025-11-25") {
+                closeSSEStream = () => {
+                  this.closeSSEStream(message.id);
+                };
+                closeStandaloneSSEStream = () => {
+                  this.closeStandaloneSSEStream();
+                };
+              }
+              this.onmessage?.(message, { authInfo: options?.authInfo, requestInfo, closeSSEStream, closeStandaloneSSEStream });
+            }
+          } catch (error64) {
+            this._streamMapping.get(streamId)?.cleanup();
+            this._resumableStreams.delete(streamId);
+            for (const message of messages) {
+              if (isJSONRPCRequest(message)) {
+                this._requestToStreamMapping.delete(message.id);
+              }
+            }
+            throw error64;
+          }
+          if (this._streamMapping.get(streamId)?.controller === streamController) {
+            keepAliveTimer = this.startKeepAlive(streamController, encoder);
+          }
+          return new Response(readable, { status: 200, headers });
+        } catch (error64) {
+          this.onerror?.(error64);
+          return this.createJsonErrorResponse(400, -32700, "Parse error", { data: String(error64) });
+        }
+      }
+      /**
+       * Handles DELETE requests to terminate sessions
+       */
+      async handleDeleteRequest(req) {
+        const sessionError = this.validateSession(req);
+        if (sessionError) {
+          return sessionError;
+        }
+        const protocolError = this.validateProtocolVersion(req);
+        if (protocolError) {
+          return protocolError;
+        }
+        try {
+          await Promise.resolve(this._onsessionclosed?.(this.sessionId));
+          return new Response(null, { status: 200 });
+        } finally {
+          await this.close();
+        }
+      }
+      /**
+       * Validates session ID for non-initialization requests.
+       * Returns Response error if invalid, undefined otherwise
+       */
+      validateSession(req) {
+        if (this.sessionIdGenerator === void 0) {
+          return void 0;
+        }
+        if (!this._initialized) {
+          this.onerror?.(new Error("Bad Request: Server not initialized"));
+          return this.createJsonErrorResponse(400, -32e3, "Bad Request: Server not initialized");
+        }
+        const sessionId = req.headers.get("mcp-session-id");
+        if (!sessionId) {
+          this.onerror?.(new Error("Bad Request: Mcp-Session-Id header is required"));
+          return this.createJsonErrorResponse(400, -32e3, "Bad Request: Mcp-Session-Id header is required");
+        }
+        if (sessionId !== this.sessionId) {
+          this.onerror?.(new Error("Session not found"));
+          return this.createJsonErrorResponse(404, -32001, "Session not found");
+        }
+        return void 0;
+      }
+      /**
+       * Validates the MCP-Protocol-Version header on incoming requests.
+       *
+       * For initialization: Version negotiation handles unknown versions gracefully
+       * (server responds with its supported version).
+       *
+       * For subsequent requests with MCP-Protocol-Version header:
+       * - Accept if in supported list
+       * - 400 if unsupported
+       *
+       * For HTTP requests without the MCP-Protocol-Version header:
+       * - Accept and default to the version negotiated at initialization
+       */
+      validateProtocolVersion(req) {
+        const protocolVersion = req.headers.get("mcp-protocol-version");
+        if (protocolVersion !== null && !SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion)) {
+          this.onerror?.(new Error(`Bad Request: Unsupported protocol version: ${protocolVersion} (supported versions: ${SUPPORTED_PROTOCOL_VERSIONS.join(", ")})`));
+          return this.createJsonErrorResponse(400, -32e3, `Bad Request: Unsupported protocol version: ${protocolVersion} (supported versions: ${SUPPORTED_PROTOCOL_VERSIONS.join(", ")})`);
+        }
+        return void 0;
+      }
+      async close() {
+        if (this._closed) {
+          return;
+        }
+        this._closed = true;
+        this._streamMapping.forEach(({ cleanup }) => {
+          cleanup();
+        });
+        this._streamMapping.clear();
+        this._requestResponseMap.clear();
+        this._resumableStreams.clear();
+        this.onclose?.();
+      }
+      /**
+       * Close an SSE stream for a specific request, triggering client reconnection.
+       * Use this to implement polling behavior during long-running operations -
+       * client will reconnect after the retry interval specified in the priming event.
+       */
+      closeSSEStream(requestId) {
+        const streamId = this._requestToStreamMapping.get(requestId);
+        if (!streamId)
+          return;
+        const stream = this._streamMapping.get(streamId);
+        if (stream) {
+          stream.cleanup();
+        }
+      }
+      /**
+       * Close the standalone GET SSE stream, triggering client reconnection.
+       * Use this to implement polling behavior for server-initiated notifications.
+       */
+      closeStandaloneSSEStream() {
+        const stream = this._streamMapping.get(this._standaloneSseStreamId);
+        if (stream) {
+          stream.cleanup();
+        }
+      }
+      async send(message, options) {
+        let requestId = options?.relatedRequestId;
+        if (isJSONRPCResultResponse(message) || isJSONRPCErrorResponse(message)) {
+          requestId = message.id;
+        }
+        if (requestId === void 0) {
+          if (isJSONRPCResultResponse(message) || isJSONRPCErrorResponse(message)) {
+            throw new Error("Cannot send a response on a standalone SSE stream unless resuming a previous client request");
+          }
+          let eventId;
+          if (this._eventStore) {
+            eventId = await this._eventStore.storeEvent(this._standaloneSseStreamId, message);
+          }
+          const standaloneSse = this._streamMapping.get(this._standaloneSseStreamId);
+          if (standaloneSse === void 0) {
+            return;
+          }
+          if (standaloneSse.controller && standaloneSse.encoder && (eventId === void 0 || !standaloneSse.replayedEventIds?.has(eventId))) {
+            this.writeSSEEvent(standaloneSse.controller, standaloneSse.encoder, message, eventId);
+          }
+          return;
+        }
+        const streamId = this._requestToStreamMapping.get(requestId);
+        if (!streamId) {
+          throw new Error(`No connection established for request ID: ${String(requestId)}`);
+        }
+        let stream = this._streamMapping.get(streamId);
+        if (!this._enableJsonResponse) {
+          let eventId;
+          if (this._eventStore) {
+            eventId = await this._eventStore.storeEvent(streamId, message);
+            stream = this._streamMapping.get(streamId);
+          }
+          if (stream?.controller && stream?.encoder && (eventId === void 0 || !stream.replayedEventIds?.has(eventId))) {
+            const written = this.writeSSEEvent(stream.controller, stream.encoder, message, eventId);
+            if (written && eventId !== void 0) {
+              this._resumableStreams.add(streamId);
+            }
+          }
+        }
+        if (isJSONRPCResultResponse(message) || isJSONRPCErrorResponse(message)) {
+          this._requestResponseMap.set(requestId, message);
+          const relatedIds = Array.from(this._requestToStreamMapping.entries()).filter(([_2, sid]) => sid === streamId).map(([id]) => id);
+          const allResponsesReady = relatedIds.every((id) => this._requestResponseMap.has(id));
+          if (allResponsesReady) {
+            if (!stream) {
+              if (this._closed) {
+                for (const id of relatedIds) {
+                  this._requestResponseMap.delete(id);
+                  this._requestToStreamMapping.delete(id);
+                }
+                return;
+              }
+              if (!this._enableJsonResponse && this._eventStore && this._resumableStreams.has(streamId)) {
+                for (const id of relatedIds) {
+                  this._requestResponseMap.delete(id);
+                  this._requestToStreamMapping.delete(id);
+                }
+                this._resumableStreams.delete(streamId);
+                return;
+              }
+              for (const id of relatedIds) {
+                this._requestResponseMap.delete(id);
+                this._requestToStreamMapping.delete(id);
+              }
+              throw new Error(`No connection established for request ID: ${String(requestId)}`);
+            }
+            if (this._enableJsonResponse && stream.resolveJson) {
+              const headers = {
+                "Content-Type": "application/json"
+              };
+              if (this.sessionId !== void 0) {
+                headers["mcp-session-id"] = this.sessionId;
+              }
+              const responses = relatedIds.map((id) => this._requestResponseMap.get(id));
+              if (responses.length === 1) {
+                stream.resolveJson(new Response(JSON.stringify(responses[0]), { status: 200, headers }));
+              } else {
+                stream.resolveJson(new Response(JSON.stringify(responses), { status: 200, headers }));
+              }
+            } else {
+              stream.cleanup();
+            }
+            for (const id of relatedIds) {
+              this._requestResponseMap.delete(id);
+              this._requestToStreamMapping.delete(id);
+            }
+            this._resumableStreams.delete(streamId);
+          }
+        }
+      }
+    };
+  }
+});
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/streamableHttp.js
+var streamableHttp_exports = {};
+__export(streamableHttp_exports, {
+  StreamableHTTPServerTransport: () => StreamableHTTPServerTransport
+});
+var StreamableHTTPServerTransport;
+var init_streamableHttp = __esm({
+  "node_modules/@modelcontextprotocol/sdk/dist/esm/server/streamableHttp.js"() {
+    init_dist8();
+    init_webStandardStreamableHttp();
+    StreamableHTTPServerTransport = class {
+      constructor(options = {}) {
+        this._requestContext = /* @__PURE__ */ new WeakMap();
+        this._webStandardTransport = new WebStandardStreamableHTTPServerTransport(options);
+        this._requestListener = getRequestListener(async (webRequest) => {
+          const context = this._requestContext.get(webRequest);
+          return this._webStandardTransport.handleRequest(webRequest, {
+            authInfo: context?.authInfo,
+            parsedBody: context?.parsedBody
+          });
+        }, { overrideGlobalObjects: false });
+      }
+      /**
+       * Gets the session ID for this transport instance.
+       */
+      get sessionId() {
+        return this._webStandardTransport.sessionId;
+      }
+      /**
+       * Sets callback for when the transport is closed.
+       */
+      set onclose(handler) {
+        this._webStandardTransport.onclose = handler;
+      }
+      get onclose() {
+        return this._webStandardTransport.onclose;
+      }
+      /**
+       * Sets callback for transport errors.
+       */
+      set onerror(handler) {
+        this._webStandardTransport.onerror = handler;
+      }
+      get onerror() {
+        return this._webStandardTransport.onerror;
+      }
+      /**
+       * Sets callback for incoming messages.
+       */
+      set onmessage(handler) {
+        this._webStandardTransport.onmessage = handler;
+      }
+      get onmessage() {
+        return this._webStandardTransport.onmessage;
+      }
+      /**
+       * Starts the transport. This is required by the Transport interface but is a no-op
+       * for the Streamable HTTP transport as connections are managed per-request.
+       */
+      async start() {
+        return this._webStandardTransport.start();
+      }
+      /**
+       * Closes the transport and all active connections.
+       */
+      async close() {
+        return this._webStandardTransport.close();
+      }
+      /**
+       * Sends a JSON-RPC message through the transport.
+       */
+      async send(message, options) {
+        return this._webStandardTransport.send(message, options);
+      }
+      /**
+       * Handles an incoming HTTP request, whether GET or POST.
+       *
+       * This method converts Node.js HTTP objects to Web Standard Request/Response
+       * and delegates to the underlying WebStandardStreamableHTTPServerTransport.
+       *
+       * @param req - Node.js IncomingMessage, optionally with auth property from middleware
+       * @param res - Node.js ServerResponse
+       * @param parsedBody - Optional pre-parsed body from body-parser middleware
+       */
+      async handleRequest(req, res, parsedBody) {
+        const authInfo = req.auth;
+        const handler = getRequestListener(async (webRequest) => {
+          return this._webStandardTransport.handleRequest(webRequest, {
+            authInfo,
+            parsedBody
+          });
+        }, { overrideGlobalObjects: false });
+        await handler(req, res);
+      }
+      /**
+       * Close an SSE stream for a specific request, triggering client reconnection.
+       * Use this to implement polling behavior during long-running operations -
+       * client will reconnect after the retry interval specified in the priming event.
+       */
+      closeSSEStream(requestId) {
+        this._webStandardTransport.closeSSEStream(requestId);
+      }
+      /**
+       * Close the standalone GET SSE stream, triggering client reconnection.
+       * Use this to implement polling behavior for server-initiated notifications.
+       */
+      closeStandaloneSSEStream() {
+        this._webStandardTransport.closeStandaloneSSEStream();
+      }
+    };
+  }
+});
+
 // src/mcp.ts
 var mcp_exports = {};
 __export(mcp_exports, {
-  createServer: () => createServer,
-  runMcp: () => runMcp
+  createServer: () => createServer2,
+  runMcp: () => runMcp,
+  runMcpHttp: () => runMcpHttp
 });
+import fs6 from "node:fs";
 import path4 from "node:path";
-function createServer(project2) {
-  const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" });
+function guideText() {
+  for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
+    const u2 = new URL(rel, import.meta.url);
+    if (fs6.existsSync(u2)) return fs6.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
+  }
+  return "guide not found";
+}
+function createServer2(project2) {
+  const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   const daemon = () => ensureDaemon(project2);
   const guard = (fn) => async (a) => {
     try {
@@ -54316,22 +56773,127 @@ function createServer(project2) {
       inputSchema: {}
     },
     guard(async () => {
-      const r = await checkProject(project2);
-      if (!r.length) return text(`No flows yet. Create ${path4.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
-      const bad = r.some((x) => x.problems.some((p) => p.severity === "error"));
+      const r2 = await checkProject(project2);
+      if (!r2.length) return text(`No flows yet. Create ${path4.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
+      const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
         const info = await daemon();
-        const d = await api(info, "/api/reload", {});
+        const d2 = await api(info, "/api/reload", {});
         const st = await api(info, "/api/state");
         reload = `
 
-live: ${st.flows.map((f) => f.id).join(", ")}${d.deployed.length ? ` (new version: ${d.deployed.join(", ")})` : ""}
+live: ${st.flows.map((f2) => f2.id).join(", ")}${d2.deployed.length ? ` (new version: ${d2.deployed.join(", ")})` : ""}
 BPMN: .agent-graph/compiled/<flow>.bpmn \u2014 explorer ${info.url}`;
       }
-      return text(formatProblems(r) + reload, bad);
+      return text(formatProblems(r2) + reload, bad);
     })
   );
+  server.registerTool(
+    "flow_guide",
+    {
+      title: "How to write flows",
+      description: "The flow authoring guide: defineFlow steps, forms, agent tasks, examples. Read it before writing or changing a flow.",
+      inputSchema: {}
+    },
+    guard(async () => text(`Project folder: ${project2}
+
+${guideText()}`))
+  );
+  server.registerTool(
+    "flow_write",
+    {
+      title: "Write a flow",
+      description: "Create or replace flows/<name>.flow.ts (TypeScript, see flow_guide) and any prompt files for its agent steps (flows/prompts/<file>), then compile + lint it. If it passes it is deployed at once. Fix every reported error and write again.",
+      inputSchema: {
+        name: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('File name without extension, e.g. "release-notes"'),
+        source: external_exports.string().describe("The full TypeScript source of the flow file"),
+        prompts: external_exports.record(external_exports.string().regex(/^[\w.-]+$/), external_exports.string()).optional().describe('Prompt files for agent steps: { "summarize.md": "\u2026" }')
+      }
+    },
+    guard(async ({ name: name2, source, prompts }) => {
+      const dir = flowsDir(project2);
+      fs6.mkdirSync(path4.join(dir, "prompts"), { recursive: true });
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs6.writeFileSync(path4.join(dir, "prompts", f2), body2);
+      const file2 = path4.join(dir, `${name2}.flow.ts`);
+      fs6.writeFileSync(file2, source);
+      const r2 = await checkFile(file2);
+      const bad = r2.problems.some((p2) => p2.severity === "error");
+      let tail = "";
+      if (!bad) {
+        const info = await daemon();
+        await api(info, "/api/reload", {});
+        tail = `
+
+Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
+      }
+      return text(`${formatProblems([r2])}
+written ${path4.relative(project2, file2)}${tail}`, bad);
+    })
+  );
+  server.registerTool(
+    "flow_read",
+    {
+      title: "Read flow files",
+      description: "List the flow files, or return the source of one (by file name without .flow.ts) and its prompt files.",
+      inputSchema: { name: external_exports.string().optional() }
+    },
+    guard(async ({ name: name2 }) => {
+      const files = listFlowFiles(project2);
+      if (!name2) return text(files.length ? files.map((f3) => path4.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
+      const f2 = files.find((x) => path4.basename(x).replace(/\.flow\.\w+$/, "") === name2);
+      if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
+      const pdir = path4.join(flowsDir(project2), "prompts");
+      const prompts = fs6.existsSync(pdir) ? fs6.readdirSync(pdir).map((p2) => `--- prompts/${p2}
+${fs6.readFileSync(path4.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path4.basename(f2)}`, fs6.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+    })
+  );
+  K3(
+    server,
+    "show_explorer",
+    {
+      title: "Show the flow explorer",
+      description: "Show the user the live flow explorer: diagrams with where each run is, the task inbox with forms they can fill in, incidents, variables. Optionally focus a flow, an instance or a user task.",
+      inputSchema: {
+        flowId: external_exports.string().optional(),
+        instanceKey: external_exports.string().optional(),
+        taskKey: external_exports.string().optional()
+      },
+      _meta: { ui: { resourceUri: UI_URI } }
+    },
+    guard(async ({ flowId, instanceKey, taskKey }) => {
+      const info = await daemon();
+      const hash2 = taskKey ? `task=${taskKey}` : instanceKey ? `instance=${instanceKey}` : flowId ? `flow=${flowId}` : "";
+      const r2 = text(`${summarize(await api(info, "/api/state"))}
+
+Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${info.url}/${hash2 ? `#${hash2}` : ""}`);
+      r2.structuredContent = { hash: hash2, url: info.url };
+      return r2;
+    })
+  );
+  K3(
+    server,
+    "ui_api",
+    {
+      title: "Explorer API proxy",
+      description: "Used by the explorer view to reach the engine.",
+      inputSchema: { path: external_exports.string(), body: external_exports.any().optional() },
+      _meta: { ui: { resourceUri: UI_URI, visibility: ["app"] } }
+    },
+    async ({ path: p2, body: body2 }) => {
+      try {
+        if (!/^\/api\/[\w/.-]*$/.test(p2) || p2 === "/api/shutdown") throw new Error("not allowed");
+        const data = await api(await daemon(), p2, body2);
+        return { content: [{ type: "text", text: "ok" }], structuredContent: { data } };
+      } catch (e) {
+        return { content: [{ type: "text", text: String(e?.message ?? e) }], structuredContent: { error: String(e?.message ?? e) }, isError: true };
+      }
+    }
+  );
+  N3(server, "Agent Graph explorer", UI_URI, { mimeType: p }, async () => ({
+    contents: [{ uri: UI_URI, mimeType: p, text: appHtml(), _meta: { ui: { prefersBorder: true } } }]
+  }));
   server.registerTool(
     "flow_status",
     {
@@ -54341,7 +56903,7 @@ BPMN: .agent-graph/compiled/<flow>.bpmn \u2014 explorer ${info.url}`;
     },
     guard(async ({ instanceKey }) => {
       const info = await daemon();
-      if (instanceKey) return json2(await api(info, `/api/instances/${instanceKey}`));
+      if (instanceKey) return json3(await api(info, `/api/instances/${instanceKey}`));
       return text(`${summarize(await api(info, "/api/state"))}
 
 explorer: ${info.url}`);
@@ -54360,8 +56922,8 @@ explorer: ${info.url}`);
     },
     guard(async ({ flowId, variables, title }) => {
       const info = await daemon();
-      const r = await api(info, "/api/start", { flowId, variables: variables ?? {}, title });
-      return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${info.url}/#instance=${r.instanceKey}`);
+      const r2 = await api(info, "/api/start", { flowId, variables: variables ?? {}, title });
+      return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${info.url}/#instance=${r2.instanceKey}`);
     })
   );
   server.registerTool(
@@ -54374,7 +56936,7 @@ explorer: ${info.url}`);
     guard(async () => {
       const s = await api(await daemon(), "/api/state");
       if (!s.userTasks.length) return text("No user tasks waiting.");
-      return json2(s.userTasks.map((t) => ({ ...t, variables: void 0 })));
+      return json3(s.userTasks.map((t) => ({ ...t, variables: void 0 })));
     })
   );
   server.registerTool(
@@ -54387,7 +56949,7 @@ explorer: ${info.url}`);
     guard(async ({ taskKey }) => {
       const info = await daemon();
       const s = await api(info, "/api/state");
-      const t = s.userTasks.find((u) => u.key === taskKey);
+      const t = s.userTasks.find((u2) => u2.key === taskKey);
       if (!t) return text(`No open user task ${taskKey}`, true);
       const form = t.form ?? { title: `${t.flowId}: ${t.elementId}`, fields: { response: { type: "string", title: "Your answer" } }, required: ["response"] };
       const message = [form.title, form.description].filter(Boolean).join("\n\n") + (t.title ? `
@@ -54405,14 +56967,14 @@ Required: ${form.required.join(", ")}` : ""}
 Or answer in the explorer: ${info.url}/#task=${taskKey}`
         );
       }
-      const r = await server.server.elicitInput({
+      const r2 = await server.server.elicitInput({
         mode: "form",
         message,
         requestedSchema: { type: "object", properties: form.fields, required: form.required }
       });
-      if (r.action !== "accept") return text(`The user ${r.action === "decline" ? "declined" : "dismissed"} the form; task ${taskKey} is still open.`);
-      await api(info, `/api/user-tasks/${taskKey}/complete`, { variables: r.content ?? {} });
-      return text(`Task ${taskKey} completed with ${JSON.stringify(r.content)}. The flow continues.`);
+      if (r2.action !== "accept") return text(`The user ${r2.action === "decline" ? "declined" : "dismissed"} the form; task ${taskKey} is still open.`);
+      await api(info, `/api/user-tasks/${taskKey}/complete`, { variables: r2.content ?? {} });
+      return text(`Task ${taskKey} completed with ${JSON.stringify(r2.content)}. The flow continues.`);
     })
   );
   server.registerTool(
@@ -54431,13 +56993,13 @@ Or answer in the explorer: ${info.url}/#task=${taskKey}`
     "session_job_next",
     {
       title: "Take a job meant for this session",
-      description: `Claim the next job a flow assigned to the live Claude Code session (steps declared w.task(name, { jobType: "session" })). Returns the job's prompt and variables; do the work, then call session_job_complete with the result variables (or session_job_fail).`,
-      inputSchema: { jobType: external_exports.string().optional().describe('Default "session"') }
+      description: `Claim the next agent step a flow assigned to you, the live assistant: w.task steps with jobType "session", and jobType "claude" steps when no Claude Code CLI is installed. Returns the step's prompt, variables and (if any) outputSchema; do the work, then call session_job_complete with the result as variables (matching outputSchema), or session_job_fail.`,
+      inputSchema: { jobType: external_exports.string().optional().describe("Default: every job type meant for you") }
     },
     guard(async ({ jobType: jobType2 }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2 ?? "session", max: 1 });
+      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2, max: 1 });
       if (!jobs.length) return text("No session jobs waiting.");
-      return json2(jobs[0]);
+      return json3(jobs[0]);
     })
   );
   server.registerTool(
@@ -54498,21 +57060,50 @@ Or answer in the explorer: ${info.url}/#task=${taskKey}`
   return server;
 }
 async function runMcp(project2) {
-  const server = createServer(project2);
+  const server = createServer2(project2);
   await server.connect(new StdioServerTransport());
 }
-var text, json2;
+async function runMcpHttp(project2, port) {
+  const http2 = await import("node:http");
+  const { StreamableHTTPServerTransport: StreamableHTTPServerTransport2 } = await Promise.resolve().then(() => (init_streamableHttp(), streamableHttp_exports));
+  http2.createServer(async (req, res) => {
+    res.setHeader("access-control-allow-origin", "*");
+    res.setHeader("access-control-allow-headers", "*");
+    res.setHeader("access-control-allow-methods", "GET,POST,DELETE,OPTIONS");
+    res.setHeader("access-control-expose-headers", "mcp-session-id");
+    if (req.method === "OPTIONS") return res.end();
+    if (!req.url?.startsWith("/mcp")) return res.writeHead(404).end();
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const body2 = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : void 0;
+    const server = createServer2(project2);
+    const transport = new StreamableHTTPServerTransport2({ sessionIdGenerator: void 0, enableJsonResponse: true });
+    res.on("close", () => {
+      transport.close();
+      server.close();
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, body2);
+  }).listen(port, "127.0.0.1", () => console.error(`agent-graph MCP on http://127.0.0.1:${port}/mcp`));
+}
+var text, json3, UI_URI, INSTRUCTIONS;
 var init_mcp2 = __esm({
   "src/mcp.ts"() {
     "use strict";
     init_mcp();
+    init_server3();
     init_stdio2();
     init_zod();
     init_compile2();
+    init_explorer_html();
     init_paths();
     init_summary();
     text = (t, isError = false) => ({ content: [{ type: "text", text: t }], ...isError ? { isError } : {} });
-    json2 = (v) => text(JSON.stringify(v, null, 2));
+    json3 = (v2) => text(JSON.stringify(v2, null, 2));
+    UI_URI = "ui://agent-graph/explorer.html";
+    INSTRUCTIONS = `Agent Graph Engine: durable workflows ("flows") that orchestrate scripts, AI agent steps, the user (forms) and timers; they run in a local background engine and survive restarts.
+Before writing or changing a flow, call flow_guide once. Write flows with flow_write, then fix every problem it reports. Start with flow_start and show progress with show_explorer.
+When a flow waits for the user (task_list), use task_ask or show_explorer \u2014 never answer a user task yourself. When session_job_next has work (agent steps assigned to you), do it and hand back the result with session_job_complete.`;
   }
 });
 
@@ -54521,7 +57112,7 @@ var hooks_exports = {};
 __export(hooks_exports, {
   runHook: () => runHook
 });
-import fs6 from "node:fs";
+import fs7 from "node:fs";
 import path5 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
@@ -54540,20 +57131,20 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   if (!info) return;
   const s = await api(info, "/api/state");
   const tasks = s.userTasks;
-  const sessionJobs = s.sessionJobs.filter((j) => j.state === "Created");
+  const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created");
   const incidents = s.incidents;
-  const keys = [...tasks.map((t) => `t${t.key}`), ...sessionJobs.map((j) => `j${j.key}`), ...incidents.map((i) => `i${i.key}`)].sort();
+  const keys = [...tasks.map((t) => `t${t.key}`), ...sessionJobs.map((j2) => `j${j2.key}`), ...incidents.map((i) => `i${i.key}`)].sort();
   if (!keys.length) return;
   const seenFile = path5.join(stateDir(project2), "hook-seen.json");
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
-      seen = JSON.parse(fs6.readFileSync(seenFile, "utf8"));
+      seen = JSON.parse(fs7.readFileSync(seenFile, "utf8"));
     } catch {
     }
-    if (keys.every((k) => seen.includes(k))) return;
+    if (keys.every((k2) => seen.includes(k2))) return;
   }
-  fs6.writeFileSync(seenFile, JSON.stringify(keys));
+  fs7.writeFileSync(seenFile, JSON.stringify(keys));
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""}`);
@@ -54587,16 +57178,16 @@ var HELP = `age \u2014 Agent Graph Engine
   age complete <task> [json]    complete a user task
   age open                      print the explorer URL
   age daemon                    run the daemon in the foreground
-  age mcp                       run the MCP server (stdio)
+  age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
 
   Options: --project <dir> (default: nearest dir with flows/ or .agent-graph/)`;
 function arg(name2) {
   const i = process.argv.indexOf(name2);
   if (i < 0) return void 0;
-  const v = process.argv[i + 1];
+  const v2 = process.argv[i + 1];
   process.argv.splice(i, 2);
-  return v;
+  return v2;
 }
 var projectOpt = arg("--project");
 var project = projectOpt ? path6.resolve(projectOpt) : resolveProject();
@@ -54612,10 +57203,10 @@ function parseVars(s) {
 async function main() {
   switch (cmd) {
     case "check": {
-      const r = await checkProject(project);
-      if (!r.length) console.log(`no flows in ${path6.join(project, "flows")}`);
-      else console.log(formatProblems(r));
-      process.exitCode = r.some((x) => x.problems.some((p) => p.severity === "error")) ? 1 : 0;
+      const r2 = await checkProject(project);
+      if (!r2.length) console.log(`no flows in ${path6.join(project, "flows")}`);
+      else console.log(formatProblems(r2));
+      process.exitCode = r2.some((x) => x.problems.some((p2) => p2.severity === "error")) ? 1 : 0;
       return;
     }
     case "daemon": {
@@ -54643,8 +57234,8 @@ async function main() {
     }
     case "start": {
       const info = await ensureDaemon(project);
-      const r = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]) });
-      console.log(`started instance ${r.instanceKey} \u2014 ${info.url}/#instance=${r.instanceKey}`);
+      const r2 = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]) });
+      console.log(`started instance ${r2.instanceKey} \u2014 ${info.url}/#instance=${r2.instanceKey}`);
       return;
     }
     case "tasks": {
@@ -54660,8 +57251,10 @@ async function main() {
       return;
     }
     case "mcp": {
-      const { runMcp: runMcp2 } = await Promise.resolve().then(() => (init_mcp2(), mcp_exports));
-      await runMcp2(project);
+      const { runMcp: runMcp2, runMcpHttp: runMcpHttp2 } = await Promise.resolve().then(() => (init_mcp2(), mcp_exports));
+      const i = process.argv.indexOf("--http");
+      if (i > 0) await runMcpHttp2(project, Number(process.argv[i + 1] ?? 3001));
+      else await runMcp2(project);
       return;
     }
     case "hook": {
@@ -54677,3 +57270,12 @@ main().catch((e) => {
   console.error(String(e?.message ?? e));
   process.exit(1);
 });
+/*! Bundled license information:
+
+content-type/index.js:
+  (*!
+   * content-type
+   * Copyright(c) 2015 Douglas Christopher Wilson
+   * MIT Licensed
+   *)
+*/

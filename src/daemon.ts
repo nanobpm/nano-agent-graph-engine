@@ -35,6 +35,9 @@ export class Host {
   activity: Activity[] = [];
   instanceMeta: Record<string, { flowId: string; startedAt: string; title?: string }> = {};
   deployed: Record<string, string> = {};
+  /** Who runs `jobType: "claude"` agent tasks: a headless `claude -p` ("cli"), or the
+   *  chat/session agent through session_job_next ("session"). */
+  agentMode: "cli" | "session" = agentMode();
   private dirty = false;
   private timer?: NodeJS.Timeout;
 
@@ -97,7 +100,7 @@ export class Host {
   /** Jobs a previous daemon had activated but never finished: hand them back out. */
   private releaseOrphanedJobs() {
     for (const j of this.snapshot().jobs ?? []) {
-      if (j.state === "Activated" && j.jobType !== "session") {
+      if (j.state === "Activated" && j.jobType !== "session" && !(this.agentMode === "session" && j.jobType === "claude")) {
         try {
           this.engine.failJob(j.key, j.retries, "daemon restarted while the job ran; retrying");
           this.touch();
@@ -148,7 +151,7 @@ export class Host {
 
   /** Every job type this daemon serves itself. */
   private servedTypes(): string[] {
-    const types = new Set<string>(["claude"]);
+    const types = new Set<string>(this.agentMode === "cli" ? ["claude"] : []);
     for (const f of this.flows.values()) for (const t of Object.keys(f.handlers)) types.add(t);
     return [...types];
   }
@@ -217,6 +220,18 @@ export class Host {
       this.log({ kind: "done", instanceKey: job.instanceKey, elementId: job.elementId, message: `completed ${job.elementId}`, costUsd });
     } catch (e: any) {
       const msg = String(e?.message ?? e).slice(0, 4000);
+      if (job.type === "claude" && process.env.AGE_AGENT_MODE !== "cli" && /401|authenticat|not logged in|ENOENT/i.test(msg)) {
+        // The Claude Code CLI can't run here (missing or logged out): hand agent steps to
+        // the chat/session assistant instead of burning retries.
+        this.agentMode = "session";
+        try {
+          this.engine.failJob(key, job.retries ?? 3, "handed to the session assistant");
+        } catch {
+          /* gone */
+        }
+        this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
+        return;
+      }
       const retries = Math.max(0, (job.retries ?? 1) - 1);
       try {
         this.engine.failJob(key, retries, msg);
@@ -313,7 +328,8 @@ export class Host {
       problems: this.problems,
       instances,
       userTasks: (snap.userTasks ?? []).filter((t: any) => t.state === "Created").map((t: any) => this.userTaskView(t, snap)),
-      sessionJobs: (snap.jobs ?? []).filter((j: any) => j.jobType === "session"),
+      agentMode: this.agentMode,
+      sessionJobs: (snap.jobs ?? []).filter((j: any) => j.jobType === "session" || (this.agentMode === "session" && j.jobType === "claude")),
       jobs: snap.jobs ?? [],
       running: [...this.running.entries()].map(([key, r]) => ({ key, ...r })),
       incidents: snap.incidents ?? [],
@@ -367,8 +383,13 @@ export class Host {
   }
 
   /** Claim jobs for the live Claude Code session (job type "session" or another the caller names). */
-  claimJobs(type = "session", max = 1) {
-    const jobs = JSON.parse(this.engine.activateJobs(type, max, 60 * 60_000, "claude-session"));
+  claimJobs(type?: string, max = 1) {
+    const types = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
+    const jobs: any[] = [];
+    for (const t of types) {
+      if (jobs.length >= max) break;
+      jobs.push(...JSON.parse(this.engine.activateJobs(t, max - jobs.length, 60 * 60_000, "claude-session")));
+    }
     this.touch();
     this.persist();
     return jobs.map((j: any) => {
@@ -382,6 +403,7 @@ export class Host {
         instanceKey: j.instanceKey,
         variables: j.variables,
         prompt: promptFile && fs.existsSync(promptFile) ? fs.readFileSync(promptFile, "utf8") : undefined,
+        outputSchema: flow?.agents[j.elementId]?.schema,
       };
     });
   }
@@ -431,6 +453,23 @@ export class Host {
     this.dirty = true;
     this.persist();
   }
+}
+
+/** AGE_AGENT_MODE=cli|session|auto (default auto: cli when a `claude` binary is found). */
+function agentMode(): "cli" | "session" {
+  const m = process.env.AGE_AGENT_MODE ?? "auto";
+  if (m === "cli" || m === "session") return m;
+  if (process.env.AGE_CLAUDE_CMD) return "cli";
+  const home = process.env.HOME ?? "";
+  const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, "/opt/homebrew/bin", "/usr/local/bin"];
+  for (const d of dirs) {
+    const f = path.join(d, "claude");
+    if (d && fs.existsSync(f)) {
+      process.env.AGE_CLAUDE_CMD = f; // Desktop starts us with a minimal PATH
+      return "cli";
+    }
+  }
+  return "session";
 }
 
 /** The event log stores variables as tagged engine values ({"Str": "x"}, "Null", …). */

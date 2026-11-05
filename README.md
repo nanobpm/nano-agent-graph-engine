@@ -26,6 +26,34 @@ Claude Code ──MCP (stdio)──▶ age mcp ──HTTP──▶────�
 browser ──────────────────────────────────────────▶┘  explorer: diagram, tokens, forms, incidents
 ```
 
+## Install in Claude Desktop (chat)
+
+No server to run and no workers to configure. Add one entry to
+`~/Library/Application Support/Claude/claude_desktop_config.json` and restart Desktop (⌘Q):
+
+```json
+"mcpServers": {
+  "agent-graph": {
+    "command": "/absolute/path/to/node",
+    "args": ["/path/to/agent-graph-engine/dist/cli.js", "mcp"]
+  }
+}
+```
+
+Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `nvm` installs aren't found otherwise.
+
+- **Where flows live.** Desktop starts servers in `/`, so flows go in `~/AgentGraph/flows/`. Override with `"env": {"AGE_PROJECT": "/some/dir"}`.
+- **Authoring.** Claude reads `flow_guide`, then writes flows with `flow_write`, which saves, compiles, lints and deploys in one step. Nothing is needed on your side.
+- **Agent steps** (`jobType: "claude"`) need no setup:
+  - If the Claude Code CLI is installed and logged in, they run headless in the background.
+  - Otherwise the Claude you are chatting with does them (`session_job_next`/`session_job_complete`). If the CLI fails to authenticate, the engine switches to this automatically.
+  - To force one mode: `AGE_AGENT_MODE=cli|session`.
+- **Seeing and answering.**
+  - `show_explorer` renders the explorer **inline in the chat** as an MCP App: diagram with live tokens, task inbox with forms, incidents.
+  - The view reaches the engine only through the server's app-only `ui_api` tool, so the iframe needs no network access.
+  - The same explorer is also at the daemon URL in a browser.
+- **Background.** The engine daemon keeps running after the chat is closed, so timers and CLI agent steps continue. In chat, nothing can wake Claude by itself: the explorer shows "agent step waiting — say *continue the flow*".
+
 ## Install (Claude Code plugin)
 
 ```sh
@@ -142,7 +170,10 @@ Without mods, nothing can *interrupt* an idle session. Waiting work is surfaced 
 ```sh
 npm install
 npm run build      # tsc + esbuild → dist/{cli.js,index.js,explorer.html,nanobpmn_engine_bg.wasm}
-npm test           # e2e: MCP client with elicitation → server → daemon, restart mid-flow, hooks, lint
+npm test           # e2e: MCP client with elicitation → server → daemon, restart mid-flow, hooks, lint,
+                   #      and a Desktop-like client (cwd /, no CLI, no elicitation) authoring + running via MCP only
+node dist/cli.js mcp --http 3001          # Streamable HTTP, for MCP Apps hosts / inspector
+PLAYWRIGHT_FROM=/tmp/bh node test/app-host-e2e.mjs http://localhost:8090   # explorer as MCP App in basic-host
 node test/explorer-e2e.mjs <daemon-url>   # Playwright screenshots (PLAYWRIGHT_FROM=<dir with playwright>)
 ```
 
@@ -156,4 +187,5 @@ with `module.registerHooks`, so the user's project needs no install.
 - One process: `run` handlers share the daemon. A blocking handler stalls ticks; use async APIs.
 - Headless agents never prompt for permissions: list the tools they need in `agents.<step>.allowedTools`. No cost caps yet beyond what you set in prompts. Spend is logged per job.
 - Not yet verified inside a real Claude Code session: the local OAuth token had expired (`claude -p` → 401). The plugin validates, and `claude mcp list` shows `agent-graph` ✔ Connected.
+- MCP Apps view verified in the ext-apps reference host (`test/app-host-e2e.mjs`). Claude Desktop's own rendering has not been verified yet.
 - Next: a mods pane/status line and `$.prompt.submit` for session jobs, plus MCP tasks for "start and wait".

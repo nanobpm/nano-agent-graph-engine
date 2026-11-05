@@ -1,11 +1,30 @@
 // Agent Graph Engine — web explorer. Served by the daemon at "/". Polls /api/state.
 import NavigatedViewer from "bpmn-js/lib/NavigatedViewer";
+import { App } from "@modelcontextprotocol/ext-apps";
+
+// Built twice: for the daemon's own page (fetch) and as an MCP App in Claude Desktop /
+// Claude Code, where the iframe reaches the engine through the server's ui_api tool.
+declare const __APP__: boolean;
+let app: App | undefined;
+let route = "";
+function go(hash: string) {
+  const h = hash.replace(/^#/, "");
+  if (__APP__) {
+    route = h;
+    onRoute();
+  } else location.hash = `#${h}`;
+}
 
 type State = any;
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 async function api(path: string, body?: unknown) {
+  if (__APP__) {
+    const r: any = await app!.callServerTool({ name: "ui_api", arguments: { path, ...(body === undefined ? {} : { body }) } });
+    if (r.isError || r.structuredContent?.error) throw new Error(r.structuredContent?.error ?? r.content?.[0]?.text ?? "error");
+    return r.structuredContent?.data;
+  }
   const r = await fetch(path, {
     method: body === undefined ? "GET" : "POST",
     headers: { "content-type": "application/json" },
@@ -25,7 +44,7 @@ let markers: { id: string; cls: string }[] = [];
 let overlayIds: string[] = [];
 
 function parseHash() {
-  const m = location.hash.match(/^#(flow|instance|task)=(.+)$/);
+  const m = (__APP__ ? `#${route}` : location.hash).match(/^#(flow|instance|task)=(.+)$/);
   sel = m ? { kind: m[1] as any, id: decodeURIComponent(m[2]) } : undefined;
 }
 
@@ -90,7 +109,11 @@ function renderSidebar() {
     )
     .join("");
   $("#side").innerHTML = `
-    <h2>Tasks <span class="count">${s.userTasks.length}</span></h2><ul>${tasks || '<li class="dim">nothing waiting</li>'}</ul>
+    <h2>Tasks <span class="count">${s.userTasks.length}</span></h2><ul>${tasks || '<li class="dim">nothing waiting</li>'}</ul>${
+      (s.sessionJobs ?? []).length
+        ? `<p class="hint">🤖 ${s.sessionJobs.length} agent step${s.sessionJobs.length > 1 ? "s" : ""} (${s.sessionJobs.map((j: any) => esc(j.elementId)).join(", ")}) waiting for Claude — say <b>“continue the flow”</b> in the chat.</p>`
+        : ""
+    }
     <h2>Flows</h2><ul>${flows || '<li class="dim">no flows — add flows/*.flow.ts</li>'}</ul>
     ${problems ? `<h2>Problems</h2><ul class="problems">${problems}</ul>` : ""}
     <h2>Instances</h2><ul>${inst || '<li class="dim">none yet</li>'}</ul>`;
@@ -134,7 +157,7 @@ async function submitTask(t: any) {
   for (const r of form.required ?? []) if (vars[r] === undefined || vars[r] === "") return toast(`${r} is required`, true);
   await api(`/api/user-tasks/${t.key}/complete`, { variables: vars });
   toast("Task completed");
-  location.hash = `#instance=${t.instanceKey}`;
+  go(`instance=${t.instanceKey}`);
 }
 
 function startHtml(f: any) {
@@ -154,7 +177,7 @@ async function renderMain() {
   const panel = $("#panel");
   if (!sel) {
     const first = s.userTasks[0] ? `task=${s.userTasks[0].key}` : s.flows[0] ? `flow=${s.flows[0].id}` : "";
-    if (first) location.hash = first;
+    if (first) go(first);
     else panel.innerHTML = `<p class="dim">Add a flow in <code>flows/&lt;name&gt;.flow.ts</code> — it deploys automatically.</p>`;
     return;
   }
@@ -173,7 +196,7 @@ async function renderMain() {
         try {
           const vars = JSON.parse(($("#st_vars") as HTMLTextAreaElement).value || "{}");
           const r = await api("/api/start", { flowId: f.id, variables: vars, title: ($("#st_title") as HTMLInputElement).value || undefined });
-          location.hash = `#instance=${r.instanceKey}`;
+          go(`instance=${r.instanceKey}`);
         } catch (err: any) {
           toast(err.message, true);
         }
@@ -246,11 +269,34 @@ async function refresh() {
   }
 }
 
-window.addEventListener("hashchange", () => {
+function onRoute() {
   parseHash();
   detailKey = "";
   refresh();
+}
+
+// In-page links (#flow=…, #instance=…, #task=…) route without relying on the
+// iframe's location.
+document.addEventListener("click", (e) => {
+  const a = (e.target as HTMLElement).closest?.("a[href^='#']") as HTMLAnchorElement | null;
+  if (!a) return;
+  e.preventDefault();
+  go(a.getAttribute("href")!);
 });
-parseHash();
-refresh();
-setInterval(refresh, 1500);
+
+if (__APP__) {
+  document.documentElement.classList.add("app");
+  app = new App({ name: "Agent Graph explorer", version: "0.1.0" }, {}, { autoResize: true });
+  app.ontoolresult = (r: any) => {
+    const h = r?.structuredContent?.hash;
+    if (typeof h === "string" && h) go(h);
+  };
+  app.connect().then(() => {
+    onRoute();
+    setInterval(refresh, 2500);
+  });
+} else {
+  window.addEventListener("hashchange", onRoute);
+  onRoute();
+  setInterval(refresh, 1500);
+}

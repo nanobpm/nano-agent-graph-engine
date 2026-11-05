@@ -145,3 +145,79 @@ export const bad = defineFlow("bad", (w) => {
     execFileSync(process.execPath, [cli, "down"], { env, cwd: project });
   }
 });
+
+test("Claude Desktop chat: no project, no claude CLI, author + run through MCP only", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "age-home-"));
+  const env = { PATH: "/usr/bin:/bin", HOME: home, AGE_AGENT_MODE: "session" } as Record<string, string>;
+  const client = new Client({ name: "desktop-like", version: "0" }, { capabilities: {} });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: "/" }));
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const r: any = await client.callTool({ name, arguments: args });
+    return { text: r.content.map((c: any) => c.text).join("\n"), isError: !!r.isError, sc: r.structuredContent };
+  };
+  try {
+    assert.match(client.getInstructions() ?? "", /flow_guide/);
+    const guide = await call("flow_guide");
+    assert.match(guide.text, new RegExp(`Project folder: ${path.join(home, "AgentGraph")}`));
+    assert.match(guide.text, /defineFlow/);
+
+    // a broken flow reports problems
+    const bad = await call("flow_write", { name: "bad", source: 'import { defineFlow } from "agent-graph-engine";\nexport const f = defineFlow("bad", (w) => { w.run("x"); });' });
+    assert.equal(bad.isError, true);
+    fs.rmSync(path.join(home, "AgentGraph/flows/bad.flow.ts"));
+
+    const source = `import { defineFlow, defineForms, defineAgents } from "agent-graph-engine";
+export const forms = defineForms({ ok: { title: "Approve {{topic}}?", description: "{{summary}}", fields: { approve: { type: "boolean" } }, required: ["approve"] } });
+export const agents = defineAgents({ summarize: { schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] } } });
+export const pitch = defineFlow("pitch", (w) => {
+  w.task("summarize", { jobType: "claude", prompt: { resourceId: "summarize.md" } });
+  w.human("approve", { form: "ok" });
+  w.run("record", async (job) => ({ recorded: job.variables.approve === true }));
+});`;
+    const wr = await call("flow_write", { name: "pitch", source, prompts: { "summarize.md": "Summarize the topic in one line." } });
+    assert.equal(wr.isError, false, wr.text);
+    assert.match(wr.text, /Deployed: pitch/);
+    assert.match((await call("flow_read", { name: "pitch" })).text, /Summarize the topic/);
+
+    const st = await call("flow_start", { flowId: "pitch", variables: { topic: "WASM" } });
+    const instanceKey = st.text.match(/instance (\d+)/)![1];
+
+    // the agent step comes to the chat assistant (no CLI)
+    const job = await until(async () => {
+      const t = (await call("session_job_next")).text;
+      return t.includes("summarize") ? t : undefined;
+    });
+    assert.match(job, /Summarize the topic/);
+    assert.match(job, /"summary"/); // outputSchema
+    const jobKey = job.match(/"key":\s*"(\d+)"/)![1];
+    assert.equal((await call("session_job_complete", { jobKey, variables: { summary: "fast engine" } })).isError, false);
+
+    // the explorer MCP App: tool result + resource + proxied API
+    const ex = await call("show_explorer", { instanceKey });
+    assert.equal(ex.sc.hash, `instance=${instanceKey}`);
+    const tools = await client.listTools();
+    const showTool: any = tools.tools.find((t) => t.name === "show_explorer");
+    const uri = showTool._meta.ui.resourceUri;
+    const res: any = await client.readResource({ uri });
+    assert.match(res.contents[0].mimeType, /mcp-app/);
+    assert.match(res.contents[0].text, /ui_api/);
+
+    const task = await until(async () => {
+      const r = await call("ui_api", { path: "/api/state" });
+      return r.sc.data.userTasks?.find((t: any) => t.instanceKey === instanceKey);
+    });
+    assert.equal(task.form.title, "Approve WASM?");
+    // the user answers in the view
+    await call("ui_api", { path: `/api/user-tasks/${task.key}/complete`, body: { variables: { approve: true } } });
+    assert.equal((await call("ui_api", { path: "/api/shutdown" })).isError, true);
+
+    const done = await until(async () => {
+      const r = await call("ui_api", { path: `/api/instances/${instanceKey}` });
+      return r.sc.data.state === "Completed" ? r.sc.data : undefined;
+    });
+    assert.equal(done.history.variables.recorded, true);
+  } finally {
+    await client.close();
+    execFileSync(process.execPath, [cli, "down"], { env: { ...env, AGE_PROJECT: path.join(home, "AgentGraph") } });
+  }
+});

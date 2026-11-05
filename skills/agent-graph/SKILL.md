@@ -14,7 +14,9 @@ this session ends. The daemon starts on demand and redeploys flows when files ch
 
 | Tool | Use |
 |---|---|
+| `flow_write` / `flow_read` | Write (or read) `flows/<name>.flow.ts` + prompt files and compile/lint it in one go — use these when you have no file access (Claude Desktop chat). |
 | `flow_check` | Compile + lint all flows. **Run after every edit**; fix every error. Deploys flows that pass. |
+| `show_explorer` | Show the live explorer inline (diagram with where runs are, task inbox with forms the user can fill in, incidents). |
 | `flow_start` | Start an instance (`flowId`, `variables`, optional `title`). |
 | `flow_status` | Overview, or one instance in detail (`instanceKey`). Gives the explorer URL. |
 | `task_list` / `task_ask` | Open user tasks. `task_ask` shows the form to the user in a dialog and completes the task with their answer. |
@@ -72,7 +74,7 @@ export const triage = defineFlow("triage", (w) => {
 ### Steps
 
 - `w.run(name, async (job) => vars)` — inline code. `job.variables` holds the instance variables. Throwing fails the job (3 tries with backoff, then an **incident**).
-- `w.task(name, { jobType: "claude", prompt: { resourceId } })` — headless Claude agent; prompt file in `flows/prompts/`. Options per step via `export const agents`. Headless runs never prompt: list the tools it needs in `allowedTools`. Ask for JSON (or give `schema`) so the answer becomes variables.
+- `w.task(name, { jobType: "claude", prompt: { resourceId } })` — an agent step; prompt file in `flows/prompts/`. Runs as headless `claude -p` when the Claude Code CLI is installed and logged in; otherwise (e.g. Claude Desktop chat) it is handed to you — pick it up with `session_job_next`, do it, return the result with `session_job_complete`. Options per step via `export const agents`. Headless runs never prompt: list the tools it needs in `allowedTools`. Ask for JSON (or give `schema`) so the answer becomes variables.
 - `w.task(name, { jobType: "session", agent: true })` — work for the live Claude Code session: you pick it up with `session_job_next`.
 - Inside `run` you can also call `await claude(prompt, opts)` directly.
 - `w.human(name, { form })` — user task; form from `export const forms` (fields: string/enum, boolean, number/integer).
@@ -91,8 +93,8 @@ daemon with the project as cwd. Put reusable logic in normal modules and import 
 
 1. Sketch the steps with the user (who decides where?).
 2. Write `flows/<name>.flow.ts` (+ prompts), run `flow_check` until clean.
-3. `flow_start`; share the explorer URL from the result.
-4. When a user task is waiting (the hook tells you), call `task_ask`.
+3. `flow_start`; then `show_explorer` (or share the explorer URL).
+4. When a user task is waiting (the hook or `flow_status` tells you), call `task_ask` or `show_explorer` with the task. When agent steps wait for you, do them via `session_job_next` — keep going until the flow waits on the user, a timer, or is done.
 5. On an incident: read it with `flow_status`, fix the cause (often the flow code — it reloads on save), then `flow_operate` `retry`.
 
 CLI equivalent: `node <plugin>/dist/cli.js check|up|status|start|tasks|complete|down`.

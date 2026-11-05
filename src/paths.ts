@@ -16,16 +16,24 @@ export function stateDir(project: string): string {
   return path.join(path.resolve(project), ".agent-graph");
 }
 
+/** Home for flows when there is no project (Claude Desktop chat starts servers in /). */
+export function defaultHome(): string {
+  return process.env.AGE_HOME ?? path.join(process.env.HOME ?? "/tmp", "AgentGraph");
+}
+
 /** The project a client acts on: AGE_PROJECT, else the nearest ancestor with flows/ or
- *  .agent-graph/, else cwd. */
+ *  .agent-graph/, else cwd — or ~/AgentGraph when cwd is / or the home dir itself. */
 export function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()): string {
   let dir = path.resolve(start);
   for (;;) {
     if (fs.existsSync(path.join(dir, "flows")) || fs.existsSync(path.join(dir, ".agent-graph"))) return dir;
     const up = path.dirname(dir);
-    if (up === dir) return path.resolve(start);
+    if (up === dir) break;
     dir = up;
   }
+  const s = path.resolve(start);
+  if (s === "/" || s === path.resolve(process.env.HOME ?? "/")) return defaultHome();
+  return s;
 }
 
 function alive(pid: number): boolean {
