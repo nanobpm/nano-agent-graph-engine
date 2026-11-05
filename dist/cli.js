@@ -36217,6 +36217,7 @@ function defaultHome() {
   return process.env.AGE_HOME ?? path2.join(process.env.HOME ?? "/tmp", "AgentGraph");
 }
 function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()) {
+  if (process.env.AGE_PROJECT && start === process.env.AGE_PROJECT) return path2.resolve(start);
   let dir = path2.resolve(start);
   for (; ; ) {
     if (fs3.existsSync(path2.join(dir, "flows")) || fs3.existsSync(path2.join(dir, ".agent-graph"))) return dir;
@@ -36705,7 +36706,7 @@ var init_daemon = __esm({
           const retries = Math.max(0, (job.retries ?? 1) - 1);
           try {
             this.engine.failJob(key, retries, msg);
-            if (retries > 0) this.backoff.set(key, Date.now() + 5e3 * 2 ** (3 - Math.min(3, retries)));
+            if (retries > 0) this.backoff.set(key, Date.now() + Number(process.env.AGE_BACKOFF_MS ?? 5e3) * 2 ** (3 - Math.min(3, retries)));
           } catch {
           }
           this.log({
@@ -36889,8 +36890,12 @@ ${vars.appendPrompt}
         const snap = this.snapshot();
         const inc = (snap.incidents ?? []).find((i) => i.key === key);
         if (!inc) throw new Error(`no incident ${key}`);
-        const job = (snap.jobs ?? []).find((j2) => j2.instanceKey === inc.instanceKey && j2.elementId === inc.elementId);
-        if (job) this.engine.updateRetries(job.key, retries);
+        const raised = JSON.parse(this.engine.events()).findLast((e) => e.type === "IncidentRaised" && String(e.incident_key) === String(key));
+        const jobKey = raised?.job_key ?? (snap.jobs ?? []).find((j2) => j2.instanceKey === inc.instanceKey && j2.elementId === inc.elementId)?.key;
+        if (jobKey != null) {
+          this.engine.updateRetries(String(jobKey), retries);
+          this.backoff.delete(String(jobKey));
+        }
         this.engine.resolveIncident(key);
         this.log({ kind: "resolve", instanceKey: inc.instanceKey, elementId: inc.elementId, message: `incident at ${inc.elementId} resolved \u2014 retrying` });
         this.persist();

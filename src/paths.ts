@@ -24,6 +24,7 @@ export function defaultHome(): string {
 /** The project a client acts on: AGE_PROJECT, else the nearest ancestor with flows/ or
  *  .agent-graph/, else cwd — or ~/AgentGraph when cwd is / or the home dir itself. */
 export function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()): string {
+  if (process.env.AGE_PROJECT && start === process.env.AGE_PROJECT) return path.resolve(start); // explicit wins
   let dir = path.resolve(start);
   for (;;) {
     if (fs.existsSync(path.join(dir, "flows")) || fs.existsSync(path.join(dir, ".agent-graph"))) return dir;

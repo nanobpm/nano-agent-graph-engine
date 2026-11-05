@@ -96,6 +96,7 @@ daemon with the project as cwd. Put reusable logic in normal modules and import 
 2. Write `flows/<name>.flow.ts` (+ prompts), run `flow_check` until clean.
 3. `flow_start`; then `show_explorer` (or share the explorer URL).
 4. When a user task is waiting (the hook or `flow_status` tells you), call `task_ask` or `show_explorer` with the task. When agent steps wait for you, do them via `session_job_next` — keep going until the flow waits on the user, a timer, or is done.
-5. On an incident: read it with `flow_status`, fix the cause (often the flow code — it reloads on save), then `flow_operate` `retry`.
+5. Fixing a flow that doesn't work: read it (`flow_read` or the file), change it, write it back (`flow_write` or edit + `flow_check`). Code changes (`run` handlers, prompts) apply to runs already in progress — then `flow_operate` `retry` the incident and the *same* run continues. Changes to the steps themselves (adding/removing/reordering) deploy a new version: running instances keep the old shape, so cancel and start a new run.
+6. On an incident: read it with `flow_status`, fix the cause (often the flow code — it reloads on save), then `flow_operate` `retry`.
 
 CLI equivalent: `node <plugin>/dist/cli.js check|up|status|start|tasks|complete|down`.

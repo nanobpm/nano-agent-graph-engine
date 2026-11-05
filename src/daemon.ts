@@ -235,7 +235,7 @@ export class Host {
       const retries = Math.max(0, (job.retries ?? 1) - 1);
       try {
         this.engine.failJob(key, retries, msg);
-        if (retries > 0) this.backoff.set(key, Date.now() + 5_000 * 2 ** (3 - Math.min(3, retries)));
+        if (retries > 0) this.backoff.set(key, Date.now() + Number(process.env.AGE_BACKOFF_MS ?? 5_000) * 2 ** (3 - Math.min(3, retries)));
       } catch {
         /* job vanished (instance cancelled) */
       }
@@ -425,8 +425,13 @@ export class Host {
     const snap = this.snapshot();
     const inc = (snap.incidents ?? []).find((i: any) => i.key === key);
     if (!inc) throw new Error(`no incident ${key}`);
-    const job = (snap.jobs ?? []).find((j: any) => j.instanceKey === inc.instanceKey && j.elementId === inc.elementId);
-    if (job) this.engine.updateRetries(job.key, retries);
+    // Failed jobs leave the snapshot; the incident's event names the job.
+    const raised = (JSON.parse(this.engine.events()) as any[]).findLast((e) => e.type === "IncidentRaised" && String(e.incident_key) === String(key));
+    const jobKey = raised?.job_key ?? (snap.jobs ?? []).find((j: any) => j.instanceKey === inc.instanceKey && j.elementId === inc.elementId)?.key;
+    if (jobKey != null) {
+      this.engine.updateRetries(String(jobKey), retries);
+      this.backoff.delete(String(jobKey));
+    }
     this.engine.resolveIncident(key);
     this.log({ kind: "resolve", instanceKey: inc.instanceKey, elementId: inc.elementId, message: `incident at ${inc.elementId} resolved — retrying` });
     this.persist();

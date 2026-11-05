@@ -248,3 +248,35 @@ test("flow_list shows project + library; flow_import copies a library flow with 
     execFileSync(process.execPath, [cli, "down"], { env });
   }
 });
+
+test("edit loop: a bug raises an incident, flow_write fixes the code, retry continues the same run", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "age-fix-"));
+  const env = { PATH: process.env.PATH!, HOME: project, AGE_PROJECT: project, AGE_AGENT_MODE: "session", AGE_BACKOFF_MS: "50" } as Record<string, string>;
+  const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const r: any = await client.callTool({ name, arguments: args });
+    return { text: r.content.map((c: any) => c.text).join("\n"), isError: !!r.isError };
+  };
+  const src = (body: string) => `import { defineFlow } from "agent-graph-engine";
+export const f = defineFlow("fixme", (w) => {
+  w.run("step", async (job) => { ${body} });
+  w.run("after", async () => ({ ok: true }));
+});`;
+  try {
+    assert.equal((await call("flow_write", { name: "fixme", source: src('throw new Error("bug v1");') })).isError, false);
+    const key = (await call("flow_start", { flowId: "fixme" })).text.match(/instance (\d+)/)![1];
+    const incident = await until(async () => (await call("flow_status")).text.match(/INCIDENT (\d+).*bug v1/)?.[1]);
+    assert.equal((await call("flow_write", { name: "fixme", source: src("return { fixed: true };") })).isError, false);
+    const r = await call("flow_operate", { action: "retry", incidentKey: incident });
+    assert.equal(r.isError, false, r.text);
+    const done = await until(async () => {
+      const t = (await call("flow_status", { instanceKey: key })).text;
+      return /"state":\s*"Completed"/.test(t) ? t : undefined;
+    });
+    assert.match(done, /"fixed":\s*true/);
+  } finally {
+    await client.close();
+    execFileSync(process.execPath, [cli, "down"], { env });
+  }
+});
