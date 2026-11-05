@@ -1,0 +1,28 @@
+{
+  "name": "agent-graph-engine",
+  "version": "0.1.0",
+  "description": "Durable BPMN process engine for Claude Code: code-first flows (defineFlow) that orchestrate scripts, Claude Code agents and people.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "bin": {
+    "age": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "test": "node --test test/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@nanobpm/engine-wasm": "^0.11.0",
+    "@nanobpm/workflow": "^0.16.0",
+    "bpmn-auto-layout": "^2.0.0-alpha.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "typescript": "5.9"
+  }
+}
