@@ -10,7 +10,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { checkFile, checkProject, flowsDir, formatProblems, listFlowFiles } from "./compile.ts";
 import { appHtml } from "./explorer-html.ts";
-import { api, ensureDaemon } from "./paths.ts";
+import { api, defaultHome, ensureDaemon } from "./paths.ts";
 import { summarize } from "./summary.ts";
 
 type Result = { content: { type: "text"; text: string }[]; isError?: boolean };
@@ -22,6 +22,12 @@ const UI_URI = "ui://agent-graph/explorer.html";
 const INSTRUCTIONS = `Agent Graph Engine: durable workflows ("flows") that orchestrate scripts, AI agent steps, the user (forms) and timers; they run in a local background engine and survive restarts.
 Before writing or changing a flow, call flow_guide once. Write flows with flow_write, then fix every problem it reports. Start with flow_start and show progress with show_explorer.
 When a flow waits for the user (task_list), use task_ask or show_explorer — never answer a user task yourself. When session_job_next has work (agent steps assigned to you), do it and hand back the result with session_job_complete.`;
+
+/** flows/*.flow.ts are ES modules; say so, or Node warns when a parent package.json (e.g. ~/package.json) lacks "type". */
+function ensureModuleType(dir: string) {
+  const f = path.join(dir, "package.json");
+  if (!fs.existsSync(f)) fs.writeFileSync(f, '{ "type": "module" }\n');
+}
 
 function guideText(): string {
   for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
@@ -94,6 +100,7 @@ export function createServer(project: string): McpServer {
     guard(async ({ name, source, prompts }) => {
       const dir = flowsDir(project);
       fs.mkdirSync(path.join(dir, "prompts"), { recursive: true });
+      ensureModuleType(dir);
       for (const [f, body] of Object.entries(prompts ?? {})) fs.writeFileSync(path.join(dir, "prompts", f), body);
       const file = path.join(dir, `${name}.flow.ts`);
       fs.writeFileSync(file, source);
@@ -106,6 +113,73 @@ export function createServer(project: string): McpServer {
         tail = `\n\nDeployed: ${r.flows.map((f) => f.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r])}\nwritten ${path.relative(project, file)}${tail}`, bad);
+    }),
+  );
+
+  server.registerTool(
+    "flow_list",
+    {
+      title: "List flows",
+      description:
+        "List the flows in this project and in the shared library (~/AgentGraph, where Claude Desktop keeps its flows), with id, description, steps and whether they compile. Use flow_import to copy a library flow into this project to reuse it.",
+      inputSchema: {},
+    },
+    guard(async () => {
+      const home = defaultHome();
+      const places = [[project, "this project"], ...(path.resolve(home) !== path.resolve(project) ? [[home, "library"]] : [])];
+      const out: string[] = [];
+      for (const [dir, label] of places) {
+        out.push(`## ${label} (${flowsDir(dir)})`);
+        const files = listFlowFiles(dir);
+        if (!files.length) out.push("(none)");
+        for (const f of files) {
+          const r = await checkFile(f);
+          const name = path.basename(f).replace(/\.flow\.\w+$/, "");
+          const errs = r.problems.filter((p) => p.severity === "error").length;
+          for (const fl of r.flows) {
+            const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h) => `${h.name}(human)`), ...Object.keys(fl.handlers).map((h) => h.split(":").pop())];
+            out.push(`- ${name}: flow "${fl.id}"${fl.description ? ` — ${fl.description}` : ""}\n  steps: ${steps.join(", ")}`);
+          }
+          if (!r.flows.length || errs) out.push(`- ${name}: ${errs} error(s)`);
+        }
+      }
+      return text(out.join("\n"));
+    }),
+  );
+
+  server.registerTool(
+    "flow_import",
+    {
+      title: "Import a library flow",
+      description: "Copy a flow file (and the prompt files it uses) from the library (~/AgentGraph) into this project's flows/, then compile and deploy it here. Won't overwrite unless overwrite=true.",
+      inputSchema: { name: z.string().describe("File name without .flow.ts, as shown by flow_list"), overwrite: z.boolean().optional() },
+    },
+    guard(async ({ name, overwrite }) => {
+      const home = defaultHome();
+      if (path.resolve(home) === path.resolve(project)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f) => path.basename(f).replace(/\.flow\.\w+$/, "") === name);
+      if (!src) return text(`No library flow ${name} in ${flowsDir(home)}`, true);
+      const dst = path.join(flowsDir(project), path.basename(src));
+      if (fs.existsSync(dst) && !overwrite) return text(`${path.relative(project, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs.mkdirSync(path.join(flowsDir(project), "prompts"), { recursive: true });
+      ensureModuleType(flowsDir(project));
+      fs.copyFileSync(src, dst);
+      const copied = [path.relative(project, dst)];
+      const r0 = await checkFile(src);
+      for (const fl of r0.flows)
+        for (const t of fl.tasks)
+          if (t.prompt) {
+            const p = path.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path.join(flowsDir(project), "prompts", t.prompt.resourceId);
+            if (fs.existsSync(p) && (overwrite || !fs.existsSync(q))) {
+              fs.copyFileSync(p, q);
+              copied.push(path.relative(project, q));
+            }
+          }
+      const r = await checkFile(dst);
+      const bad = r.problems.some((p) => p.severity === "error");
+      if (!bad) await api(await daemon(), "/api/reload", {});
+      return text(`copied ${copied.join(", ")}\n${formatProblems([r])}${bad ? "" : `\nDeployed here: ${r.flows.map((f) => f.id).join(", ")}`}`, bad);
     }),
   );
 

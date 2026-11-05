@@ -54,6 +54,13 @@ Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `
   - The same explorer is also at the daemon URL in a browser.
 - **Background.** The engine daemon keeps running after the chat is closed, so timers and CLI agent steps continue. In chat, nothing can wake Claude by itself: the explorer shows "agent step waiting — say *continue the flow*".
 
+### Reusing flows across Desktop and Claude Code
+
+`~/AgentGraph` doubles as a **library**. In any Claude Code project, `flow_list` shows the
+project's flows and the library's, with descriptions and steps. `flow_import <name>` copies a
+library flow and its prompt files into `./flows/` and deploys it there. Runs and state stay
+per project. Relative imports from a flow file (your own helper modules) are not copied.
+
 ## Install (Claude Code plugin)
 
 ```sh

@@ -221,3 +221,30 @@ export const pitch = defineFlow("pitch", (w) => {
     execFileSync(process.execPath, [cli, "down"], { env: { ...env, AGE_PROJECT: path.join(home, "AgentGraph") } });
   }
 });
+
+test("flow_list shows project + library; flow_import copies a library flow with its prompts", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "age-home-"));
+  fs.cpSync(path.join(root, "examples/demo/flows"), path.join(home, "AgentGraph/flows"), { recursive: true });
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "age-proj-"));
+  fs.mkdirSync(path.join(project, "flows"));
+  const env = { PATH: process.env.PATH!, HOME: home, AGE_PROJECT: project, AGE_AGENT_MODE: "session" } as Record<string, string>;
+  const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const r: any = await client.callTool({ name, arguments: args });
+    return { text: r.content.map((c: any) => c.text).join("\n"), isError: !!r.isError };
+  };
+  try {
+    const l = await call("flow_list");
+    assert.match(l.text, /## this project[\s\S]*\(none\)[\s\S]*## library[\s\S]*changelog: flow "changelog" — Draft release notes/);
+    assert.match(l.text, /draft\(claude\)/);
+    const im = await call("flow_import", { name: "changelog" });
+    assert.equal(im.isError, false, im.text);
+    assert.ok(fs.existsSync(path.join(project, "flows/prompts/changelog.md")));
+    assert.match(im.text, /Deployed here: changelog/);
+    assert.equal((await call("flow_import", { name: "changelog" })).isError, true); // no silent overwrite
+  } finally {
+    await client.close();
+    execFileSync(process.execPath, [cli, "down"], { env });
+  }
+});

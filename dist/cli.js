@@ -56748,6 +56748,10 @@ __export(mcp_exports, {
 });
 import fs6 from "node:fs";
 import path4 from "node:path";
+function ensureModuleType(dir) {
+  const f2 = path4.join(dir, "package.json");
+  if (!fs6.existsSync(f2)) fs6.writeFileSync(f2, '{ "type": "module" }\n');
+}
 function guideText() {
   for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
     const u2 = new URL(rel, import.meta.url);
@@ -56814,6 +56818,7 @@ ${guideText()}`))
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
       fs6.mkdirSync(path4.join(dir, "prompts"), { recursive: true });
+      ensureModuleType(dir);
       for (const [f2, body2] of Object.entries(prompts ?? {})) fs6.writeFileSync(path4.join(dir, "prompts", f2), body2);
       const file2 = path4.join(dir, `${name2}.flow.ts`);
       fs6.writeFileSync(file2, source);
@@ -56829,6 +56834,73 @@ Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; s
       }
       return text(`${formatProblems([r2])}
 written ${path4.relative(project2, file2)}${tail}`, bad);
+    })
+  );
+  server.registerTool(
+    "flow_list",
+    {
+      title: "List flows",
+      description: "List the flows in this project and in the shared library (~/AgentGraph, where Claude Desktop keeps its flows), with id, description, steps and whether they compile. Use flow_import to copy a library flow into this project to reuse it.",
+      inputSchema: {}
+    },
+    guard(async () => {
+      const home = defaultHome();
+      const places = [[project2, "this project"], ...path4.resolve(home) !== path4.resolve(project2) ? [[home, "library"]] : []];
+      const out = [];
+      for (const [dir, label] of places) {
+        out.push(`## ${label} (${flowsDir(dir)})`);
+        const files = listFlowFiles(dir);
+        if (!files.length) out.push("(none)");
+        for (const f2 of files) {
+          const r2 = await checkFile(f2);
+          const name2 = path4.basename(f2).replace(/\.flow\.\w+$/, "");
+          const errs = r2.problems.filter((p2) => p2.severity === "error").length;
+          for (const fl of r2.flows) {
+            const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h2) => `${h2.name}(human)`), ...Object.keys(fl.handlers).map((h2) => h2.split(":").pop())];
+            out.push(`- ${name2}: flow "${fl.id}"${fl.description ? ` \u2014 ${fl.description}` : ""}
+  steps: ${steps.join(", ")}`);
+          }
+          if (!r2.flows.length || errs) out.push(`- ${name2}: ${errs} error(s)`);
+        }
+      }
+      return text(out.join("\n"));
+    })
+  );
+  server.registerTool(
+    "flow_import",
+    {
+      title: "Import a library flow",
+      description: "Copy a flow file (and the prompt files it uses) from the library (~/AgentGraph) into this project's flows/, then compile and deploy it here. Won't overwrite unless overwrite=true.",
+      inputSchema: { name: external_exports.string().describe("File name without .flow.ts, as shown by flow_list"), overwrite: external_exports.boolean().optional() }
+    },
+    guard(async ({ name: name2, overwrite }) => {
+      const home = defaultHome();
+      if (path4.resolve(home) === path4.resolve(project2)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f2) => path4.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
+      if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
+      const dst = path4.join(flowsDir(project2), path4.basename(src));
+      if (fs6.existsSync(dst) && !overwrite) return text(`${path4.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs6.mkdirSync(path4.join(flowsDir(project2), "prompts"), { recursive: true });
+      ensureModuleType(flowsDir(project2));
+      fs6.copyFileSync(src, dst);
+      const copied = [path4.relative(project2, dst)];
+      const r0 = await checkFile(src);
+      for (const fl of r0.flows)
+        for (const t of fl.tasks)
+          if (t.prompt) {
+            const p2 = path4.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path4.join(flowsDir(project2), "prompts", t.prompt.resourceId);
+            if (fs6.existsSync(p2) && (overwrite || !fs6.existsSync(q))) {
+              fs6.copyFileSync(p2, q);
+              copied.push(path4.relative(project2, q));
+            }
+          }
+      const r2 = await checkFile(dst);
+      const bad = r2.problems.some((p2) => p2.severity === "error");
+      if (!bad) await api(await daemon(), "/api/reload", {});
+      return text(`copied ${copied.join(", ")}
+${formatProblems([r2])}${bad ? "" : `
+Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
     })
   );
   server.registerTool(

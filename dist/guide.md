@@ -15,6 +15,7 @@ this session ends. The daemon starts on demand and redeploys flows when files ch
 | Tool | Use |
 |---|---|
 | `flow_write` / `flow_read` | Write (or read) `flows/<name>.flow.ts` + prompt files and compile/lint it in one go — use these when you have no file access (Claude Desktop chat). |
+| `flow_list` / `flow_import` | List flows here and in the shared library `~/AgentGraph` (where Claude Desktop keeps flows); copy one into this project to reuse it. |
 | `flow_check` | Compile + lint all flows. **Run after every edit**; fix every error. Deploys flows that pass. |
 | `show_explorer` | Show the live explorer inline (diagram with where runs are, task inbox with forms the user can fill in, incidents). |
 | `flow_start` | Start an instance (`flowId`, `variables`, optional `title`). |
