@@ -344,13 +344,16 @@ export function createServer(project: string): McpServer {
     {
       title: "Take a job meant for this session",
       description:
-        'Claim the next agent step a flow assigned to you, the live assistant: w.task steps with jobType "session", and jobType "claude" steps when no Claude Code CLI is installed. Returns the step\'s prompt, variables and (if any) outputSchema; do the work, then call session_job_complete with the result as variables (matching outputSchema), or session_job_fail.',
-      inputSchema: { jobType: z.string().optional().describe("Default: every job type meant for you") },
+        'Claim the next agent step a flow assigned to you, the live assistant: w.task steps with jobType "session", and jobType "claude" steps when no Claude Code CLI is installed. Returns the step\'s prompt, variables and (if any) outputSchema; do the work, then call session_job_complete with the result as variables (matching outputSchema), or session_job_fail. With max > 1 you get a batch (e.g. the branches of a parallel/forEach fan-out): hand each to a subagent if you have them, and complete each job by its key.',
+      inputSchema: {
+        jobType: z.string().optional().describe("Default: every job type meant for you"),
+        max: z.number().int().min(1).max(20).optional().describe("Claim up to this many at once (default 1)"),
+      },
     },
-    guard(async ({ jobType }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType, max: 1 });
+    guard(async ({ jobType, max }) => {
+      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType, max: max ?? 1 });
       if (!jobs.length) return text("No session jobs waiting.");
-      return json(jobs[0]);
+      return json(max && max > 1 ? jobs : jobs[0]);
     }),
   );
 

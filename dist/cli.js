@@ -57070,13 +57070,16 @@ Or answer in the explorer: ${info.url}/#task=${taskKey}`
     "session_job_next",
     {
       title: "Take a job meant for this session",
-      description: `Claim the next agent step a flow assigned to you, the live assistant: w.task steps with jobType "session", and jobType "claude" steps when no Claude Code CLI is installed. Returns the step's prompt, variables and (if any) outputSchema; do the work, then call session_job_complete with the result as variables (matching outputSchema), or session_job_fail.`,
-      inputSchema: { jobType: external_exports.string().optional().describe("Default: every job type meant for you") }
+      description: `Claim the next agent step a flow assigned to you, the live assistant: w.task steps with jobType "session", and jobType "claude" steps when no Claude Code CLI is installed. Returns the step's prompt, variables and (if any) outputSchema; do the work, then call session_job_complete with the result as variables (matching outputSchema), or session_job_fail. With max > 1 you get a batch (e.g. the branches of a parallel/forEach fan-out): hand each to a subagent if you have them, and complete each job by its key.`,
+      inputSchema: {
+        jobType: external_exports.string().optional().describe("Default: every job type meant for you"),
+        max: external_exports.number().int().min(1).max(20).optional().describe("Claim up to this many at once (default 1)")
+      }
     },
-    guard(async ({ jobType: jobType2 }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2, max: 1 });
+    guard(async ({ jobType: jobType2, max }) => {
+      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2, max: max ?? 1 });
       if (!jobs.length) return text("No session jobs waiting.");
-      return json3(jobs[0]);
+      return json3(max && max > 1 ? jobs : jobs[0]);
     })
   );
   server.registerTool(

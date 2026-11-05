@@ -61,6 +61,33 @@ project's flows and the library's, with descriptions and steps. `flow_import <na
 library flow and its prompt files into `./flows/` and deploys it there. Runs and state stay
 per project. Relative imports from a flow file (your own helper modules) are not copied.
 
+## Install in OpenCode
+
+Add the server to `~/.config/opencode/opencode.json`, or to `opencode.json` in a project:
+
+```json
+"mcp": {
+  "agent-graph": {
+    "type": "local",
+    "command": ["/absolute/path/to/node", "/path/to/agent-graph-engine/dist/cli.js", "mcp"],
+    "enabled": true
+  }
+}
+```
+
+Then install the skill, so OpenCode knows how to write flows. A symlink keeps it current:
+
+```sh
+ln -s /path/to/agent-graph-engine/skills/agent-graph ~/.config/opencode/skills/agent-graph
+```
+
+Check it with `opencode mcp list`, which should show `✓ agent-graph connected`.
+
+- **Where flows live.** The project is OpenCode's working directory, or the nearest parent with `flows/`, as in Claude Code. `flow_list` and `flow_import` reach the `~/AgentGraph` library.
+- **Agent steps.** If the Claude Code CLI is installed and logged in, these still run as headless `claude -p`. Otherwise they go to the OpenCode agent through `session_job_next`, which uses whatever model you picked. To force this, set `"environment": {"AGE_AGENT_MODE": "session"}` on the server entry.
+- **User tasks.** OpenCode renders neither MCP Apps nor MCP elicitation forms. `task_ask` falls back to text: the agent asks you in chat and records the answer with `task_complete`. Or answer in the browser explorer; `flow_start` and `flow_status` print its URL.
+- **No hooks.** OpenCode has no equivalent of Claude Code's SessionStart and UserPromptSubmit hooks, so ask "anything waiting in my flows?" and the agent will call `flow_status`.
+
 ## Install (Claude Code plugin)
 
 ```sh
@@ -137,6 +164,26 @@ export const changelog = defineFlow("changelog", (w) => {
 5. A trial deploy into the engine is the final check.
 
 Flows that pass are deployed. A new version is deployed only when the BPMN changed, and the daemon watches `flows/`.
+
+## Parallelism and fan-out
+
+Flows fan out with `w.parallel([...])`, a fixed set of branches, and
+`w.forEach("files", "file", body, { outputCollection, outputElement })`, one branch per
+list item with the results collected in order. Both are BPMN parallel gateways and
+multi-instance activities, so the engine joins the branches and continues only when
+all are done, or when `completionCondition` holds.
+
+How the branches run depends on who does the work:
+
+- **`run` steps and headless agents** (`claude -p`) run concurrently inside the daemon, up to `AGE_MAX_CONCURRENT` at a time (default 4). Each agent step is its own `claude -p` process: a durable subagent with its own context, tools and cost line. Measured with six 2-second agent steps plus a two-branch `parallel`: they ran in three waves of 4 + 2 + 2, so about 7 s instead of 16 s.
+- **Steps handed to the chat agent** (`session` jobs, and agent steps when there's no CLI) are queued. `session_job_next` hands them out one at a time, or as a batch with `max`. An agent that has subagents (Claude Code's Task tool, OpenCode's `task`) can then do the batch in parallel and complete each job by key. Without subagents, the agent works through them one by one.
+
+Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflow`):
+
+- **What's the same:** both fan out to fresh agents.
+- **What's different:**
+  - The fan-out here is a step in a durable process, so it can be joined, retried per branch (an incident on one branch doesn't lose the others), and followed by human review or timers.
+  - Each branch shows on the diagram with ×N badges.
 
 ## How it works
 
