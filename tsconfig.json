@@ -10,6 +10,7 @@
     "erasableSyntaxOnly": true,
     "skipLibCheck": true,
     "types": ["node"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "paths": { "agent-graph-engine": ["./src/index.ts"] }
   },
   "include": ["src", "examples", "test", "ui"]

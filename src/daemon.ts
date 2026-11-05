@@ -337,15 +337,24 @@ export class Host {
     };
   }
 
-  /** Element ids (incl. sequence flows) taken by an instance, for the diagram. */
-  taken(key: string): { flows: string[]; elements: string[] } {
-    const snap = this.snapshot();
-    const tf = snap.takenSequenceFlows;
-    const flows: string[] = Array.isArray(tf)
-      ? tf.filter((x: any) => typeof x === "string" || x.instanceKey === undefined || x.instanceKey === key).map((x: any) => (typeof x === "string" ? x : x.id ?? x.flowId))
-      : [];
-    const elements = this.activity.filter((a) => a.instanceKey === key && a.elementId).map((a) => a.elementId!);
-    return { flows, elements };
+  /** What an instance did, from the engine's event log: completed elements (with
+   *  counts, for loops), sequence flows taken, and a timeline. */
+  history(key: string) {
+    const k = Number(key);
+    const completed: Record<string, number> = {};
+    const flows: [string, string][] = [];
+    const timeline: { at: number; type: string; elementId?: string }[] = [];
+    const variables: Record<string, unknown> = {};
+    for (const e of JSON.parse(this.engine.events()) as any[]) {
+      if (e.instance_key !== k) continue;
+      if (e.type === "ProcessInstanceCreated" || e.type === "VariablesUpdated")
+        for (const [n, v] of Object.entries(e.variables ?? {})) variables[n] = decodeValue(v);
+      if (e.type === "ElementCompleted") completed[e.element_id] = (completed[e.element_id] ?? 0) + 1;
+      else if (e.type === "SequenceFlowTaken") flows.push([e.from, e.to]);
+      if (/^(ElementActivated|ElementCompleted|JobFailed|IncidentCreated|UserTaskCreated|UserTaskCompleted|ProcessInstance\w+|ElementTerminated)$/.test(e.type))
+        timeline.push({ at: e.now, type: e.type, elementId: e.element_id });
+    }
+    return { completed, flows, variables, timeline: timeline.slice(-300) };
   }
 
   completeUserTask(key: string, variables: Record<string, unknown>) {
@@ -424,6 +433,26 @@ export class Host {
   }
 }
 
+/** The event log stores variables as tagged engine values ({"Str": "x"}, "Null", …). */
+function decodeValue(v: any): unknown {
+  if (v === "Null") return null;
+  if (!v || typeof v !== "object") return v;
+  const [tag, x] = Object.entries(v)[0] ?? [];
+  switch (tag) {
+    case "Str":
+    case "Int":
+    case "Double":
+    case "Bool":
+      return x;
+    case "List":
+      return (x as any[]).map(decodeValue);
+    case "Map":
+      return Object.fromEntries(Object.entries(x as object).map(([k, y]) => [k, decodeValue(y)]));
+    default:
+      return v;
+  }
+}
+
 // ---------------- HTTP ----------------
 
 function send(res: http.ServerResponse, status: number, body: unknown, type = "application/json") {
@@ -464,7 +493,7 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
         return f ? send(res, 200, f.xml, "application/xml") : send(res, 404, { error: "no such flow" });
       }
       if (req.method === "GET" && (mm = m(/^\/api\/instances\/([^/]+)$/))) {
-        return send(res, 200, { ...host.instance(mm[1]), taken: host.taken(mm[1]) });
+        return send(res, 200, { ...host.instance(mm[1]), history: host.history(mm[1]) });
       }
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
