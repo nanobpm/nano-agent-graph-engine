@@ -1,0 +1,13 @@
+{
+  "name": "agent-graph-engine",
+  "owner": { "name": "Josh Wulf" },
+  "description": "Agent Graph Engine: durable BPMN flows for Claude Code",
+  "plugins": [
+    {
+      "name": "agent-graph-engine",
+      "source": "./",
+      "description": "Durable process engine: defineFlow → BPMN, local daemon, user tasks, web explorer",
+      "version": "0.1.0"
+    }
+  ]
+}
