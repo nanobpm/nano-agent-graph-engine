@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
-    "test": "node --test test/*.test.ts",
+    "test": "node --test test/*.spec.ts && claude plugin test .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

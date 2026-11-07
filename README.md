@@ -61,6 +61,47 @@ project's flows and the library's, with descriptions and steps. `flow_import <na
 library flow and its prompt files into `./flows/` and deploys it there. Runs and state stay
 per project. Relative imports from a flow file (your own helper modules) are not copied.
 
+## In the interface: slash commands and the Claude Code mod
+
+**Every MCP client: prompts.** The server publishes one prompt per flow in the project,
+`start-<flow>`, with an `inputs` argument, plus `flows`, which shows what's going on. The
+list follows `flows/` as you add or change flows.
+
+| Client | How the prompts appear |
+|---|---|
+| Claude Code | `/mcp__agent-graph__start-release-notes since v1.0` |
+| Claude Desktop | In the prompt menu (+) |
+| OpenCode | As the command `agent-graph:start-release-notes`, e.g. `opencode run --command agent-graph:start-release-notes "since v1.0"` |
+
+**Claude Code: the mod.** This needs Claude Code v2.1.287 or later, or v2.1.286 or later
+in the Desktop Code tab. The plugin includes a mod (`hooks/mod.js`), so the engine shows up
+in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS Code
+(panes only).
+
+- **Band above the prompt.** While something is going on, it shows
+  `⚙ Agent Graph · 2 flows running · 1 task waiting for you · 1 incident`, with a
+  button that opens the pane.
+- **`/flows` pane**, with three tabs:
+  - **Inbox:** user tasks drawn as forms that you answer right there, and incidents
+    with **Retry**, **Ask Claude to fix** and **Cancel run**.
+  - **Flows:** every flow has a **Start** button. Type JSON variables and the mod starts
+    the run directly, with no model turn. Type plain words and Claude works out the
+    variables.
+  - **Runs:** what's active and where.
+  - There's also a link to the explorer.
+- **Wakes the agent.** When a flow hands agent steps to the session, the mod submits a
+  prompt so the agent picks them up, using `session_job_next` with `max` for a fan-out.
+  New user tasks show a toast.
+- **No engine running?** The pane offers **Start engine**.
+
+The mod polls the project's engine every 3 s over its local HTTP API. It reads the
+engine's address from `.agent-graph/daemon.json`. Run the mod's tests with
+`claude plugin test .`; `npm test` runs them after the engine tests.
+
+**Organisations.** Mods are on by default. An administrator can allow only managed mods
+with `allowManagedModsOnly` in managed settings. If they do, the band and pane don't
+appear, and everything else keeps working.
+
 ## Install in OpenCode
 
 Add the server to `~/.config/opencode/opencode.json`, or to `opencode.json` in a project:

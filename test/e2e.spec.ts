@@ -243,6 +243,14 @@ test("flow_list shows project + library; flow_import copies a library flow with 
     assert.ok(fs.existsSync(path.join(project, "flows/prompts/changelog.md")));
     assert.match(im.text, /Deployed here: changelog/);
     assert.equal((await call("flow_import", { name: "changelog" })).isError, true); // no silent overwrite
+    // the imported flow shows up as a "start" prompt (slash command / prompt menu)
+    const names = await until(async () => {
+      const ps = (await client.listPrompts()).prompts.map((p) => p.name);
+      return ps.includes("start-changelog") ? ps : undefined;
+    });
+    assert.ok(names.includes("flows"));
+    const gp = await client.getPrompt({ name: "start-changelog", arguments: { inputs: "since v1.0" } });
+    assert.match((gp.messages[0].content as any).text, /Start the Agent Graph flow "changelog"[\s\S]*since v1.0[\s\S]*flow_start/);
   } finally {
     await client.close();
     execFileSync(process.execPath, [cli, "down"], { env });

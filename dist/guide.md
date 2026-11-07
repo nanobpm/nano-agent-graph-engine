@@ -81,7 +81,9 @@ export const triage = defineFlow("triage", (w) => {
 - `w.human(name, { form })` — user task; form from `export const forms` (fields: string/enum, boolean, number/integer).
 - `w.switch("var", { value: (b) => …, default: (b) => … })`, `w.branch("<FEEL condition>", { then, else })`.
 - `w.loop((b) => { …; b.break(); … b.continue(); })` — repeat (e.g. draft → review → redo).
-- `w.parallel(...)`, `w.forEach(...)`, `w.race(...)` — see the `@nanobpm/workflow` API.
+- `w.parallel([(b) => …, (b) => …])` — fixed branches, all run, joined before continuing.
+- `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` — fan out one branch per list item (e.g. one agent per file); results collected in order. Options: `sequential`, `completionCondition`.
+  Headless agent branches run concurrently (up to 4). If agent steps come to you instead, claim them as a batch with `session_job_next` `max` and hand them to subagents if you have them.
 - `w.timer(name, { after: "PT1H" })` — durable wait (ISO 8601 duration).
 - `w.signal(name, { correlationKey: "orderId" })` — wait for a message (`flow_operate` `message`).
 

@@ -416,12 +416,87 @@ export function createServer(project: string): McpServer {
     }),
   );
 
+  // Prompts: one "start <flow>" per flow in the project (slash commands in Claude Code,
+  // the prompt menu in Claude Desktop, commands in other MCP clients), plus "flows".
+  server.registerPrompt(
+    "flows",
+    { title: "Agent Graph: what's going on", description: "Show running flows, tasks waiting for you, agent steps waiting for this session, and incidents" },
+    () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: "Show me what's going on in my Agent Graph flows: call flow_status, then task_list and session_job_next. If tasks wait for me, ask me with task_ask. If agent steps wait for this session, do them. Offer to open show_explorer.",
+          },
+        },
+      ],
+    }),
+  );
+  const flowPrompts = new Map<string, ReturnType<McpServer["registerPrompt"]>>();
+  (server as any).syncFlowPrompts = async () => {
+    const seen = new Set<string>();
+    for (const f of listFlowFiles(project)) {
+      let r;
+      try {
+        r = await checkFile(f);
+      } catch {
+        continue;
+      }
+      for (const fl of r.flows) {
+        const name = `start-${fl.id}`;
+        seen.add(name);
+        if (flowPrompts.has(name)) continue;
+        const steps = [...fl.tasks.map((t) => t.name), ...fl.humans.map((h) => h.name)].join(", ");
+        flowPrompts.set(
+          name,
+          server.registerPrompt(
+            name,
+            {
+              title: `Start flow: ${fl.id}`,
+              description: fl.description || `Start the ${fl.id} flow (steps: ${steps})`,
+              argsSchema: { inputs: z.string().optional().describe("What to run it on: plain words or JSON variables") },
+            },
+            ({ inputs }) => ({
+              messages: [
+                {
+                  role: "user",
+                  content: {
+                    type: "text",
+                    text: `Start the Agent Graph flow "${fl.id}"${fl.description ? ` (${fl.description})` : ""}.${inputs ? `\nInputs: ${inputs}` : ""}\nWork out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask me only for what's missing and can't be inferred), call flow_start with a short title, then show_explorer for the new instance. If agent steps come to this session (session_job_next), do them.`,
+                  },
+                },
+              ],
+            }),
+          ),
+        );
+      }
+    }
+    for (const [name, p] of flowPrompts) if (!seen.has(name)) (p.remove(), flowPrompts.delete(name));
+  };
+
   return server;
+}
+
+/** Keep the per-flow prompts in step with flows/ (long-lived stdio sessions only). */
+function watchFlowPrompts(server: McpServer, project: string) {
+  const sync = () => (server as any).syncFlowPrompts().catch(() => {});
+  let t: NodeJS.Timeout | undefined;
+  try {
+    fs.mkdirSync(flowsDir(project), { recursive: true });
+    fs.watch(flowsDir(project), () => {
+      clearTimeout(t);
+      t = setTimeout(sync, 300);
+    }).unref();
+  } catch {}
 }
 
 export async function runMcp(project: string) {
   const server = createServer(project);
+  // list the per-flow prompts before connecting: some clients (OpenCode) read prompts once at startup
+  await Promise.race([(server as any).syncFlowPrompts().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
   await server.connect(new StdioServerTransport());
+  watchFlowPrompts(server, project);
 }
 
 /** Streamable HTTP (stateless) for MCP Apps hosts and inspectors: `age mcp --http 3001`. */
@@ -440,6 +515,7 @@ export async function runMcpHttp(project: string, port: number) {
       for await (const c of req) chunks.push(c as Buffer);
       const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : undefined;
       const server = createServer(project);
+      if (String(body?.method ?? "").startsWith("prompts/")) await (server as any).syncFlowPrompts().catch(() => {});
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on("close", () => {
         transport.close();

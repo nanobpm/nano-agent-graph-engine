@@ -57137,11 +57137,85 @@ Or answer in the explorer: ${info.url}/#task=${taskKey}`
       return text(`Message ${a.name} sent.`);
     })
   );
+  server.registerPrompt(
+    "flows",
+    { title: "Agent Graph: what's going on", description: "Show running flows, tasks waiting for you, agent steps waiting for this session, and incidents" },
+    () => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: "Show me what's going on in my Agent Graph flows: call flow_status, then task_list and session_job_next. If tasks wait for me, ask me with task_ask. If agent steps wait for this session, do them. Offer to open show_explorer."
+          }
+        }
+      ]
+    })
+  );
+  const flowPrompts = /* @__PURE__ */ new Map();
+  server.syncFlowPrompts = async () => {
+    const seen = /* @__PURE__ */ new Set();
+    for (const f2 of listFlowFiles(project2)) {
+      let r2;
+      try {
+        r2 = await checkFile(f2);
+      } catch {
+        continue;
+      }
+      for (const fl of r2.flows) {
+        const name2 = `start-${fl.id}`;
+        seen.add(name2);
+        if (flowPrompts.has(name2)) continue;
+        const steps = [...fl.tasks.map((t) => t.name), ...fl.humans.map((h2) => h2.name)].join(", ");
+        flowPrompts.set(
+          name2,
+          server.registerPrompt(
+            name2,
+            {
+              title: `Start flow: ${fl.id}`,
+              description: fl.description || `Start the ${fl.id} flow (steps: ${steps})`,
+              argsSchema: { inputs: external_exports.string().optional().describe("What to run it on: plain words or JSON variables") }
+            },
+            ({ inputs }) => ({
+              messages: [
+                {
+                  role: "user",
+                  content: {
+                    type: "text",
+                    text: `Start the Agent Graph flow "${fl.id}"${fl.description ? ` (${fl.description})` : ""}.${inputs ? `
+Inputs: ${inputs}` : ""}
+Work out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask me only for what's missing and can't be inferred), call flow_start with a short title, then show_explorer for the new instance. If agent steps come to this session (session_job_next), do them.`
+                  }
+                }
+              ]
+            })
+          )
+        );
+      }
+    }
+    for (const [name2, p2] of flowPrompts) if (!seen.has(name2)) p2.remove(), flowPrompts.delete(name2);
+  };
   return server;
+}
+function watchFlowPrompts(server, project2) {
+  const sync = () => server.syncFlowPrompts().catch(() => {
+  });
+  let t;
+  try {
+    fs6.mkdirSync(flowsDir(project2), { recursive: true });
+    fs6.watch(flowsDir(project2), () => {
+      clearTimeout(t);
+      t = setTimeout(sync, 300);
+    }).unref();
+  } catch {
+  }
 }
 async function runMcp(project2) {
   const server = createServer2(project2);
+  await Promise.race([server.syncFlowPrompts().catch(() => {
+  }), new Promise((r2) => setTimeout(r2, 5e3))]);
   await server.connect(new StdioServerTransport());
+  watchFlowPrompts(server, project2);
 }
 async function runMcpHttp(project2, port) {
   const http2 = await import("node:http");
@@ -57157,6 +57231,8 @@ async function runMcpHttp(project2, port) {
     for await (const c of req) chunks.push(c);
     const body2 = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : void 0;
     const server = createServer2(project2);
+    if (String(body2?.method ?? "").startsWith("prompts/")) await server.syncFlowPrompts().catch(() => {
+    });
     const transport = new StreamableHTTPServerTransport2({ sessionIdGenerator: void 0, enableJsonResponse: true });
     res.on("close", () => {
       transport.close();
