@@ -36076,17 +36076,14 @@ var init_wasm = __esm({
   }
 });
 
-// src/compile.ts
+// src/resolve-hook.ts
 import fs2 from "node:fs";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import module from "node:module";
 function installResolveHook() {
-  if (hooksInstalled) return;
-  hooksInstalled = true;
-  const here = new URL(".", import.meta.url);
-  const js = new URL("./index.js", here);
-  const target = fs2.existsSync(js) ? js.href : new URL("./index.ts", here).href;
+  if (installed) return;
+  installed = true;
+  const js = new URL("./index.js", import.meta.url);
+  const target = fs2.existsSync(js) ? js.href : new URL("./index.ts", import.meta.url).href;
   module.registerHooks({
     resolve(specifier, context, next) {
       if (specifier === "agent-graph-engine") return { url: target, shortCircuit: true };
@@ -36094,13 +36091,25 @@ function installResolveHook() {
     }
   });
 }
+var installed;
+var init_resolve_hook = __esm({
+  "src/resolve-hook.ts"() {
+    "use strict";
+    installed = false;
+  }
+});
+
+// src/compile.ts
+import fs3 from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 function flowsDir(project2) {
   return path.join(project2, "flows");
 }
 function listFlowFiles(project2) {
   const dir = flowsDir(project2);
-  if (!fs2.existsSync(dir)) return [];
-  return fs2.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path.join(dir, f2));
+  if (!fs3.existsSync(dir)) return [];
+  return fs3.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path.join(dir, f2));
 }
 function isFlow(v2) {
   return v2 && typeof v2 === "object" && v2.kind === "declarative" && typeof v2.id === "string" && Array.isArray(v2.steps);
@@ -36110,8 +36119,9 @@ async function checkFile(file2, keyFor = (id) => id) {
   const problems = [];
   const flows = [];
   let mod;
+  let stamp = 0;
   try {
-    const stamp = fs2.statSync(file2).mtimeMs;
+    stamp = fs3.statSync(file2).mtimeMs;
     mod = await import(`${pathToFileURL(path.resolve(file2)).href}?v=${stamp}`);
   } catch (e) {
     problems.push({ severity: "error", message: `cannot load ${path.basename(file2)}: ${e?.message ?? e}` });
@@ -36162,7 +36172,7 @@ async function checkFile(file2, keyFor = (id) => id) {
         });
       if (t.jobType === "claude" && !t.prompt)
         problems.push({ severity: "error", element: t.name, message: `task("${t.name}") with jobType "claude" needs { prompt: { resourceId } }` });
-      if (t.prompt && !fs2.existsSync(path.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
+      if (t.prompt && !fs3.existsSync(path.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
     if (mod.workers) {
@@ -36173,7 +36183,7 @@ async function checkFile(file2, keyFor = (id) => id) {
     } catch (e) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file: file2, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
   }
   return { file: file2, flows, problems };
 }
@@ -36192,22 +36202,22 @@ function formatProblems(results) {
   }
   return lines.join("\n");
 }
-var BUILTIN_JOB_TYPES, hooksInstalled;
+var BUILTIN_JOB_TYPES;
 var init_compile2 = __esm({
   "src/compile.ts"() {
     "use strict";
     init_dist7();
     init_wasm();
+    init_resolve_hook();
     BUILTIN_JOB_TYPES = {
       claude: "headless Claude Code agent (claude -p) \u2014 prompt from flows/prompts/<resourceId>",
       session: "claimed by the live Claude Code session through the MCP tools (agent_next_job)"
     };
-    hooksInstalled = false;
   }
 });
 
 // src/paths.ts
-import fs3 from "node:fs";
+import fs4 from "node:fs";
 import path2 from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -36232,8 +36242,8 @@ function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PR
   let git;
   for (let dir = s; ; ) {
     if (dir === home) break;
-    if (fs3.existsSync(path2.join(dir, "flows"))) return dir;
-    if (!git && fs3.existsSync(path2.join(dir, ".git"))) git = dir;
+    if (fs4.existsSync(path2.join(dir, "flows"))) return dir;
+    if (!git && fs4.existsSync(path2.join(dir, ".git"))) git = dir;
     const up = path2.dirname(dir);
     if (up === dir) break;
     dir = up;
@@ -36252,7 +36262,7 @@ async function findDaemon(project2 = defaultHome()) {
   const f2 = path2.join(engineDir(), "daemon.json");
   let info;
   try {
-    info = JSON.parse(fs3.readFileSync(f2, "utf8"));
+    info = JSON.parse(fs4.readFileSync(f2, "utf8"));
   } catch {
     return void 0;
   }
@@ -36272,15 +36282,15 @@ async function ensureDaemon(project2) {
 }
 async function startDaemon(project2) {
   const dir = engineDir();
-  fs3.mkdirSync(dir, { recursive: true });
+  fs4.mkdirSync(dir, { recursive: true });
   const lock = path2.join(dir, "starting.lock");
   let mine = false;
   try {
-    fs3.writeFileSync(lock, String(process.pid), { flag: "wx" });
+    fs4.writeFileSync(lock, String(process.pid), { flag: "wx" });
     mine = true;
   } catch {
-    if (Date.now() - fs3.statSync(lock).mtimeMs > 15e3) {
-      fs3.rmSync(lock, { force: true });
+    if (Date.now() - fs4.statSync(lock).mtimeMs > 15e3) {
+      fs4.rmSync(lock, { force: true });
       return startDaemon(project2);
     }
   }
@@ -36292,14 +36302,14 @@ async function startDaemon(project2) {
       if (info) return info;
     }
   } finally {
-    if (mine) fs3.rmSync(lock, { force: true });
+    if (mine) fs4.rmSync(lock, { force: true });
   }
   throw new Error(`engine did not start; see ${path2.join(dir, "daemon.log")}`);
 }
 function spawnDaemon(dir) {
   const here = path2.dirname(fileURLToPath(import.meta.url));
-  const cli = fs3.existsSync(path2.join(here, "cli.js")) ? path2.join(here, "cli.js") : path2.join(here, "cli.ts");
-  const out = fs3.openSync(path2.join(dir, "daemon.log"), "a");
+  const cli = fs4.existsSync(path2.join(here, "cli.js")) ? path2.join(here, "cli.js") : path2.join(here, "cli.ts");
+  const out = fs4.openSync(path2.join(dir, "daemon.log"), "a");
   const { AGE_PROJECT: _p, ...env } = process.env;
   const child = spawn(process.execPath, [cli, "daemon"], { detached: true, stdio: ["ignore", out, out], env, cwd: dir });
   child.unref();
@@ -36490,12 +36500,12 @@ var init_src = __esm({
 });
 
 // src/explorer-html.ts
-import fs4 from "node:fs";
+import fs5 from "node:fs";
 function explorerHtml() {
   if (cached2) return cached2;
   for (const rel of ["./explorer.html", "../dist/explorer.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs4.existsSync(u2)) return cached2 = fs4.readFileSync(u2, "utf8");
+    if (fs5.existsSync(u2)) return cached2 = fs5.readFileSync(u2, "utf8");
   }
   return "<!doctype html><title>Agent Graph Engine</title><p>Explorer not built \u2014 run <code>npm run build</code>. API: <a href=/api/state>/api/state</a>";
 }
@@ -36503,7 +36513,7 @@ function appHtml() {
   if (cachedApp) return cachedApp;
   for (const rel of ["./explorer-app.html", "../dist/explorer-app.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs4.existsSync(u2)) return cachedApp = fs4.readFileSync(u2, "utf8");
+    if (fs5.existsSync(u2)) return cachedApp = fs5.readFileSync(u2, "utf8");
   }
   return "<!doctype html><p>Explorer not built \u2014 run <code>npm run build</code>.";
 }
@@ -36758,6 +36768,99 @@ var init_explorer_api = __esm({
   }
 });
 
+// src/step-pool.ts
+import fs6 from "node:fs";
+import { Worker as Thread } from "node:worker_threads";
+function threadUrl() {
+  const js = new URL("./step-thread.js", import.meta.url);
+  return fs6.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
+}
+var GRACE_MS, StepPool;
+var init_step_pool = __esm({
+  "src/step-pool.ts"() {
+    "use strict";
+    GRACE_MS = 2e3;
+    StepPool = class {
+      slots = [];
+      nextId = 1;
+      size;
+      onLog;
+      constructor(size, onLog = () => {
+      }) {
+        this.size = size;
+        this.onLog = onLog;
+      }
+      /** Run one step on an idle thread (a new one if all are busy, up to the size). */
+      run(req, signal) {
+        const slot = this.slots.find((s) => !s.busy) ?? (this.slots.length < this.size ? this.spawn() : this.spawn(true));
+        const id = this.nextId++;
+        return new Promise((resolve, reject) => {
+          slot.busy = { id, resolve, reject };
+          const onAbort = () => {
+            slot.thread.postMessage({ abort: true });
+            const t = setTimeout(() => {
+              if (slot.busy?.id !== id) return;
+              this.kill(slot, new Error(String(signal.reason?.message ?? signal.reason ?? "aborted")));
+            }, GRACE_MS);
+            t.unref();
+          };
+          if (signal.aborted) onAbort();
+          else signal.addEventListener("abort", onAbort, { once: true });
+          slot.thread.postMessage({ ...req, id });
+        });
+      }
+      /** Flows were reloaded: threads have the old modules cached, so replace them. */
+      recycle() {
+        for (const s of [...this.slots]) {
+          if (s.busy) s.stale = true;
+          else this.remove(s);
+        }
+      }
+      async close() {
+        const all = [...this.slots];
+        this.slots = [];
+        await Promise.all(all.map((s) => s.thread.terminate()));
+      }
+      get threads() {
+        return this.slots.length;
+      }
+      spawn(extra = false) {
+        if (extra) this.onLog(`step pool: all ${this.size} threads busy, starting another`);
+        const slot = { thread: new Thread(threadUrl(), { stdout: false, stderr: false }) };
+        slot.thread.unref();
+        slot.thread.on("message", (m2) => {
+          const b = slot.busy;
+          if (!b || b.id !== m2.id) return;
+          slot.busy = void 0;
+          if (m2.ok) b.resolve(m2.variables);
+          else b.reject(new Error(m2.error));
+          if (slot.stale) this.remove(slot);
+        });
+        slot.thread.on("error", (e) => this.kill(slot, e instanceof Error ? e : new Error(String(e))));
+        slot.thread.on("exit", (code) => this.kill(slot, new Error(`the step's thread exited (code ${code}): did it call process.exit()?`)));
+        this.slots.push(slot);
+        return slot;
+      }
+      /** End a slot: fail its step with `why`, terminate the thread, forget it. */
+      kill(slot, why) {
+        const b = slot.busy;
+        slot.busy = void 0;
+        if (b) b.reject(why);
+        this.remove(slot);
+      }
+      remove(slot) {
+        const i = this.slots.indexOf(slot);
+        if (i < 0) return;
+        this.slots.splice(i, 1);
+        slot.thread.removeAllListeners();
+        slot.thread.on("error", () => {
+        });
+        void slot.thread.terminate();
+      }
+    };
+  }
+});
+
 // src/worker.ts
 function parseLimits(spec = "") {
   const out = {};
@@ -36860,7 +36963,7 @@ __export(daemon_exports, {
   Host: () => Host,
   serve: () => serve
 });
-import fs5 from "node:fs";
+import fs7 from "node:fs";
 import http from "node:http";
 import path5 from "node:path";
 import crypto3 from "node:crypto";
@@ -36872,7 +36975,7 @@ function agentMode() {
   const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, "/opt/homebrew/bin", "/usr/local/bin"];
   for (const d2 of dirs) {
     const f2 = path5.join(d2, "claude");
-    if (d2 && fs5.existsSync(f2)) {
+    if (d2 && fs7.existsSync(f2)) {
       process.env.AGE_CLAUDE_CMD = f2;
       return "cli";
     }
@@ -36917,11 +37020,11 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const watch = () => {
     for (const root of [host.home, ...host.projects]) {
       const dir = flowsDir(root);
-      if (watched.has(dir) || !fs5.existsSync(dir)) continue;
+      if (watched.has(dir) || !fs7.existsSync(dir)) continue;
       try {
         watched.set(
           dir,
-          fs5.watch(dir, { recursive: true }, () => {
+          fs7.watch(dir, { recursive: true }, () => {
             clearTimeout(reloadTimer);
             reloadTimer = setTimeout(() => host.reload().catch(() => {
             }), 300);
@@ -37005,8 +37108,8 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   function shutdown() {
     host.stop();
     try {
-      const cur = JSON.parse(fs5.readFileSync(infoFile, "utf8"));
-      if (cur.pid === process.pid) fs5.unlinkSync(infoFile);
+      const cur = JSON.parse(fs7.readFileSync(infoFile, "utf8"));
+      if (cur.pid === process.pid) fs7.unlinkSync(infoFile);
     } catch {
     }
     server.close();
@@ -37025,10 +37128,10 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   v6.listen(addr.port, "::1");
   server.on("close", () => v6.close());
   const info = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  fs5.writeFileSync(infoFile, JSON.stringify(info, null, 2));
+  fs7.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
-var WORKER, TICK_MS, MAX_CONCURRENT, MIN, jobTimeoutMs, Host;
+var WORKER, TICK_MS, MAX_CONCURRENT, STEP_THREADS, MIN, jobTimeoutMs, Host;
 var init_daemon = __esm({
   "src/daemon.ts"() {
     "use strict";
@@ -37038,10 +37141,12 @@ var init_daemon = __esm({
     init_paths();
     init_explorer_html();
     init_explorer_api();
+    init_step_pool();
     init_worker();
     WORKER = "age-daemon";
     TICK_MS = 500;
     MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
+    STEP_THREADS = process.env.AGE_STEP_THREADS !== "0";
     MIN = 6e4;
     jobTimeoutMs = (type) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (type === "claude" ? 55 : 25) * MIN);
     Host = class {
@@ -37067,9 +37172,11 @@ var init_daemon = __esm({
       agentMode = agentMode();
       dirty = false;
       timer;
+      /** Threads that run flow code (`run` steps and custom workers). */
+      steps = STEP_THREADS ? new StepPool(MAX_CONCURRENT, (m2) => this.log({ kind: "daemon", message: m2 })) : void 0;
       constructor(dir = engineDir()) {
         this.dir = dir;
-        fs5.mkdirSync(path5.join(this.dir, "compiled"), { recursive: true });
+        fs7.mkdirSync(path5.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
         this.worker = new Worker(
           {
@@ -37087,12 +37194,12 @@ var init_daemon = __esm({
           }
         );
         const journal = path5.join(this.dir, "journal.json");
-        if (fs5.existsSync(journal)) {
-          this.engine.replayEvents(fs5.readFileSync(journal, "utf8"));
+        if (fs7.existsSync(journal)) {
+          this.engine.replayEvents(fs7.readFileSync(journal, "utf8"));
           this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
         }
         this.deployed = this.readJson("deployed.json", {});
-        this.projects = this.readJson("projects.json", []).filter((p2) => fs5.existsSync(p2));
+        this.projects = this.readJson("projects.json", []).filter((p2) => fs7.existsSync(p2));
         this.instanceMeta = this.readJson("instances.json", {});
         this.activity = this.readJson("activity.json", []);
         this.engine.tickNow(Date.now());
@@ -37100,15 +37207,15 @@ var init_daemon = __esm({
       }
       readJson(name2, dflt) {
         try {
-          return JSON.parse(fs5.readFileSync(path5.join(this.dir, name2), "utf8"));
+          return JSON.parse(fs7.readFileSync(path5.join(this.dir, name2), "utf8"));
         } catch {
           return dflt;
         }
       }
       writeAtomic(name2, data) {
         const p2 = path5.join(this.dir, name2);
-        fs5.writeFileSync(`${p2}.tmp`, data);
-        fs5.renameSync(`${p2}.tmp`, p2);
+        fs7.writeFileSync(`${p2}.tmp`, data);
+        fs7.renameSync(`${p2}.tmp`, p2);
       }
       /** Write the event log and side tables. The journal is the source of truth. */
       persist() {
@@ -37177,7 +37284,7 @@ var init_daemon = __esm({
           for (const f2 of r2.flows) {
             if (flows.has(f2.key)) continue;
             flows.set(f2.key, f2);
-            fs5.writeFileSync(path5.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
+            fs7.writeFileSync(path5.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
             const hash2 = crypto3.createHash("sha256").update(f2.xml).digest("hex");
             if (this.deployed[f2.key] !== hash2) {
               this.engine.deploy(f2.xml);
@@ -37189,6 +37296,7 @@ var init_daemon = __esm({
         }
         for (const [key, f2] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, f2);
         this.flows = flows;
+        this.steps?.recycle();
         this.touch();
         this.persist();
         return { deployed, problems: this.problems };
@@ -37239,10 +37347,11 @@ var init_daemon = __esm({
         for (const f2 of this.flows.values()) for (const t of Object.keys(f2.handlers)) types2.add(t);
         return [...types2];
       }
-      handlerFor(type, processId) {
-        const own2 = processId ? this.flows.get(processId)?.handlers[type] : void 0;
-        if (own2) return own2;
-        for (const f2 of this.flows.values()) if (f2.handlers[type]) return f2.handlers[type];
+      /** The flow whose handler serves a job type: the job's own flow first. */
+      flowFor(type, processId) {
+        const own2 = processId ? this.flows.get(processId) : void 0;
+        if (own2?.handlers[type]) return own2;
+        for (const f2 of this.flows.values()) if (f2.handlers[type]) return f2;
         return void 0;
       }
       tick() {
@@ -37279,10 +37388,11 @@ var init_daemon = __esm({
           const r2 = await runInProject(this.projectOf(job.instanceKey), () => this.runAgent(job), signal);
           return { variables: r2.vars, costUsd: r2.costUsd };
         }
-        const h2 = this.handlerFor(job.type, job.bpmnProcessId);
-        if (!h2) throw new Error(`no handler for ${job.type}`);
+        const flow = this.flowFor(job.type, job.bpmnProcessId);
+        if (!flow) throw new Error(`no handler for ${job.type}`);
         const vjob = { jobKey: job.key, processInstanceKey: job.instanceKey, elementId: job.elementId, type: job.type, variables: job.variables ?? {} };
-        const out = await runInProject(this.projectOf(job.instanceKey), () => h2(vjob), signal);
+        const project2 = this.projectOf(job.instanceKey);
+        const out = this.steps ? await this.steps.run({ file: flow.file, stamp: flow.stamp, flowId: flow.id, flowKey: flow.key, type: job.type, project: project2, job: vjob }, signal) : await runInProject(project2, () => flow.handlers[job.type](vjob), signal);
         return { variables: out && typeof out === "object" ? out : {} };
       }
       /** The Claude Code CLI can't run here (missing or logged out): hand agent steps to the
@@ -37307,7 +37417,7 @@ var init_daemon = __esm({
         const opts = flow.agents[task.name] ?? {};
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
-        const prompt = `${fs5.readFileSync(promptFile, "utf8").trim()}
+        const prompt = `${fs7.readFileSync(promptFile, "utf8").trim()}
 
 ## Context (process variables)
 
@@ -37474,7 +37584,7 @@ ${vars.appendPrompt}
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
-            prompt: promptFile && fs5.existsSync(promptFile) ? fs5.readFileSync(promptFile, "utf8") : void 0,
+            prompt: promptFile && fs7.existsSync(promptFile) ? fs7.readFileSync(promptFile, "utf8") : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
@@ -37525,6 +37635,7 @@ ${vars.appendPrompt}
       stop() {
         if (this.timer) clearInterval(this.timer);
         this.worker.stop();
+        void this.steps?.close();
         this.dirty = true;
         this.persist();
       }
@@ -53158,12 +53269,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name2}"`);
       return f2;
     };
-    function addFormats(ajv, list, fs8, exportName) {
+    function addFormats(ajv, list, fs10, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f2 of list)
-        ajv.addFormat(f2, fs8[f2]);
+        ajv.addFormat(f2, fs10[f2]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -57361,16 +57472,16 @@ __export(mcp_exports, {
   runMcp: () => runMcp,
   runMcpHttp: () => runMcpHttp
 });
-import fs6 from "node:fs";
+import fs8 from "node:fs";
 import path6 from "node:path";
 function ensureModuleType(dir) {
   const f2 = path6.join(dir, "package.json");
-  if (!fs6.existsSync(f2)) fs6.writeFileSync(f2, '{ "type": "module" }\n');
+  if (!fs8.existsSync(f2)) fs8.writeFileSync(f2, '{ "type": "module" }\n');
 }
 function guideText() {
   for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs6.existsSync(u2)) return fs6.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
+    if (fs8.existsSync(u2)) return fs8.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
   }
   return "guide not found";
 }
@@ -57432,11 +57543,11 @@ ${guideText()}`))
     },
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
-      fs6.mkdirSync(path6.join(dir, "prompts"), { recursive: true });
+      fs8.mkdirSync(path6.join(dir, "prompts"), { recursive: true });
       ensureModuleType(dir);
-      for (const [f2, body2] of Object.entries(prompts ?? {})) fs6.writeFileSync(path6.join(dir, "prompts", f2), body2);
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs8.writeFileSync(path6.join(dir, "prompts", f2), body2);
       const file2 = path6.join(dir, `${name2}.flow.ts`);
-      fs6.writeFileSync(file2, source);
+      fs8.writeFileSync(file2, source);
       const r2 = await checkFile(file2);
       const bad = r2.problems.some((p2) => p2.severity === "error");
       let tail = "";
@@ -57493,10 +57604,10 @@ written ${path6.relative(project2, file2)}${tail}`, bad);
       const src = listFlowFiles(home).find((f2) => path6.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
       if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
       const dst = path6.join(flowsDir(project2), path6.basename(src));
-      if (fs6.existsSync(dst) && !overwrite) return text(`${path6.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
-      fs6.mkdirSync(path6.join(flowsDir(project2), "prompts"), { recursive: true });
+      if (fs8.existsSync(dst) && !overwrite) return text(`${path6.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs8.mkdirSync(path6.join(flowsDir(project2), "prompts"), { recursive: true });
       ensureModuleType(flowsDir(project2));
-      fs6.copyFileSync(src, dst);
+      fs8.copyFileSync(src, dst);
       const copied = [path6.relative(project2, dst)];
       const r0 = await checkFile(src);
       for (const fl of r0.flows)
@@ -57504,8 +57615,8 @@ written ${path6.relative(project2, file2)}${tail}`, bad);
           if (t.prompt) {
             const p2 = path6.join(flowsDir(home), "prompts", t.prompt.resourceId);
             const q = path6.join(flowsDir(project2), "prompts", t.prompt.resourceId);
-            if (fs6.existsSync(p2) && (overwrite || !fs6.existsSync(q))) {
-              fs6.copyFileSync(p2, q);
+            if (fs8.existsSync(p2) && (overwrite || !fs8.existsSync(q))) {
+              fs8.copyFileSync(p2, q);
               copied.push(path6.relative(project2, q));
             }
           }
@@ -57530,9 +57641,9 @@ Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
       const f2 = files.find((x) => path6.basename(x).replace(/\.flow\.\w+$/, "") === name2);
       if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
       const pdir = path6.join(flowsDir(project2), "prompts");
-      const prompts = fs6.existsSync(pdir) ? fs6.readdirSync(pdir).map((p2) => `--- prompts/${p2}
-${fs6.readFileSync(path6.join(pdir, p2), "utf8")}`) : [];
-      return text([`--- ${path6.basename(f2)}`, fs6.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+      const prompts = fs8.existsSync(pdir) ? fs8.readdirSync(pdir).map((p2) => `--- prompts/${p2}
+${fs8.readFileSync(path6.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path6.basename(f2)}`, fs8.readFileSync(f2, "utf8"), ...prompts].join("\n"));
     })
   );
   K3(
@@ -57811,8 +57922,8 @@ function watchFlowPrompts(server, project2) {
   });
   let t;
   try {
-    fs6.mkdirSync(flowsDir(project2), { recursive: true });
-    fs6.watch(flowsDir(project2), () => {
+    fs8.mkdirSync(flowsDir(project2), { recursive: true });
+    fs8.watch(flowsDir(project2), () => {
       clearTimeout(t);
       t = setTimeout(sync, 300);
     }).unref();
@@ -57878,7 +57989,7 @@ var hooks_exports = {};
 __export(hooks_exports, {
   runHook: () => runHook
 });
-import fs7 from "node:fs";
+import fs9 from "node:fs";
 import path7 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
@@ -57912,12 +58023,12 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
-      seen = JSON.parse(fs7.readFileSync(seenFile, "utf8"));
+      seen = JSON.parse(fs9.readFileSync(seenFile, "utf8"));
     } catch {
     }
     if (keys.every((k2) => seen.includes(k2))) return;
   }
-  fs7.writeFileSync(seenFile, JSON.stringify(keys));
+  fs9.writeFileSync(seenFile, JSON.stringify(keys));
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);

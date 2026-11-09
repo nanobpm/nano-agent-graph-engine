@@ -15,7 +15,7 @@ fs.mkdirSync(dist, { recursive: true });
 
 const banner = { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" };
 await build({
-  entryPoints: { cli: "src/cli.ts", index: "src/index.ts" },
+  entryPoints: { cli: "src/cli.ts", index: "src/index.ts", "step-thread": "src/step-thread.ts" },
   outdir: dist,
   bundle: true,
   platform: "node",

@@ -2,10 +2,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import module from "node:module";
 import { declarativeToLayoutedBpmn, inlineJobTypes, walkNodes } from "@nanobpm/workflow";
 import type { AgentOptions, FormDef } from "./index.ts";
 import { newEngine } from "./wasm.ts";
+import { installResolveHook } from "./resolve-hook.ts";
+
+export { installResolveHook };
 
 /** Job types served by built-in workers rather than by a `run` handler. */
 export const BUILTIN_JOB_TYPES = {
@@ -44,6 +46,8 @@ export interface CompiledFlow {
   agents: Record<string, AgentOptions>;
   /** The process id in the engine: "<projectSlug>.<id>" for project flows, the id for global ones. */
   key: string;
+  /** The flow file's mtime when it was loaded: step threads import the same version. */
+  stamp: number;
   /** Project root the flow file belongs to (parent of flows/). */
   projectDir: string;
   /** "project": from this project's flows/. "global": from the shared library
@@ -56,23 +60,6 @@ export interface CheckResult {
   file: string;
   flows: CompiledFlow[];
   problems: Problem[];
-}
-
-let hooksInstalled = false;
-/** Make `import … from "agent-graph-engine"` in a flow file resolve to this package,
- *  wherever the flow lives (the user's project has no node_modules for it). */
-export function installResolveHook(): void {
-  if (hooksInstalled) return;
-  hooksInstalled = true;
-  const here = new URL(".", import.meta.url);
-  const js = new URL("./index.js", here);
-  const target = fs.existsSync(js) ? js.href : new URL("./index.ts", here).href;
-  module.registerHooks({
-    resolve(specifier, context, next) {
-      if (specifier === "agent-graph-engine") return { url: target, shortCircuit: true };
-      return next(specifier, context);
-    },
-  });
 }
 
 export function flowsDir(project: string): string {
@@ -100,8 +87,9 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
   const problems: Problem[] = [];
   const flows: CompiledFlow[] = [];
   let mod: Record<string, any>;
+  let stamp = 0;
   try {
-    const stamp = fs.statSync(file).mtimeMs;
+    stamp = fs.statSync(file).mtimeMs;
     mod = await import(`${pathToFileURL(path.resolve(file)).href}?v=${stamp}`);
   } catch (e: any) {
     // defineFlow validates while building, so most authoring mistakes land here.
@@ -167,7 +155,7 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
     } catch (e: any) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file, stamp, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
   }
   return { file, flows, problems };
 }

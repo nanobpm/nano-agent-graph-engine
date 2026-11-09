@@ -95,7 +95,8 @@ engine, which serves every project: `sh()` and agent steps run in the run's proj
 plain `fs` calls don't — use `projectPath("file")` (from `agent-graph-engine`) or absolute
 paths. Put reusable logic in normal modules and import them. Steps time out (25 min,
 agent steps 55): `sh()` and `claude()` stop then; pass `jobSignal()` to `fetch()` and other
-long calls in a handler.
+long calls in a handler. Each step runs on its own thread: module-level variables in the
+flow file aren't shared between steps, so pass data in variables or files.
 
 ## Workflow
 

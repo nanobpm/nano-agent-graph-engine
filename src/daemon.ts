@@ -11,11 +11,13 @@ import { newEngine, type TestEngine } from "./wasm.ts";
 import { defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
+import { StepPool } from "./step-pool.ts";
 import { parseLimits, Worker, type ActivatedJob, type JobResult } from "./worker.ts";
 
 const WORKER = "age-daemon";
 const TICK_MS = 500;
 const MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
+const STEP_THREADS = process.env.AGE_STEP_THREADS !== "0";
 const MIN = 60_000;
 /** How long a step may run: agent steps 55 min, others 25 min (AGE_JOB_TIMEOUT_MS overrides both).
  *  The engine's lock is 5 minutes longer, so a step times out before the engine hands it out again. */
@@ -53,6 +55,8 @@ export class Host {
   agentMode: "cli" | "session" = agentMode();
   private dirty = false;
   private timer?: NodeJS.Timeout;
+  /** Threads that run flow code (`run` steps and custom workers). */
+  private steps = STEP_THREADS ? new StepPool(MAX_CONCURRENT, (m) => this.log({ kind: "daemon", message: m })) : undefined;
 
   constructor(dir = engineDir()) {
     this.dir = dir;
@@ -190,6 +194,8 @@ export class Host {
     // Keep handlers of flows that failed to compile this time, so running instances continue.
     for (const [key, f] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, f);
     this.flows = flows;
+    // Step threads cached the old modules; new steps get fresh threads.
+    this.steps?.recycle();
     this.touch();
     this.persist();
     return { deployed, problems: this.problems };
@@ -246,10 +252,11 @@ export class Host {
     return [...types];
   }
 
-  private handlerFor(type: string, processId?: string): ((job: any) => unknown) | undefined {
-    const own = processId ? this.flows.get(processId)?.handlers[type] : undefined;
-    if (own) return own;
-    for (const f of this.flows.values()) if (f.handlers[type]) return f.handlers[type];
+  /** The flow whose handler serves a job type: the job's own flow first. */
+  private flowFor(type: string, processId?: string): CompiledFlow | undefined {
+    const own = processId ? this.flows.get(processId) : undefined;
+    if (own?.handlers[type]) return own;
+    for (const f of this.flows.values()) if (f.handlers[type]) return f;
     return undefined;
   }
 
@@ -288,10 +295,14 @@ export class Host {
       const r = await runInProject(this.projectOf(job.instanceKey), () => this.runAgent(job), signal);
       return { variables: r.vars, costUsd: r.costUsd };
     }
-    const h = this.handlerFor(job.type, job.bpmnProcessId);
-    if (!h) throw new Error(`no handler for ${job.type}`);
+    const flow = this.flowFor(job.type, job.bpmnProcessId);
+    if (!flow) throw new Error(`no handler for ${job.type}`);
     const vjob = { jobKey: job.key, processInstanceKey: job.instanceKey, elementId: job.elementId, type: job.type, variables: job.variables ?? {} };
-    const out = await runInProject(this.projectOf(job.instanceKey), () => h(vjob), signal);
+    const project = this.projectOf(job.instanceKey);
+    // Flow code runs on a step thread, so it can't block the engine; AGE_STEP_THREADS=0 runs it here.
+    const out = this.steps
+      ? await this.steps.run({ file: flow.file, stamp: flow.stamp, flowId: flow.id, flowKey: flow.key, type: job.type, project, job: vjob }, signal)
+      : await runInProject(project, () => flow.handlers[job.type](vjob), signal);
     return { variables: out && typeof out === "object" ? (out as Record<string, unknown>) : {} };
   }
 
@@ -550,6 +561,7 @@ export class Host {
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.worker.stop();
+    void this.steps?.close();
     this.dirty = true;
     this.persist();
   }
