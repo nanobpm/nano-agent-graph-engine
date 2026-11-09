@@ -3,17 +3,34 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 
 export interface DaemonInfo {
   pid: number;
   port: number;
   url: string;
+  /** The project this client acts on (the engine itself serves every project). */
   project: string;
   startedAt: string;
 }
 
-export function stateDir(project: string): string {
+/** The engine's home: one engine per user, for every project (AGE_STATE_DIR moves it). */
+export function engineDir(): string {
+  return path.resolve(process.env.AGE_STATE_DIR ?? path.join(process.env.HOME ?? "/tmp", ".agent-graph"));
+}
+
+/** Before 0.5 each project had its own engine in <project>/.agent-graph. */
+export function legacyStateDir(project: string): string {
   return path.join(path.resolve(project), ".agent-graph");
+}
+
+/** A short, stable, BPMN-id-safe name for a project: "<folder>-<hash>". It prefixes the
+ *  process ids of the project's flows, so two repos can both have a "release" flow. */
+export function projectSlug(project: string): string {
+  const abs = path.resolve(project);
+  let base = path.basename(abs).replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "project";
+  if (!/^[A-Za-z]/.test(base)) base = `p-${base}`;
+  return `${base}-${crypto.createHash("sha1").update(abs).digest("hex").slice(0, 4)}`;
 }
 
 /** Home for flows when there is no project (Claude Desktop chat starts servers in /). */
@@ -21,20 +38,24 @@ export function defaultHome(): string {
   return process.env.AGE_HOME ?? path.join(process.env.HOME ?? "/tmp", "AgentGraph");
 }
 
-/** The project a client acts on: AGE_PROJECT, else the nearest ancestor with flows/ or
- *  .agent-graph/, else cwd — or ~/AgentGraph when cwd is / or the home dir itself. */
+/** The project a client acts on: AGE_PROJECT, else the nearest ancestor with flows/,
+ *  else the git repo root, else cwd — or the library (~/AgentGraph) when cwd is / or
+ *  the home dir itself. */
 export function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()): string {
   if (process.env.AGE_PROJECT && start === process.env.AGE_PROJECT) return path.resolve(start); // explicit wins
-  let dir = path.resolve(start);
-  for (;;) {
-    if (fs.existsSync(path.join(dir, "flows")) || fs.existsSync(path.join(dir, ".agent-graph"))) return dir;
+  const s = path.resolve(start);
+  const home = path.resolve(process.env.HOME ?? "/");
+  if (s === "/" || s === home) return defaultHome();
+  let git: string | undefined;
+  for (let dir = s; ; ) {
+    if (dir === home) break; // ~/flows would make every folder one project
+    if (fs.existsSync(path.join(dir, "flows"))) return dir;
+    if (!git && fs.existsSync(path.join(dir, ".git"))) git = dir;
     const up = path.dirname(dir);
     if (up === dir) break;
     dir = up;
   }
-  const s = path.resolve(start);
-  if (s === "/" || s === path.resolve(process.env.HOME ?? "/")) return defaultHome();
-  return s;
+  return git ?? s;
 }
 
 function alive(pid: number): boolean {
@@ -46,9 +67,10 @@ function alive(pid: number): boolean {
   }
 }
 
-/** The running daemon for a project, if any (never starts one). */
-export async function findDaemon(project: string): Promise<DaemonInfo | undefined> {
-  const f = path.join(stateDir(project), "daemon.json");
+/** The user's running engine, if any (never starts one). `project` is recorded on the
+ *  returned info for the caller's convenience. */
+export async function findDaemon(project = defaultHome()): Promise<DaemonInfo | undefined> {
+  const f = path.join(engineDir(), "daemon.json");
   let info: DaemonInfo;
   try {
     info = JSON.parse(fs.readFileSync(f, "utf8"));
@@ -57,35 +79,57 @@ export async function findDaemon(project: string): Promise<DaemonInfo | undefine
   }
   if (!alive(info.pid)) return undefined;
   try {
-    const r = await fetch(`${info.url}/api/state`, { signal: AbortSignal.timeout(1500) });
-    return r.ok ? info : undefined;
+    const r = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500) });
+    return r.ok ? { ...info, project: path.resolve(project) } : undefined;
   } catch {
     return undefined;
   }
 }
 
-/** Find the project's daemon or start one detached (it outlives the Claude session, so
- *  timers and long agent jobs keep running). */
+/** Find the user's engine or start it detached (it outlives the Claude session, so
+ *  timers and long agent jobs keep running), and make sure it knows `project`. */
 export async function ensureDaemon(project: string): Promise<DaemonInfo> {
-  const found = await findDaemon(project);
-  if (found) return found;
-  fs.mkdirSync(stateDir(project), { recursive: true });
+  let info = await findDaemon(project);
+  if (!info) info = await startDaemon(project);
+  await api(info, "/api/projects", { path: path.resolve(project) });
+  return info;
+}
+
+async function startDaemon(project: string): Promise<DaemonInfo> {
+  const dir = engineDir();
+  fs.mkdirSync(dir, { recursive: true });
+  // Several clients may start at once (sessions, hooks, the mod): one spawns, the rest wait.
+  const lock = path.join(dir, "starting.lock");
+  let mine = false;
+  try {
+    fs.writeFileSync(lock, String(process.pid), { flag: "wx" });
+    mine = true;
+  } catch {
+    if (Date.now() - fs.statSync(lock).mtimeMs > 15_000) {
+      fs.rmSync(lock, { force: true }); // stale
+      return startDaemon(project);
+    }
+  }
+  try {
+    if (mine) spawnDaemon(dir);
+    for (let i = 0; i < 150; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      const info = await findDaemon(project);
+      if (info) return info;
+    }
+  } finally {
+    if (mine) fs.rmSync(lock, { force: true });
+  }
+  throw new Error(`engine did not start; see ${path.join(dir, "daemon.log")}`);
+}
+
+function spawnDaemon(dir: string) {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const cli = fs.existsSync(path.join(here, "cli.js")) ? path.join(here, "cli.js") : path.join(here, "cli.ts");
-  const out = fs.openSync(path.join(stateDir(project), "daemon.log"), "a");
-  const child = spawn(process.execPath, [cli, "daemon", "--project", project], {
-    detached: true,
-    stdio: ["ignore", out, out],
-    env: { ...process.env, AGE_PROJECT: project },
-    cwd: project,
-  });
+  const out = fs.openSync(path.join(dir, "daemon.log"), "a");
+  const { AGE_PROJECT: _p, ...env } = process.env;
+  const child = spawn(process.execPath, [cli, "daemon"], { detached: true, stdio: ["ignore", out, out], env, cwd: dir });
   child.unref();
-  for (let i = 0; i < 100; i++) {
-    await new Promise((r) => setTimeout(r, 100));
-    const info = await findDaemon(project);
-    if (info) return info;
-  }
-  throw new Error(`daemon did not start; see ${path.join(stateDir(project), "daemon.log")}`);
 }
 
 export async function api<T = any>(info: DaemonInfo, p: string, body?: unknown): Promise<T> {

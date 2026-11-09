@@ -18,17 +18,12 @@ const project = fs.mkdtempSync(path.join(os.tmpdir(), "age-ui-"));
 fs.cpSync(path.join(root, "examples/demo/flows"), path.join(project, "flows"), { recursive: true });
 execFileSync("git", ["init", "-q"], { cwd: project });
 execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "feat: first"], { cwd: project });
-const env = { ...process.env, AGE_CLAUDE_CMD: path.join(root, "test/fixtures/fake-claude.mjs"), AGE_PROJECT: project };
+const env = { ...process.env, AGE_CLAUDE_CMD: path.join(root, "test/fixtures/fake-claude.mjs"), AGE_PROJECT: project, AGE_STATE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "age-engine-")), AGE_NO_BROWSER: "1" };
 const cli = (...args) => execFileSync(process.execPath, [path.join(root, "dist/cli.js"), ...args], { cwd: project, env }).toString();
 
-const daemon = spawn(process.execPath, [path.join(root, "dist/cli.js"), "daemon"], { cwd: project, env, stdio: "ignore" });
-let url;
-for (let i = 0; i < 100 && !url; i++) {
-  await new Promise((r) => setTimeout(r, 100));
-  try {
-    url = JSON.parse(fs.readFileSync(path.join(project, ".agent-graph/daemon.json"), "utf8")).url;
-  } catch {}
-}
+// one engine per user (a private one here); `open` registers the project and prints the
+// explorer URL scoped to it
+const url = cli("open").trim();
 console.log("daemon", url, "project", project);
 console.log(cli("start", "changelog").trim());
 
@@ -63,5 +58,5 @@ try {
   throw e;
 } finally {
   await browser.close();
-  daemon.kill();
+  cli("down");
 }

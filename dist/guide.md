@@ -6,16 +6,17 @@ description: Build and run durable workflows ("flows") in this project with the 
 # Agent Graph Engine
 
 A flow is a TypeScript file in `flows/<name>.flow.ts` written with `defineFlow`. It
-compiles to BPMN (with a generated diagram) and runs in a per-project daemon that keeps
-an event log in `.agent-graph/`, so instances survive restarts and keep running after
-this session ends. The daemon starts on demand and redeploys flows when files change.
+compiles to BPMN (with a generated diagram) and runs in the user's engine — one for
+every project, with its event log in `~/.agent-graph/` — so instances survive restarts and
+keep running after this session ends. The engine starts on demand and redeploys flows
+when files change. `flow_status` and the explorer show runs in every project.
 
 ## Tools
 
 | Tool | Use |
 |---|---|
 | `flow_write` / `flow_read` | Write (or read) `flows/<name>.flow.ts` + prompt files and compile/lint it in one go — use these when you have no file access (Claude Desktop chat). |
-| `flow_list` / `flow_import` | List flows here and in the shared library `~/AgentGraph` (where Claude Desktop keeps flows); copy one into this project to reuse it. |
+| `flow_list` / `flow_import` | List this project's flows and the global ones (`~/AgentGraph/flows`, where Claude Desktop keeps flows; startable in any project, where they run). Import copies a global flow here to customize it. |
 | `flow_check` | Compile + lint all flows. **Run after every edit**; fix every error. Deploys flows that pass. |
 | `show_explorer` | Show the live explorer inline (diagram with where runs are, task inbox with forms the user can fill in, incidents). |
 | `flow_start` | Start an instance (`flowId`, `variables`, optional `title`). |
@@ -90,7 +91,9 @@ export const triage = defineFlow("triage", (w) => {
 Step names are BPMN ids: letters, digits, `_`, `-`; don't start them with `Gw_`, `Loop_`, `Sub_`, `Msg_`, `f_`, and don't use `Start`/`End`.
 
 Variables are JSON; keep them small (paths and ids, not file contents). Code runs in the
-daemon with the project as cwd. Put reusable logic in normal modules and import them.
+engine, which serves every project: `sh()` and agent steps run in the run's project, but
+plain `fs` calls don't — use `projectPath("file")` (from `agent-graph-engine`) or absolute
+paths. Put reusable logic in normal modules and import them.
 
 ## Workflow
 

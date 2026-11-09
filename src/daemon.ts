@@ -1,4 +1,4 @@
-// The Agent Graph Engine daemon: one per project. Hosts the WASM engine, keeps its
+// The Agent Graph Engine daemon: one per user, serving every project. Hosts the WASM engine, keeps its
 // event log on disk (replayed on start), runs job workers, ticks timers, and serves
 // the HTTP API + web explorer on 127.0.0.1.
 import fs from "node:fs";
@@ -6,9 +6,9 @@ import http from "node:http";
 import path from "node:path";
 import crypto from "node:crypto";
 import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compile.ts";
-import { claude } from "./index.ts";
+import { claude, runInProject } from "./index.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
-import { defaultHome, stateDir, type DaemonInfo } from "./paths.ts";
+import { defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
 
@@ -26,15 +26,19 @@ interface Activity {
 }
 
 export class Host {
-  readonly project: string;
+  /** The global flow library (~/AgentGraph): its flows are offered in every project.
+   *  Claude Desktop, which has no project, works there. */
+  readonly home = path.resolve(defaultHome());
   readonly dir: string;
+  /** Projects whose flows/ this engine loads (registered by clients as they connect). */
+  projects: string[] = [];
   engine: TestEngine;
   flows = new Map<string, CompiledFlow>();
-  problems: { file: string; problems: Problem[] }[] = [];
+  problems: { file: string; project?: string; problems: Problem[] }[] = [];
   running = new Map<string, { type: string; elementId: string; instanceKey: string; since: number }>();
   backoff = new Map<string, number>();
   activity: Activity[] = [];
-  instanceMeta: Record<string, { flowId: string; startedAt: string; title?: string }> = {};
+  instanceMeta: Record<string, { flowId: string; flowKey?: string; project?: string; startedAt: string; title?: string }> = {};
   deployed: Record<string, string> = {};
   /** Who runs `jobType: "claude"` agent tasks: a headless `claude -p` ("cli"), or the
    *  chat/session agent through session_job_next ("session"). */
@@ -42,13 +46,9 @@ export class Host {
   private dirty = false;
   private timer?: NodeJS.Timeout;
 
-  constructor(project: string) {
-    this.project = path.resolve(project);
-    this.dir = stateDir(this.project);
+  constructor(dir = engineDir()) {
+    this.dir = dir;
     fs.mkdirSync(path.join(this.dir, "compiled"), { recursive: true });
-    // Engine state is local: keep it out of the project's git status.
-    const ignore = path.join(this.dir, ".gitignore");
-    if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
     this.engine = newEngine();
     const journal = path.join(this.dir, "journal.json");
     if (fs.existsSync(journal)) {
@@ -56,6 +56,7 @@ export class Host {
       this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
     }
     this.deployed = this.readJson("deployed.json", {});
+    this.projects = this.readJson<string[]>("projects.json", []).filter((p) => fs.existsSync(p));
     this.instanceMeta = this.readJson("instances.json", {});
     this.activity = this.readJson("activity.json", []);
     this.engine.tickNow(Date.now());
@@ -83,6 +84,7 @@ export class Host {
     this.writeAtomic("journal.json", this.engine.events());
     this.writeAtomic("deployed.json", JSON.stringify(this.deployed));
     this.writeAtomic("instances.json", JSON.stringify(this.instanceMeta));
+    this.writeAtomic("projects.json", JSON.stringify(this.projects));
     this.writeAtomic("activity.json", JSON.stringify(this.activity.slice(-500)));
   }
 
@@ -115,52 +117,101 @@ export class Host {
     }
   }
 
-  /** The shared flow library (~/AgentGraph): its flows are offered in every project.
-   *  Undefined when this daemon *is* the library's. */
-  get globalDir(): string | undefined {
-    const home = path.resolve(defaultHome());
-    return home === this.project ? undefined : home;
+  /** Add a project (its flows/ are loaded and watched). Idempotent. The library itself
+   *  is not a project: its flows are global. Returns whether it was new. */
+  addProject(dir: string): boolean {
+    const p = path.resolve(dir);
+    if (p === this.home || this.projects.includes(p)) return false;
+    this.projects.push(p);
+    this.touch();
+    this.persist();
+    return true;
   }
 
-  /** Compile flows/ (and the global library's) and deploy every flow whose BPMN
-   *  changed. A project flow shadows a global one with the same id. */
+  /** "~/…" for paths under the home dir, for display. */
+  tilde(p: string): string {
+    const h = process.env.HOME;
+    return h && (p === h || p.startsWith(h + path.sep)) ? `~${p.slice(h.length)}` : p;
+  }
+
+  /** Compile every project's flows/ and the library's, and deploy every flow whose BPMN
+   *  changed. Project flows deploy as "<projectSlug>.<id>", global ones as "<id>". */
   async reload(): Promise<{ deployed: string[]; problems: Host["problems"] }> {
-    const results = await checkProject(this.project);
-    const globals = this.globalDir ? await checkProject(this.globalDir) : [];
+    const results = [];
+    for (const project of this.projects) {
+      const slug = projectSlug(project);
+      results.push(...(await checkProject(project, (id) => `${slug}.${id}`)).map((r) => ({ ...r, project })));
+    }
+    const globals = (await checkProject(this.home)).map((r) => ({ ...r, project: undefined }));
     for (const r of globals) for (const f of r.flows) f.scope = "global";
-    const rel = (file: string) => (file.startsWith(this.project + path.sep) ? path.relative(this.project, file) : file.replace(process.env.HOME ?? "\0", "~"));
-    this.problems = [...results, ...globals].filter((r) => r.problems.length).map((r) => ({ file: rel(r.file), problems: r.problems }));
+    this.problems = [...results, ...globals]
+      .filter((r) => r.problems.length)
+      .map((r) => ({ file: this.tilde(r.file), project: r.project, problems: r.problems }));
     const deployed: string[] = [];
     const flows = new Map<string, CompiledFlow>();
     for (const r of [...results, ...globals]) {
       if (r.problems.some((p) => p.severity === "error")) continue;
       for (const f of r.flows) {
-        if (flows.has(f.id)) continue; // project first: it shadows the library
-        flows.set(f.id, f);
-        fs.writeFileSync(path.join(this.dir, "compiled", `${f.id}.bpmn`), f.xml);
+        if (flows.has(f.key)) continue;
+        flows.set(f.key, f);
+        fs.writeFileSync(path.join(this.dir, "compiled", `${f.key}.bpmn`), f.xml);
         const hash = crypto.createHash("sha256").update(f.xml).digest("hex");
-        if (this.deployed[f.id] !== hash) {
+        if (this.deployed[f.key] !== hash) {
           this.engine.deploy(f.xml);
-          this.deployed[f.id] = hash;
-          deployed.push(f.id);
-          this.log({ kind: "deploy", message: `deployed flow ${f.id}` });
+          this.deployed[f.key] = hash;
+          deployed.push(f.key);
+          this.log({ kind: "deploy", message: `deployed flow ${f.key}` });
         }
       }
     }
     // Keep handlers of flows that failed to compile this time, so running instances continue.
-    for (const [id, f] of this.flows) if (!flows.has(id)) flows.set(id, f);
+    for (const [key, f] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, f);
     this.flows = flows;
     this.touch();
     this.persist();
     return { deployed, problems: this.problems };
   }
 
-  start(flowId: string, variables: Record<string, unknown> = {}, title?: string): string {
-    if (!this.flows.has(flowId) && !this.deployed[flowId]) throw new Error(`unknown flow "${flowId}"`);
-    const s = JSON.parse(this.engine.createInstance(flowId, JSON.stringify(variables)));
+  /** The flow a name means in a project: the project's own, else the global one with
+   *  that id. An exact key (e.g. "nanobpmn-1a2b.release") also works. */
+  resolveFlow(ref: string, project?: string): CompiledFlow | undefined {
+    if (project && path.resolve(project) !== this.home) {
+      const own = this.flows.get(`${projectSlug(project)}.${ref}`);
+      if (own) return own;
+    }
+    const g = this.flows.get(ref);
+    return g && (g.scope === "global" || !project || path.resolve(g.projectDir) === path.resolve(project)) ? g : undefined;
+  }
+
+  /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
+  flowsFor(project?: string): CompiledFlow[] {
+    const all = [...this.flows.values()];
+    if (!project) return all;
+    const p = path.resolve(project);
+    const own = p === this.home ? [] : all.filter((f) => f.scope === "project" && path.resolve(f.projectDir) === p);
+    const ids = new Set(own.map((f) => f.id));
+    return [...own, ...all.filter((f) => f.scope === "global" && !ids.has(f.id))];
+  }
+
+  /** The project a run belongs to (where its steps run). */
+  projectOf(instanceKey: string): string {
+    const meta = this.instanceMeta[instanceKey];
+    if (meta?.project) return meta.project;
+    const f = meta?.flowKey ? this.flows.get(meta.flowKey) : undefined;
+    return f && f.scope === "project" ? f.projectDir : this.home;
+  }
+
+  /** Start a flow in a project (default: the library home). Global flows run in the
+   *  project they were started from. */
+  start(flowRef: string, variables: Record<string, unknown> = {}, title?: string, project?: string): string {
+    const where = path.resolve(project ?? this.home);
+    if (where !== this.home) this.addProject(where);
+    const flow = this.resolveFlow(flowRef, where);
+    if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
+    const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
     const key = String(s.created);
-    this.instanceMeta[key] = { flowId, startedAt: new Date().toISOString(), title };
-    this.log({ kind: "start", instanceKey: key, message: `started ${flowId}${title ? ` — ${title}` : ""}` });
+    this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: new Date().toISOString(), title };
+    this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path.basename(where)}${title ? ` — ${title}` : ""}` });
     this.persist();
     return key;
   }
@@ -172,7 +223,9 @@ export class Host {
     return [...types];
   }
 
-  private handlerFor(type: string): ((job: any) => unknown) | undefined {
+  private handlerFor(type: string, processId?: string): ((job: any) => unknown) | undefined {
+    const own = processId ? this.flows.get(processId)?.handlers[type] : undefined;
+    if (own) return own;
     for (const f of this.flows.values()) if (f.handlers[type]) return f.handlers[type];
     return undefined;
   }
@@ -227,9 +280,9 @@ export class Host {
         vars = r.vars;
         costUsd = r.costUsd;
       } else {
-        const h = this.handlerFor(job.type);
+        const h = this.handlerFor(job.type, job.bpmnProcessId);
         if (!h) throw new Error(`no handler for ${job.type}`);
-        const out = await h(vjob);
+        const out = await runInProject(this.projectOf(String(job.instanceKey)), () => h(vjob));
         if (out && typeof out === "object") vars = out as Record<string, unknown>;
       }
       this.engine.completeJob(key, JSON.stringify(vars));
@@ -280,7 +333,7 @@ export class Host {
       `${fs.readFileSync(promptFile, "utf8").trim()}\n\n## Context (process variables)\n\n\`\`\`json\n${JSON.stringify(ctx, null, 2)}\n\`\`\`\n` +
       (vars.appendPrompt ? `\n${vars.appendPrompt}\n` : "");
     const { context: _c, ...claudeOpts } = opts;
-    const r = await claude<unknown>(prompt, { ...claudeOpts, cwd: this.project });
+    const r = await claude<unknown>(prompt, { ...claudeOpts, cwd: this.projectOf(String(job.instanceKey)) });
     let out: unknown = r.result;
     if (typeof out === "string") {
       const m = out.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ?? out.match(/^\s*(\{[\s\S]*\})\s*$/);
@@ -300,8 +353,9 @@ export class Host {
 
   userTaskView(t: any, snap: any) {
     const inst = (snap.instances ?? []).find((i: any) => i.key === t.instanceKey);
-    const flowId = inst?.processId ?? this.instanceMeta[t.instanceKey]?.flowId;
-    const flow = flowId ? this.flows.get(flowId) : undefined;
+    const flowKey = inst?.processId ?? this.instanceMeta[t.instanceKey]?.flowKey;
+    const flow = flowKey ? this.flows.get(flowKey) : undefined;
+    const flowId = flow?.id ?? this.instanceMeta[t.instanceKey]?.flowId ?? flowKey;
     const human = flow?.humans.find((h) => h.name === t.elementId);
     const form = human ? flow?.forms[human.form] : undefined;
     const variables = inst?.variables ?? {};
@@ -315,43 +369,55 @@ export class Host {
       flowId,
       elementId: t.elementId,
       title: this.instanceMeta[t.instanceKey]?.title,
+      project: this.projectOf(String(t.instanceKey)),
       formId: human?.form,
       form: form ? { ...form, title: fill(form.title), description: fill(form.description) } : undefined,
       variables,
     };
   }
 
-  state() {
+  /** Everything the clients show. Runs, tasks and incidents are listed for every project
+   *  (each says which), so work is never hidden; `project` picks the flows offered. */
+  state(project?: string) {
     const snap = this.snapshot();
+    const pj = (instanceKey: unknown) => this.projectOf(String(instanceKey));
     const instances = (snap.instances ?? []).map((i: any) => ({
       ...this.instanceMeta[i.key],
       key: i.key,
-      flowId: i.processId,
+      flowId: this.flows.get(i.processId)?.id ?? this.instanceMeta[i.key]?.flowId ?? i.processId,
+      flowKey: i.processId,
+      project: pj(i.key),
       state: i.state,
       completed: i.completed,
       activeElements: (i.activeElements ?? []).map((a: any) => a.elementId),
     }));
     return {
-      project: this.project,
+      project: project ? path.resolve(project) : undefined,
+      home: this.home,
+      globalDir: this.home,
+      projects: this.projects.map((p) => ({ path: p, name: path.basename(p), slug: projectSlug(p) })),
       now: snap.now,
       eventCount: snap.eventCount,
-      globalDir: this.globalDir,
-      flows: [...this.flows.values()].map((f) => ({
+      flows: this.flowsFor(project).map((f) => ({
         id: f.id,
+        key: f.key,
         scope: f.scope,
-        file: f.scope === "global" ? f.file.replace(process.env.HOME ?? "\0", "~") : path.relative(this.project, f.file),
+        project: f.scope === "project" ? f.projectDir : undefined,
+        file: f.scope === "project" ? path.relative(f.projectDir, f.file) : this.tilde(f.file),
         description: f.description,
         humans: f.humans,
         tasks: f.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent })),
       })),
-      problems: this.problems,
+      problems: project ? this.problems.filter((p) => !p.project || p.project === path.resolve(project)) : this.problems,
       instances,
       userTasks: (snap.userTasks ?? []).filter((t: any) => t.state === "Created").map((t: any) => this.userTaskView(t, snap)),
       agentMode: this.agentMode,
-      sessionJobs: (snap.jobs ?? []).filter((j: any) => j.jobType === "session" || (this.agentMode === "session" && j.jobType === "claude")),
+      sessionJobs: (snap.jobs ?? [])
+        .filter((j: any) => j.jobType === "session" || (this.agentMode === "session" && j.jobType === "claude"))
+        .map((j: any) => ({ ...j, project: pj(j.instanceKey) })),
       jobs: snap.jobs ?? [],
-      running: [...this.running.entries()].map(([key, r]) => ({ key, ...r })),
-      incidents: snap.incidents ?? [],
+      running: [...this.running.entries()].map(([key, r]) => ({ key, ...r, project: pj(r.instanceKey) })),
+      incidents: (snap.incidents ?? []).map((i: any) => ({ ...i, project: pj(i.instanceKey) })),
       timers: snap.timers ?? [],
       messageSubscriptions: snap.messageSubscriptions ?? [],
       activity: this.activity.slice(-100),
@@ -365,6 +431,9 @@ export class Host {
     return {
       ...inst,
       ...this.instanceMeta[key],
+      flowId: this.flows.get(inst.processId)?.id ?? this.instanceMeta[key]?.flowId ?? inst.processId,
+      flowKey: inst.processId,
+      project: this.projectOf(key),
       incidents: (snap.incidents ?? []).filter((i: any) => i.instanceKey === key),
       userTasks: (snap.userTasks ?? []).filter((t: any) => t.instanceKey === key && t.state === "Created").map((t: any) => this.userTaskView(t, snap)),
       jobs: (snap.jobs ?? []).filter((j: any) => j.instanceKey === key),
@@ -401,13 +470,22 @@ export class Host {
     this.persist();
   }
 
-  /** Claim jobs for the live Claude Code session (job type "session" or another the caller names). */
-  claimJobs(type?: string, max = 1) {
+  /** Claim jobs for the live Claude Code session (job type "session" or another the caller
+   *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
+  claimJobs(type?: string, max = 1, project?: string) {
     const types = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
+    const where = project ? path.resolve(project) : undefined;
+    const open = (this.snapshot().jobs ?? []).filter((j: any) => j.state === "Created");
     const jobs: any[] = [];
     for (const t of types) {
-      if (jobs.length >= max) break;
-      jobs.push(...JSON.parse(this.engine.activateJobs(t, max - jobs.length, 60 * 60_000, "claude-session")));
+      const mine = open.filter((j: any) => j.jobType === t && (!where || this.projectOf(String(j.instanceKey)) === where));
+      if (jobs.length >= max || !mine.length) continue;
+      // activateJobs can't filter by instance: take what's there, keep ours, hand the rest back.
+      const got = JSON.parse(this.engine.activateJobs(t, open.filter((j: any) => j.jobType === t).length, 60 * 60_000, "claude-session"));
+      for (const j of got) {
+        if (jobs.length < max && (!where || this.projectOf(String(j.instanceKey)) === where)) jobs.push(j);
+        else this.engine.failJob(String(j.key), Math.max(1, j.retries ?? 1), "not for this session");
+      }
     }
     this.touch();
     this.persist();
@@ -417,7 +495,8 @@ export class Host {
       const promptFile = task?.prompt ? path.join(flow!.projectDir, "flows", "prompts", task.prompt.resourceId) : undefined;
       return {
         key: j.key,
-        flowId: j.bpmnProcessId,
+        flowId: flow?.id ?? j.bpmnProcessId,
+        project: this.projectOf(String(j.instanceKey)),
         elementId: j.elementId,
         instanceKey: j.instanceKey,
         variables: j.variables,
@@ -535,19 +614,37 @@ async function body(req: http.IncomingMessage): Promise<any> {
   return s ? JSON.parse(s) : {};
 }
 
-export async function serve(project: string, port = Number(process.env.AGE_PORT ?? 0)) {
-  const host = new Host(project);
+export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
+  const running = await findDaemon();
+  if (running) throw new Error(`the engine is already running (pid ${running.pid}, ${running.url})`);
+  const host = new Host();
   await host.reload();
   host.run();
 
+  // Recompile when any project's (or the library's) flows/ changes.
   let reloadTimer: NodeJS.Timeout | undefined;
-  for (const dir of [flowsDir(host.project), ...(host.globalDir ? [flowsDir(host.globalDir)] : [])]) {
-    if (!fs.existsSync(dir)) continue;
-    fs.watch(dir, { recursive: true }, () => {
-      clearTimeout(reloadTimer);
-      reloadTimer = setTimeout(() => host.reload().catch(() => {}), 300);
-    });
-  }
+  const watched = new Map<string, fs.FSWatcher>();
+  const watch = () => {
+    for (const root of [host.home, ...host.projects]) {
+      const dir = flowsDir(root);
+      if (watched.has(dir) || !fs.existsSync(dir)) continue;
+      try {
+        watched.set(
+          dir,
+          fs.watch(dir, { recursive: true }, () => {
+            clearTimeout(reloadTimer);
+            reloadTimer = setTimeout(() => host.reload().catch(() => {}), 300);
+          }),
+        );
+      } catch {
+        /* unwatchable; reload on demand */
+      }
+    }
+  };
+  watch();
+  // flows/ may appear later (flow_write creates it).
+  const rewatch = setInterval(watch, 5_000);
+  rewatch.unref();
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
@@ -556,7 +653,8 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
     let mm: RegExpMatchArray | null;
     try {
       if (req.method === "GET" && (p === "/" || p === "/index.html")) return send(res, 200, explorerHtml(), "text/html; charset=utf-8");
-      if (req.method === "GET" && p === "/api/state") return send(res, 200, host.state());
+      if (req.method === "GET" && p === "/api/health") return send(res, 200, { ok: true, pid: process.pid });
+      if (req.method === "GET" && p === "/api/state") return send(res, 200, host.state(url.searchParams.get("project") || undefined));
       if (req.method === "GET" && (mm = m(/^\/api\/flows\/([^/]+)\/bpmn$/))) {
         const f = host.flows.get(decodeURIComponent(mm[1]));
         return f ? send(res, 200, f.xml, "application/xml") : send(res, 404, { error: "no such flow" });
@@ -576,6 +674,7 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
             pageSize: Number(q.get("pageSize") ?? 50),
             state: q.get("state") ?? undefined,
             hasIncident: hasIncident == null ? undefined : hasIncident === "true",
+            project: q.get("project") || undefined,
           }),
         );
       }
@@ -587,9 +686,17 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
       if (p === "/api/reload") return send(res, 200, await host.reload());
-      if (p === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title) });
+      if (p === "/api/projects") {
+        if (typeof b.path !== "string" || !path.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
+        if (host.addProject(b.path)) {
+          await host.reload();
+          watch();
+        }
+        return send(res, 200, { ok: true, projects: host.projects });
+      }
+      if (p === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project) });
       if ((mm = m(/^\/api\/user-tasks\/([^/]+)\/complete$/))) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
-      if (p === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max));
+      if (p === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if ((mm = m(/^\/api\/jobs\/([^/]+)\/complete$/))) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
       if ((mm = m(/^\/api\/jobs\/([^/]+)\/fail$/))) return send(res, 200, (host.failJob(mm[1], b.message ?? "failed", b.retries), { ok: true }));
       if ((mm = m(/^\/api\/incidents\/([^/]+)\/resolve$/))) return send(res, 200, (host.resolveIncident(mm[1], b.retries), { ok: true }));
@@ -625,7 +732,7 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
 
   await new Promise<void>((r) => server.listen(port, "127.0.0.1", r));
   const addr = server.address() as { port: number };
-  const info: DaemonInfo = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.project, startedAt: new Date().toISOString() };
+  const info: DaemonInfo = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.home, startedAt: new Date().toISOString() };
   fs.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }

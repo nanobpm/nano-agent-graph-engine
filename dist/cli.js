@@ -1367,9 +1367,9 @@ function bind(fn, target) {
 function assign(target, ...others) {
   return Object.assign(target, ...others);
 }
-function set(target, path7, value) {
+function set(target, path9, value) {
   let currentTarget = target;
-  forEach(path7, function(key, idx) {
+  forEach(path9, function(key, idx) {
     if (typeof key !== "number" && typeof key !== "string") {
       throw new Error("illegal key type: " + typeof key + ". Key should be of type number or string.");
     }
@@ -1379,7 +1379,7 @@ function set(target, path7, value) {
     if (key === "__proto__") {
       throw new Error("illegal key: __proto__");
     }
-    let nextKey = path7[idx + 1];
+    let nextKey = path9[idx + 1];
     let nextTarget = currentTarget[key];
     if (isDefined(nextKey) && isNil(nextTarget)) {
       nextTarget = currentTarget[key] = isNaN(+nextKey) ? {} : [];
@@ -8087,7 +8087,7 @@ function findCompactFlowRegions(records, graphEdges, outgoing, edgeOrder) {
       ];
     });
     const primaryEdge = selectPrimaryEdge(split, branches, edgeOrder, /* @__PURE__ */ new Set(), outgoing);
-    const primaryPath = paths.find((path7) => path7[0] === primaryEdge);
+    const primaryPath = paths.find((path9) => path9[0] === primaryEdge);
     regions.push({ split, join, paths, primaryPath });
   }
   return regions;
@@ -8125,13 +8125,13 @@ function shortestFlowPath(start, target, outgoing, edgeOrder, blocked) {
       visited.add(edge.targetRef);
       previous.set(edge.targetRef, edge);
       if (edge.targetRef === target) {
-        const path7 = [];
+        const path9 = [];
         for (let current = target; current !== start; ) {
           const previousEdge = previous.get(current);
-          path7.unshift(previousEdge);
+          path9.unshift(previousEdge);
           current = previousEdge.sourceRef;
         }
-        return path7;
+        return path9;
       }
       pending.push(edge.targetRef);
     }
@@ -8145,18 +8145,18 @@ function createCompactRankWeights(regions) {
   const weights = /* @__PURE__ */ new Map();
   for (const { paths, primaryPath } of regions) {
     const span = primaryPath.length;
-    for (const path7 of paths) {
-      if (path7 === primaryPath) {
+    for (const path9 of paths) {
+      if (path9 === primaryPath) {
         continue;
       }
-      const internalCount = path7.length - 1;
+      const internalCount = path9.length - 1;
       const offsets = [0];
       for (let index = 1; index <= internalCount; index++) {
         const offset = internalCount === 1 ? Math.floor(span / 2) : Math.floor((index - 1) * span / (internalCount - 1));
         offsets.push(offset);
       }
       offsets.push(span);
-      path7.forEach((edge, index) => {
+      path9.forEach((edge, index) => {
         const weight = offsets[index + 1] - offsets[index];
         const existing = weights.get(edge);
         weights.set(edge, existing === void 0 ? weight : Math.min(existing, weight));
@@ -8333,21 +8333,21 @@ function selectPrimaryEdge(node2, edges, edgeOrder, visited = /* @__PURE__ */ ne
   const preferred = endReaching.length ? endReaching : candidates;
   return preferred.find((edge) => edge === defaultEdge) || [...preferred].sort((a, b) => edgeOrder.get(a) - edgeOrder.get(b))[0];
 }
-function canReachEndEvent(node2, outgoing, path7) {
+function canReachEndEvent(node2, outgoing, path9) {
   if (is(node2, "bpmn:EndEvent")) {
     return true;
   }
-  if (path7.has(node2)) {
+  if (path9.has(node2)) {
     return false;
   }
-  path7.add(node2);
+  path9.add(node2);
   for (const edge of outgoing.get(node2) || []) {
-    if (canReachEndEvent(edge.targetRef, outgoing, path7)) {
-      path7.delete(node2);
+    if (canReachEndEvent(edge.targetRef, outgoing, path9)) {
+      path9.delete(node2);
       return true;
     }
   }
-  path7.delete(node2);
+  path9.delete(node2);
   return false;
 }
 function branchOffset(index, oneSided = false) {
@@ -14283,10 +14283,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path9) {
+  if (!path9)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path9.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14545,11 +14545,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path9, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path9);
     return iss;
   });
 }
@@ -15082,16 +15082,16 @@ function flattenError(error64, mapper = (issue2) => issue2.message) {
 }
 function formatError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error65, path7 = []) => {
+  const processError = (error65, path9 = []) => {
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -15130,17 +15130,17 @@ function formatError(error64, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error64, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error65, path7 = []) => {
+  const processError = (error65, path9 = []) => {
     var _a3;
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -15179,8 +15179,8 @@ function treeifyError(error64, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path7 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path7) {
+  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path9) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -33212,13 +33212,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path7 = ref.slice(1).split("/").filter(Boolean);
-  if (path7.length === 0) {
+  const path9 = ref.slice(1).split("/").filter(Boolean);
+  if (path9.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path7[0] === defsKey) {
-    const key = path7[1] === void 0 ? void 0 : decodeJSONPointerSegment(path7[1]);
+  if (path9[0] === defsKey) {
+    const key = path9[1] === void 0 ? void 0 : decodeJSONPointerSegment(path9[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -36105,7 +36105,7 @@ function listFlowFiles(project2) {
 function isFlow(v2) {
   return v2 && typeof v2 === "object" && v2.kind === "declarative" && typeof v2.id === "string" && Array.isArray(v2.steps);
 }
-async function checkFile(file2) {
+async function checkFile(file2, keyFor = (id) => id) {
   installResolveHook();
   const problems = [];
   const flows = [];
@@ -36120,12 +36120,13 @@ async function checkFile(file2) {
   const forms = mod.forms ?? {};
   const found = Object.values(mod).filter(isFlow);
   if (!found.length) problems.push({ severity: "error", message: `${path.basename(file2)} exports no defineFlow(...) flow` });
-  for (const flow of found) {
+  for (const authored of found) {
+    const flow = { ...authored, id: keyFor(authored.id) };
     let xml2;
     try {
       xml2 = await declarativeToLayoutedBpmn(flow);
     } catch (e) {
-      problems.push({ severity: "error", message: `flow "${flow.id}": compile failed: ${e?.message ?? e}` });
+      problems.push({ severity: "error", message: `flow "${authored.id}": compile failed: ${e?.message ?? e}` });
       continue;
     }
     const handlers = {};
@@ -36170,15 +36171,15 @@ async function checkFile(file2) {
     try {
       newEngine().deploy(xml2);
     } catch (e) {
-      problems.push({ severity: "error", message: `flow "${flow.id}": engine rejected the BPMN: ${e?.message ?? e}` });
+      problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: flow.id, file: file2, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file: file2, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
   }
   return { file: file2, flows, problems };
 }
-async function checkProject(project2) {
+async function checkProject(project2, keyFor) {
   const out = [];
-  for (const f2 of listFlowFiles(project2)) out.push(await checkFile(f2));
+  for (const f2 of listFlowFiles(project2)) out.push(await checkFile(f2, keyFor));
   return out;
 }
 function formatProblems(results) {
@@ -36210,24 +36211,34 @@ import fs3 from "node:fs";
 import path2 from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-function stateDir(project2) {
-  return path2.join(path2.resolve(project2), ".agent-graph");
+import crypto2 from "node:crypto";
+function engineDir() {
+  return path2.resolve(process.env.AGE_STATE_DIR ?? path2.join(process.env.HOME ?? "/tmp", ".agent-graph"));
+}
+function projectSlug(project2) {
+  const abs = path2.resolve(project2);
+  let base = path2.basename(abs).replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "project";
+  if (!/^[A-Za-z]/.test(base)) base = `p-${base}`;
+  return `${base}-${crypto2.createHash("sha1").update(abs).digest("hex").slice(0, 4)}`;
 }
 function defaultHome() {
   return process.env.AGE_HOME ?? path2.join(process.env.HOME ?? "/tmp", "AgentGraph");
 }
 function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()) {
   if (process.env.AGE_PROJECT && start === process.env.AGE_PROJECT) return path2.resolve(start);
-  let dir = path2.resolve(start);
-  for (; ; ) {
-    if (fs3.existsSync(path2.join(dir, "flows")) || fs3.existsSync(path2.join(dir, ".agent-graph"))) return dir;
+  const s = path2.resolve(start);
+  const home = path2.resolve(process.env.HOME ?? "/");
+  if (s === "/" || s === home) return defaultHome();
+  let git;
+  for (let dir = s; ; ) {
+    if (dir === home) break;
+    if (fs3.existsSync(path2.join(dir, "flows"))) return dir;
+    if (!git && fs3.existsSync(path2.join(dir, ".git"))) git = dir;
     const up = path2.dirname(dir);
     if (up === dir) break;
     dir = up;
   }
-  const s = path2.resolve(start);
-  if (s === "/" || s === path2.resolve(process.env.HOME ?? "/")) return defaultHome();
-  return s;
+  return git ?? s;
 }
 function alive(pid) {
   try {
@@ -36237,8 +36248,8 @@ function alive(pid) {
     return false;
   }
 }
-async function findDaemon(project2) {
-  const f2 = path2.join(stateDir(project2), "daemon.json");
+async function findDaemon(project2 = defaultHome()) {
+  const f2 = path2.join(engineDir(), "daemon.json");
   let info;
   try {
     info = JSON.parse(fs3.readFileSync(f2, "utf8"));
@@ -36247,32 +36258,51 @@ async function findDaemon(project2) {
   }
   if (!alive(info.pid)) return void 0;
   try {
-    const r2 = await fetch(`${info.url}/api/state`, { signal: AbortSignal.timeout(1500) });
-    return r2.ok ? info : void 0;
+    const r2 = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500) });
+    return r2.ok ? { ...info, project: path2.resolve(project2) } : void 0;
   } catch {
     return void 0;
   }
 }
 async function ensureDaemon(project2) {
-  const found = await findDaemon(project2);
-  if (found) return found;
-  fs3.mkdirSync(stateDir(project2), { recursive: true });
+  let info = await findDaemon(project2);
+  if (!info) info = await startDaemon(project2);
+  await api(info, "/api/projects", { path: path2.resolve(project2) });
+  return info;
+}
+async function startDaemon(project2) {
+  const dir = engineDir();
+  fs3.mkdirSync(dir, { recursive: true });
+  const lock = path2.join(dir, "starting.lock");
+  let mine = false;
+  try {
+    fs3.writeFileSync(lock, String(process.pid), { flag: "wx" });
+    mine = true;
+  } catch {
+    if (Date.now() - fs3.statSync(lock).mtimeMs > 15e3) {
+      fs3.rmSync(lock, { force: true });
+      return startDaemon(project2);
+    }
+  }
+  try {
+    if (mine) spawnDaemon(dir);
+    for (let i = 0; i < 150; i++) {
+      await new Promise((r2) => setTimeout(r2, 100));
+      const info = await findDaemon(project2);
+      if (info) return info;
+    }
+  } finally {
+    if (mine) fs3.rmSync(lock, { force: true });
+  }
+  throw new Error(`engine did not start; see ${path2.join(dir, "daemon.log")}`);
+}
+function spawnDaemon(dir) {
   const here = path2.dirname(fileURLToPath(import.meta.url));
   const cli = fs3.existsSync(path2.join(here, "cli.js")) ? path2.join(here, "cli.js") : path2.join(here, "cli.ts");
-  const out = fs3.openSync(path2.join(stateDir(project2), "daemon.log"), "a");
-  const child = spawn(process.execPath, [cli, "daemon", "--project", project2], {
-    detached: true,
-    stdio: ["ignore", out, out],
-    env: { ...process.env, AGE_PROJECT: project2 },
-    cwd: project2
-  });
+  const out = fs3.openSync(path2.join(dir, "daemon.log"), "a");
+  const { AGE_PROJECT: _p, ...env } = process.env;
+  const child = spawn(process.execPath, [cli, "daemon"], { detached: true, stdio: ["ignore", out, out], env, cwd: dir });
   child.unref();
-  for (let i = 0; i < 100; i++) {
-    await new Promise((r2) => setTimeout(r2, 100));
-    const info = await findDaemon(project2);
-    if (info) return info;
-  }
-  throw new Error(`daemon did not start; see ${path2.join(stateDir(project2), "daemon.log")}`);
 }
 async function api(info, p2, body2) {
   const r2 = await fetch(`${info.url}${p2}`, {
@@ -36292,20 +36322,33 @@ var init_paths = __esm({
 });
 
 // src/summary.ts
-function summarize(state) {
+import path3 from "node:path";
+function summarize(state, project2) {
+  const here = project2 ? path3.resolve(project2) : state.project;
+  const where = (p2) => p2 && p2 !== here ? ` [${path3.basename(p2)}]` : "";
   const lines = [];
-  lines.push(`project: ${state.project}`);
-  lines.push(`flows: ${state.flows.map((f2) => f2.id).join(", ") || "(none \u2014 add flows/*.flow.ts)"}`);
+  lines.push(`project: ${here ?? "(all)"}`);
+  const own2 = state.flows.filter((f2) => f2.scope !== "global").map((f2) => f2.id);
+  const global2 = state.flows.filter((f2) => f2.scope === "global").map((f2) => f2.id);
+  lines.push(`project flows: ${own2.join(", ") || "(none \u2014 add flows/*.flow.ts)"}`);
+  if (global2.length) lines.push(`global flows (${tilde(state.globalDir)}/flows): ${global2.join(", ")}`);
   for (const p2 of state.problems) for (const q of p2.problems) lines.push(`  ${q.severity} ${p2.file}: ${q.message}`);
   const active = state.instances.filter((i) => !i.completed);
-  lines.push(`instances: ${active.length} active, ${state.instances.length - active.length} finished`);
-  for (const i of active) lines.push(`  ${i.key} ${i.flowId}${i.title ? ` "${i.title}"` : ""} @ ${i.activeElements.join(", ") || "-"}`);
+  const elsewhere = active.filter((i) => i.project && i.project !== here).length;
+  lines.push(`instances: ${active.length} active${elsewhere ? ` (${elsewhere} in other projects)` : ""}, ${state.instances.length - active.length} finished`);
+  for (const i of active) lines.push(`  ${i.key} ${i.flowId}${where(i.project)}${i.title ? ` "${i.title}"` : ""} @ ${i.activeElements.join(", ") || "-"}`);
   if (state.userTasks.length) lines.push(`user tasks waiting: ${state.userTasks.length}`);
-  for (const t of state.userTasks) lines.push(`  task ${t.key}: ${t.flowId}/${t.elementId} (instance ${t.instanceKey})${t.form?.title ? ` \u2014 ${t.form.title}` : ""}`);
-  if (state.sessionJobs.length) lines.push(`session jobs waiting for this Claude session: ${state.sessionJobs.filter((j2) => j2.state === "Created").length}`);
-  for (const i of state.incidents) lines.push(`  INCIDENT ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${i.reason}`);
-  for (const r2 of state.running) lines.push(`  running ${r2.elementId} (${r2.type}) for ${Math.round((Date.now() - r2.since) / 1e3)}s`);
+  for (const t of state.userTasks)
+    lines.push(`  task ${t.key}: ${t.flowId}/${t.elementId}${where(t.project)} (instance ${t.instanceKey})${t.form?.title ? ` \u2014 ${t.form.title}` : ""}`);
+  const mine = state.sessionJobs.filter((j2) => j2.state === "Created" && (!here || !j2.project || j2.project === here)).length;
+  if (mine) lines.push(`session jobs waiting for this Claude session: ${mine}`);
+  for (const i of state.incidents) lines.push(`  INCIDENT ${i.key} at ${i.elementId}${where(i.project)} (instance ${i.instanceKey}): ${i.reason}`);
+  for (const r2 of state.running) lines.push(`  running ${r2.elementId} (${r2.type})${where(r2.project)} for ${Math.round((Date.now() - r2.since) / 1e3)}s`);
   return lines.join("\n");
+}
+function tilde(p2 = "") {
+  const h2 = process.env.HOME;
+  return h2 && p2.startsWith(h2) ? `~${p2.slice(h2.length)}` : p2;
 }
 var init_summary = __esm({
   "src/summary.ts"() {
@@ -36314,7 +36357,14 @@ var init_summary = __esm({
 });
 
 // src/index.ts
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn as spawn2 } from "node:child_process";
+function jobProject() {
+  return jobContext.getStore()?.project;
+}
+function runInProject(project2, fn) {
+  return jobContext.run({ project: project2 }, fn);
+}
 async function claude(prompt, opts = {}) {
   const cmd2 = process.env.AGE_CLAUDE_CMD ?? "claude";
   const args = ["-p", "--output-format", "json", "--permission-mode", opts.permissionMode ?? "dontAsk"];
@@ -36324,7 +36374,7 @@ async function claude(prompt, opts = {}) {
   if (opts.schema) args.push("--json-schema", JSON.stringify(opts.schema));
   const out = await new Promise((resolve, reject) => {
     const child = spawn2(cmd2, args, {
-      cwd: opts.cwd ?? process.env.AGE_PROJECT ?? process.cwd(),
+      cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs ?? 30 * 6e4
@@ -36351,9 +36401,11 @@ async function claude(prompt, opts = {}) {
   }
   return { result, costUsd: msg.total_cost_usd, sessionId: msg.session_id, turns: msg.num_turns };
 }
+var jobContext;
 var init_src = __esm({
   "src/index.ts"() {
     "use strict";
+    jobContext = globalThis[/* @__PURE__ */ Symbol.for("agent-graph.job")] ??= new AsyncLocalStorage();
   }
 });
 
@@ -36383,6 +36435,7 @@ var init_explorer_html = __esm({
 });
 
 // src/explorer-api.ts
+import path4 from "node:path";
 function instanceFacts(events) {
   const out = /* @__PURE__ */ new Map();
   const jobs = /* @__PURE__ */ new Map();
@@ -36512,19 +36565,22 @@ function json2(v2) {
 function instanceView(host, f2, live, incidentOpen) {
   const state = live?.state ?? (f2.outcome === "completed" ? "Completed" : f2.outcome === "terminated" ? "Terminated" : "Active");
   const meta3 = host.instanceMeta[f2.key];
+  const project2 = host.projectOf(f2.key);
   return {
     key: f2.key,
-    process_id: f2.processId,
-    // Agent Graph deploys one definition per flow id; the flow id doubles as its key
-    // so getProcessXml can fetch the flow's current BPMN.
+    // The flow's own id; project flows deploy as "<projectSlug>.<id>".
+    process_id: host.flows.get(f2.processId)?.id ?? meta3?.flowId ?? f2.processId,
+    // One definition per deployed process id, which doubles as its key so
+    // getProcessXml can fetch the flow's current BPMN.
     process_definition_key: f2.processId,
+    project: project2,
     version: 1,
     state: state === "Canceled" || state === "Cancelled" ? "Terminated" : state,
     start_date_ms: f2.startedAt,
     has_incident: incidentOpen,
     business_id: f2.businessId ?? meta3?.title ?? null,
     suspendedDate: null,
-    tags: meta3?.title ? [meta3.title] : [],
+    tags: [path4.basename(project2), ...meta3?.title ? [meta3.title] : []],
     parent_process_instance_key: f2.parentKey,
     parent_element_instance_key: f2.parentElementKey
   };
@@ -36540,7 +36596,9 @@ function listInstances(host, q) {
   const { facts, live, openIncidents } = load(host);
   const page = Math.max(0, Number(q.page ?? 0) || 0);
   const pageSize = Math.min(200, Math.max(1, Number(q.pageSize ?? 50)));
-  const all = [...facts.values()].map((f2) => instanceView(host, f2, live.get(f2.key), openIncidents.has(f2.key))).filter((i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident)).sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
+  const all = [...facts.values()].map((f2) => instanceView(host, f2, live.get(f2.key), openIncidents.has(f2.key))).filter(
+    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path4.resolve(q.project))
+  ).sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
   return { items: all.slice(page * pageSize, (page + 1) * pageSize), total: all.length, page, pageSize };
 }
 function getInstance(host, key) {
@@ -36584,7 +36642,7 @@ function getInstance(host, key) {
     })),
     called_instances: [...facts.values()].filter((c) => c.parentKey === key).map((c) => ({
       key: c.key,
-      process_id: c.processId,
+      process_id: host.flows.get(c.processId)?.id ?? c.processId,
       version: 1,
       state: instanceView(host, c, live.get(c.key), openIncidents.has(c.key)).state,
       has_incident: openIncidents.has(c.key),
@@ -36599,7 +36657,7 @@ function getTrace(host, key) {
   if (!f2) return null;
   return {
     instanceKey: f2.key,
-    processId: f2.processId,
+    processId: host.flows.get(f2.processId)?.id ?? f2.processId,
     version: 1,
     businessId: f2.businessId ?? host.instanceMeta[key]?.title ?? null,
     tags: [],
@@ -36628,8 +36686,8 @@ __export(daemon_exports, {
 });
 import fs5 from "node:fs";
 import http from "node:http";
-import path3 from "node:path";
-import crypto2 from "node:crypto";
+import path5 from "node:path";
+import crypto3 from "node:crypto";
 function agentMode() {
   const m2 = process.env.AGE_AGENT_MODE ?? "auto";
   if (m2 === "cli" || m2 === "session") return m2;
@@ -36637,7 +36695,7 @@ function agentMode() {
   const home = process.env.HOME ?? "";
   const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, "/opt/homebrew/bin", "/usr/local/bin"];
   for (const d2 of dirs) {
-    const f2 = path3.join(d2, "claude");
+    const f2 = path5.join(d2, "claude");
     if (d2 && fs5.existsSync(f2)) {
       process.env.AGE_CLAUDE_CMD = f2;
       return "cli";
@@ -36672,19 +36730,34 @@ async function body(req) {
   for await (const c of req) s += c;
   return s ? JSON.parse(s) : {};
 }
-async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
-  const host = new Host(project2);
+async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
+  const running = await findDaemon();
+  if (running) throw new Error(`the engine is already running (pid ${running.pid}, ${running.url})`);
+  const host = new Host();
   await host.reload();
   host.run();
   let reloadTimer;
-  for (const dir of [flowsDir(host.project), ...host.globalDir ? [flowsDir(host.globalDir)] : []]) {
-    if (!fs5.existsSync(dir)) continue;
-    fs5.watch(dir, { recursive: true }, () => {
-      clearTimeout(reloadTimer);
-      reloadTimer = setTimeout(() => host.reload().catch(() => {
-      }), 300);
-    });
-  }
+  const watched = /* @__PURE__ */ new Map();
+  const watch = () => {
+    for (const root of [host.home, ...host.projects]) {
+      const dir = flowsDir(root);
+      if (watched.has(dir) || !fs5.existsSync(dir)) continue;
+      try {
+        watched.set(
+          dir,
+          fs5.watch(dir, { recursive: true }, () => {
+            clearTimeout(reloadTimer);
+            reloadTimer = setTimeout(() => host.reload().catch(() => {
+            }), 300);
+          })
+        );
+      } catch {
+      }
+    }
+  };
+  watch();
+  const rewatch = setInterval(watch, 5e3);
+  rewatch.unref();
   const server = http.createServer(async (req, res) => {
     const url2 = new URL(req.url ?? "/", "http://x");
     const p2 = url2.pathname;
@@ -36692,7 +36765,8 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
     let mm;
     try {
       if (req.method === "GET" && (p2 === "/" || p2 === "/index.html")) return send(res, 200, explorerHtml(), "text/html; charset=utf-8");
-      if (req.method === "GET" && p2 === "/api/state") return send(res, 200, host.state());
+      if (req.method === "GET" && p2 === "/api/health") return send(res, 200, { ok: true, pid: process.pid });
+      if (req.method === "GET" && p2 === "/api/state") return send(res, 200, host.state(url2.searchParams.get("project") || void 0));
       if (req.method === "GET" && (mm = m2(/^\/api\/flows\/([^/]+)\/bpmn$/))) {
         const f2 = host.flows.get(decodeURIComponent(mm[1]));
         return f2 ? send(res, 200, f2.xml, "application/xml") : send(res, 404, { error: "no such flow" });
@@ -36710,7 +36784,8 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
             page: Number(q.get("page") ?? 0),
             pageSize: Number(q.get("pageSize") ?? 50),
             state: q.get("state") ?? void 0,
-            hasIncident: hasIncident == null ? void 0 : hasIncident === "true"
+            hasIncident: hasIncident == null ? void 0 : hasIncident === "true",
+            project: q.get("project") || void 0
           })
         );
       }
@@ -36722,9 +36797,17 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
       if (p2 === "/api/reload") return send(res, 200, await host.reload());
-      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title) });
+      if (p2 === "/api/projects") {
+        if (typeof b.path !== "string" || !path5.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
+        if (host.addProject(b.path)) {
+          await host.reload();
+          watch();
+        }
+        return send(res, 200, { ok: true, projects: host.projects });
+      }
+      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project) });
       if (mm = m2(/^\/api\/user-tasks\/([^/]+)\/complete$/)) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
-      if (p2 === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max));
+      if (p2 === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if (mm = m2(/^\/api\/jobs\/([^/]+)\/complete$/)) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
       if (mm = m2(/^\/api\/jobs\/([^/]+)\/fail$/)) return send(res, 200, (host.failJob(mm[1], b.message ?? "failed", b.retries), { ok: true }));
       if (mm = m2(/^\/api\/incidents\/([^/]+)\/resolve$/)) return send(res, 200, (host.resolveIncident(mm[1], b.retries), { ok: true }));
@@ -36742,7 +36825,7 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
       return send(res, 400, { error: String(e?.message ?? e) });
     }
   });
-  const infoFile = path3.join(host.dir, "daemon.json");
+  const infoFile = path5.join(host.dir, "daemon.json");
   function shutdown() {
     host.stop();
     try {
@@ -36757,7 +36840,7 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
   process.on("SIGINT", shutdown);
   await new Promise((r2) => server.listen(port, "127.0.0.1", r2));
   const addr = server.address();
-  const info = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.project, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const info = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
   fs5.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
@@ -36775,8 +36858,12 @@ var init_daemon = __esm({
     TICK_MS = 500;
     MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
     Host = class {
-      project;
+      /** The global flow library (~/AgentGraph): its flows are offered in every project.
+       *  Claude Desktop, which has no project, works there. */
+      home = path5.resolve(defaultHome());
       dir;
+      /** Projects whose flows/ this engine loads (registered by clients as they connect). */
+      projects = [];
       engine;
       flows = /* @__PURE__ */ new Map();
       problems = [];
@@ -36790,19 +36877,17 @@ var init_daemon = __esm({
       agentMode = agentMode();
       dirty = false;
       timer;
-      constructor(project2) {
-        this.project = path3.resolve(project2);
-        this.dir = stateDir(this.project);
-        fs5.mkdirSync(path3.join(this.dir, "compiled"), { recursive: true });
-        const ignore = path3.join(this.dir, ".gitignore");
-        if (!fs5.existsSync(ignore)) fs5.writeFileSync(ignore, "*\n");
+      constructor(dir = engineDir()) {
+        this.dir = dir;
+        fs5.mkdirSync(path5.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
-        const journal = path3.join(this.dir, "journal.json");
+        const journal = path5.join(this.dir, "journal.json");
         if (fs5.existsSync(journal)) {
           this.engine.replayEvents(fs5.readFileSync(journal, "utf8"));
           this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
         }
         this.deployed = this.readJson("deployed.json", {});
+        this.projects = this.readJson("projects.json", []).filter((p2) => fs5.existsSync(p2));
         this.instanceMeta = this.readJson("instances.json", {});
         this.activity = this.readJson("activity.json", []);
         this.engine.tickNow(Date.now());
@@ -36810,13 +36895,13 @@ var init_daemon = __esm({
       }
       readJson(name2, dflt) {
         try {
-          return JSON.parse(fs5.readFileSync(path3.join(this.dir, name2), "utf8"));
+          return JSON.parse(fs5.readFileSync(path5.join(this.dir, name2), "utf8"));
         } catch {
           return dflt;
         }
       }
       writeAtomic(name2, data) {
-        const p2 = path3.join(this.dir, name2);
+        const p2 = path5.join(this.dir, name2);
         fs5.writeFileSync(`${p2}.tmp`, data);
         fs5.renameSync(`${p2}.tmp`, p2);
       }
@@ -36827,6 +36912,7 @@ var init_daemon = __esm({
         this.writeAtomic("journal.json", this.engine.events());
         this.writeAtomic("deployed.json", JSON.stringify(this.deployed));
         this.writeAtomic("instances.json", JSON.stringify(this.instanceMeta));
+        this.writeAtomic("projects.json", JSON.stringify(this.projects));
         this.writeAtomic("activity.json", JSON.stringify(this.activity.slice(-500)));
       }
       /** Mark state changed; persisted at the end of the current tick / request. */
@@ -36853,49 +36939,92 @@ var init_daemon = __esm({
           }
         }
       }
-      /** The shared flow library (~/AgentGraph): its flows are offered in every project.
-       *  Undefined when this daemon *is* the library's. */
-      get globalDir() {
-        const home = path3.resolve(defaultHome());
-        return home === this.project ? void 0 : home;
+      /** Add a project (its flows/ are loaded and watched). Idempotent. The library itself
+       *  is not a project: its flows are global. Returns whether it was new. */
+      addProject(dir) {
+        const p2 = path5.resolve(dir);
+        if (p2 === this.home || this.projects.includes(p2)) return false;
+        this.projects.push(p2);
+        this.touch();
+        this.persist();
+        return true;
       }
-      /** Compile flows/ (and the global library's) and deploy every flow whose BPMN
-       *  changed. A project flow shadows a global one with the same id. */
+      /** "~/…" for paths under the home dir, for display. */
+      tilde(p2) {
+        const h2 = process.env.HOME;
+        return h2 && (p2 === h2 || p2.startsWith(h2 + path5.sep)) ? `~${p2.slice(h2.length)}` : p2;
+      }
+      /** Compile every project's flows/ and the library's, and deploy every flow whose BPMN
+       *  changed. Project flows deploy as "<projectSlug>.<id>", global ones as "<id>". */
       async reload() {
-        const results = await checkProject(this.project);
-        const globals = this.globalDir ? await checkProject(this.globalDir) : [];
+        const results = [];
+        for (const project2 of this.projects) {
+          const slug = projectSlug(project2);
+          results.push(...(await checkProject(project2, (id) => `${slug}.${id}`)).map((r2) => ({ ...r2, project: project2 })));
+        }
+        const globals = (await checkProject(this.home)).map((r2) => ({ ...r2, project: void 0 }));
         for (const r2 of globals) for (const f2 of r2.flows) f2.scope = "global";
-        const rel = (file2) => file2.startsWith(this.project + path3.sep) ? path3.relative(this.project, file2) : file2.replace(process.env.HOME ?? "\0", "~");
-        this.problems = [...results, ...globals].filter((r2) => r2.problems.length).map((r2) => ({ file: rel(r2.file), problems: r2.problems }));
+        this.problems = [...results, ...globals].filter((r2) => r2.problems.length).map((r2) => ({ file: this.tilde(r2.file), project: r2.project, problems: r2.problems }));
         const deployed = [];
         const flows = /* @__PURE__ */ new Map();
         for (const r2 of [...results, ...globals]) {
           if (r2.problems.some((p2) => p2.severity === "error")) continue;
           for (const f2 of r2.flows) {
-            if (flows.has(f2.id)) continue;
-            flows.set(f2.id, f2);
-            fs5.writeFileSync(path3.join(this.dir, "compiled", `${f2.id}.bpmn`), f2.xml);
-            const hash2 = crypto2.createHash("sha256").update(f2.xml).digest("hex");
-            if (this.deployed[f2.id] !== hash2) {
+            if (flows.has(f2.key)) continue;
+            flows.set(f2.key, f2);
+            fs5.writeFileSync(path5.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
+            const hash2 = crypto3.createHash("sha256").update(f2.xml).digest("hex");
+            if (this.deployed[f2.key] !== hash2) {
               this.engine.deploy(f2.xml);
-              this.deployed[f2.id] = hash2;
-              deployed.push(f2.id);
-              this.log({ kind: "deploy", message: `deployed flow ${f2.id}` });
+              this.deployed[f2.key] = hash2;
+              deployed.push(f2.key);
+              this.log({ kind: "deploy", message: `deployed flow ${f2.key}` });
             }
           }
         }
-        for (const [id, f2] of this.flows) if (!flows.has(id)) flows.set(id, f2);
+        for (const [key, f2] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, f2);
         this.flows = flows;
         this.touch();
         this.persist();
         return { deployed, problems: this.problems };
       }
-      start(flowId, variables = {}, title) {
-        if (!this.flows.has(flowId) && !this.deployed[flowId]) throw new Error(`unknown flow "${flowId}"`);
-        const s = JSON.parse(this.engine.createInstance(flowId, JSON.stringify(variables)));
+      /** The flow a name means in a project: the project's own, else the global one with
+       *  that id. An exact key (e.g. "nanobpmn-1a2b.release") also works. */
+      resolveFlow(ref, project2) {
+        if (project2 && path5.resolve(project2) !== this.home) {
+          const own2 = this.flows.get(`${projectSlug(project2)}.${ref}`);
+          if (own2) return own2;
+        }
+        const g = this.flows.get(ref);
+        return g && (g.scope === "global" || !project2 || path5.resolve(g.projectDir) === path5.resolve(project2)) ? g : void 0;
+      }
+      /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
+      flowsFor(project2) {
+        const all = [...this.flows.values()];
+        if (!project2) return all;
+        const p2 = path5.resolve(project2);
+        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path5.resolve(f2.projectDir) === p2);
+        const ids = new Set(own2.map((f2) => f2.id));
+        return [...own2, ...all.filter((f2) => f2.scope === "global" && !ids.has(f2.id))];
+      }
+      /** The project a run belongs to (where its steps run). */
+      projectOf(instanceKey) {
+        const meta3 = this.instanceMeta[instanceKey];
+        if (meta3?.project) return meta3.project;
+        const f2 = meta3?.flowKey ? this.flows.get(meta3.flowKey) : void 0;
+        return f2 && f2.scope === "project" ? f2.projectDir : this.home;
+      }
+      /** Start a flow in a project (default: the library home). Global flows run in the
+       *  project they were started from. */
+      start(flowRef, variables = {}, title, project2) {
+        const where = path5.resolve(project2 ?? this.home);
+        if (where !== this.home) this.addProject(where);
+        const flow = this.resolveFlow(flowRef, where);
+        if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
+        const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
         const key = String(s.created);
-        this.instanceMeta[key] = { flowId, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title };
-        this.log({ kind: "start", instanceKey: key, message: `started ${flowId}${title ? ` \u2014 ${title}` : ""}` });
+        this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title };
+        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path5.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
         this.persist();
         return key;
       }
@@ -36905,7 +37034,9 @@ var init_daemon = __esm({
         for (const f2 of this.flows.values()) for (const t of Object.keys(f2.handlers)) types2.add(t);
         return [...types2];
       }
-      handlerFor(type) {
+      handlerFor(type, processId) {
+        const own2 = processId ? this.flows.get(processId)?.handlers[type] : void 0;
+        if (own2) return own2;
         for (const f2 of this.flows.values()) if (f2.handlers[type]) return f2.handlers[type];
         return void 0;
       }
@@ -36958,9 +37089,9 @@ var init_daemon = __esm({
             vars = r2.vars;
             costUsd = r2.costUsd;
           } else {
-            const h2 = this.handlerFor(job.type);
+            const h2 = this.handlerFor(job.type, job.bpmnProcessId);
             if (!h2) throw new Error(`no handler for ${job.type}`);
-            const out = await h2(vjob);
+            const out = await runInProject(this.projectOf(String(job.instanceKey)), () => h2(vjob));
             if (out && typeof out === "object") vars = out;
           }
           this.engine.completeJob(key, JSON.stringify(vars));
@@ -36998,7 +37129,7 @@ var init_daemon = __esm({
         const flow = this.flows.get(job.bpmnProcessId);
         const task = flow?.tasks.find((t) => t.name === job.elementId);
         if (!flow || !task?.prompt) throw new Error(`no prompt bound to ${job.bpmnProcessId}/${job.elementId}`);
-        const promptFile = path3.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
+        const promptFile = path5.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
@@ -37013,7 +37144,7 @@ ${JSON.stringify(ctx, null, 2)}
 ${vars.appendPrompt}
 ` : "");
         const { context: _c, ...claudeOpts } = opts;
-        const r2 = await claude(prompt, { ...claudeOpts, cwd: this.project });
+        const r2 = await claude(prompt, { ...claudeOpts, cwd: this.projectOf(String(job.instanceKey)) });
         let out = r2.result;
         if (typeof out === "string") {
           const m2 = out.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ?? out.match(/^\s*(\{[\s\S]*\})\s*$/);
@@ -37030,8 +37161,9 @@ ${vars.appendPrompt}
       // ---------- read model for the API / MCP / UI ----------
       userTaskView(t, snap) {
         const inst = (snap.instances ?? []).find((i) => i.key === t.instanceKey);
-        const flowId = inst?.processId ?? this.instanceMeta[t.instanceKey]?.flowId;
-        const flow = flowId ? this.flows.get(flowId) : void 0;
+        const flowKey = inst?.processId ?? this.instanceMeta[t.instanceKey]?.flowKey;
+        const flow = flowKey ? this.flows.get(flowKey) : void 0;
+        const flowId = flow?.id ?? this.instanceMeta[t.instanceKey]?.flowId ?? flowKey;
         const human = flow?.humans.find((h2) => h2.name === t.elementId);
         const form = human ? flow?.forms[human.form] : void 0;
         const variables = inst?.variables ?? {};
@@ -37045,42 +37177,52 @@ ${vars.appendPrompt}
           flowId,
           elementId: t.elementId,
           title: this.instanceMeta[t.instanceKey]?.title,
+          project: this.projectOf(String(t.instanceKey)),
           formId: human?.form,
           form: form ? { ...form, title: fill(form.title), description: fill(form.description) } : void 0,
           variables
         };
       }
-      state() {
+      /** Everything the clients show. Runs, tasks and incidents are listed for every project
+       *  (each says which), so work is never hidden; `project` picks the flows offered. */
+      state(project2) {
         const snap = this.snapshot();
+        const pj = (instanceKey) => this.projectOf(String(instanceKey));
         const instances = (snap.instances ?? []).map((i) => ({
           ...this.instanceMeta[i.key],
           key: i.key,
-          flowId: i.processId,
+          flowId: this.flows.get(i.processId)?.id ?? this.instanceMeta[i.key]?.flowId ?? i.processId,
+          flowKey: i.processId,
+          project: pj(i.key),
           state: i.state,
           completed: i.completed,
           activeElements: (i.activeElements ?? []).map((a) => a.elementId)
         }));
         return {
-          project: this.project,
+          project: project2 ? path5.resolve(project2) : void 0,
+          home: this.home,
+          globalDir: this.home,
+          projects: this.projects.map((p2) => ({ path: p2, name: path5.basename(p2), slug: projectSlug(p2) })),
           now: snap.now,
           eventCount: snap.eventCount,
-          globalDir: this.globalDir,
-          flows: [...this.flows.values()].map((f2) => ({
+          flows: this.flowsFor(project2).map((f2) => ({
             id: f2.id,
+            key: f2.key,
             scope: f2.scope,
-            file: f2.scope === "global" ? f2.file.replace(process.env.HOME ?? "\0", "~") : path3.relative(this.project, f2.file),
+            project: f2.scope === "project" ? f2.projectDir : void 0,
+            file: f2.scope === "project" ? path5.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
             description: f2.description,
             humans: f2.humans,
             tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent }))
           })),
-          problems: this.problems,
+          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path5.resolve(project2)) : this.problems,
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
           agentMode: this.agentMode,
-          sessionJobs: (snap.jobs ?? []).filter((j2) => j2.jobType === "session" || this.agentMode === "session" && j2.jobType === "claude"),
+          sessionJobs: (snap.jobs ?? []).filter((j2) => j2.jobType === "session" || this.agentMode === "session" && j2.jobType === "claude").map((j2) => ({ ...j2, project: pj(j2.instanceKey) })),
           jobs: snap.jobs ?? [],
-          running: [...this.running.entries()].map(([key, r2]) => ({ key, ...r2 })),
-          incidents: snap.incidents ?? [],
+          running: [...this.running.entries()].map(([key, r2]) => ({ key, ...r2, project: pj(r2.instanceKey) })),
+          incidents: (snap.incidents ?? []).map((i) => ({ ...i, project: pj(i.instanceKey) })),
           timers: snap.timers ?? [],
           messageSubscriptions: snap.messageSubscriptions ?? [],
           activity: this.activity.slice(-100)
@@ -37093,6 +37235,9 @@ ${vars.appendPrompt}
         return {
           ...inst,
           ...this.instanceMeta[key],
+          flowId: this.flows.get(inst.processId)?.id ?? this.instanceMeta[key]?.flowId ?? inst.processId,
+          flowKey: inst.processId,
+          project: this.projectOf(key),
           incidents: (snap.incidents ?? []).filter((i) => i.instanceKey === key),
           userTasks: (snap.userTasks ?? []).filter((t) => t.instanceKey === key && t.state === "Created").map((t) => this.userTaskView(t, snap)),
           jobs: (snap.jobs ?? []).filter((j2) => j2.instanceKey === key),
@@ -37126,23 +37271,32 @@ ${vars.appendPrompt}
         this.log({ kind: "human", instanceKey: t.instanceKey, elementId: t.elementId, message: `user task ${t.elementId} completed` });
         this.persist();
       }
-      /** Claim jobs for the live Claude Code session (job type "session" or another the caller names). */
-      claimJobs(type, max = 1) {
+      /** Claim jobs for the live Claude Code session (job type "session" or another the caller
+       *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
+      claimJobs(type, max = 1, project2) {
         const types2 = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
+        const where = project2 ? path5.resolve(project2) : void 0;
+        const open2 = (this.snapshot().jobs ?? []).filter((j2) => j2.state === "Created");
         const jobs = [];
         for (const t of types2) {
-          if (jobs.length >= max) break;
-          jobs.push(...JSON.parse(this.engine.activateJobs(t, max - jobs.length, 60 * 6e4, "claude-session")));
+          const mine = open2.filter((j2) => j2.jobType === t && (!where || this.projectOf(String(j2.instanceKey)) === where));
+          if (jobs.length >= max || !mine.length) continue;
+          const got = JSON.parse(this.engine.activateJobs(t, open2.filter((j2) => j2.jobType === t).length, 60 * 6e4, "claude-session"));
+          for (const j2 of got) {
+            if (jobs.length < max && (!where || this.projectOf(String(j2.instanceKey)) === where)) jobs.push(j2);
+            else this.engine.failJob(String(j2.key), Math.max(1, j2.retries ?? 1), "not for this session");
+          }
         }
         this.touch();
         this.persist();
         return jobs.map((j2) => {
           const flow = this.flows.get(j2.bpmnProcessId);
           const task = flow?.tasks.find((t) => t.name === j2.elementId);
-          const promptFile = task?.prompt ? path3.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
+          const promptFile = task?.prompt ? path5.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
           return {
             key: j2.key,
-            flowId: j2.bpmnProcessId,
+            flowId: flow?.id ?? j2.bpmnProcessId,
+            project: this.projectOf(String(j2.instanceKey)),
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
@@ -37623,8 +37777,8 @@ var init_parseUtil = __esm({
     init_errors3();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path7, errorMaps, issueData } = params;
-      const fullPath = [...path7, ...issueData.path || []];
+      const { data, path: path9, errorMaps, issueData } = params;
+      const fullPath = [...path9, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -37908,11 +38062,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path7, key) {
+      constructor(parent, value, path9, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path7;
+        this._path = path9;
         this._key = key;
       }
       get path() {
@@ -41368,11 +41522,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path7) {
-  if (path7.length === 0) {
+function getDotPath(path9) {
+  if (path9.length === 0) {
     return "object root";
   }
-  return path7.reduce((acc, seg, index) => {
+  return path9.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -48849,8 +49003,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path7) {
-      let input2 = path7;
+    function removeDotSegments(path9) {
+      let input2 = path9;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -48924,11 +49078,11 @@ var require_utils = __commonJS({
       }
       return output2.join("");
     }
-    function removeDotSegmentsRelative(path7) {
-      if (path7 === "" || path7[0] === "/") {
-        return removeDotSegments(path7);
+    function removeDotSegmentsRelative(path9) {
+      if (path9 === "" || path9[0] === "/") {
+        return removeDotSegments(path9);
       }
-      const segments = path7.split("/");
+      const segments = path9.split("/");
       const last = segments.length - 1;
       const output2 = [];
       let trailingDirectory = false;
@@ -49291,8 +49445,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path7 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -57033,9 +57187,9 @@ __export(mcp_exports, {
   runMcpHttp: () => runMcpHttp
 });
 import fs6 from "node:fs";
-import path4 from "node:path";
+import path6 from "node:path";
 function ensureModuleType(dir) {
-  const f2 = path4.join(dir, "package.json");
+  const f2 = path6.join(dir, "package.json");
   if (!fs6.existsSync(f2)) fs6.writeFileSync(f2, '{ "type": "module" }\n');
 }
 function guideText() {
@@ -57048,6 +57202,8 @@ function guideText() {
 function createServer2(project2) {
   const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   const daemon = () => ensureDaemon(project2);
+  const stateUrl = `/api/state?project=${encodeURIComponent(project2)}`;
+  const explorerUrl = (info, hash2 = "") => `${info.url}/?project=${encodeURIComponent(project2)}${hash2 ? `#${hash2}` : ""}`;
   const guard = (fn) => async (a) => {
     try {
       return await fn(a);
@@ -57064,17 +57220,17 @@ function createServer2(project2) {
     },
     guard(async () => {
       const r2 = await checkProject(project2);
-      if (!r2.length) return text(`No flows yet. Create ${path4.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
+      if (!r2.length) return text(`No flows yet. Create ${path6.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
       const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
         const info = await daemon();
         const d2 = await api(info, "/api/reload", {});
-        const st = await api(info, "/api/state");
+        const st = await api(info, stateUrl);
         reload = `
 
 live: ${st.flows.map((f2) => f2.id).join(", ")}${d2.deployed.length ? ` (new version: ${d2.deployed.join(", ")})` : ""}
-BPMN: .agent-graph/compiled/<flow>.bpmn \u2014 explorer ${info.url}`;
+BPMN: ~/.agent-graph/compiled/<flow>.bpmn \u2014 explorer ${explorerUrl(info)}`;
       }
       return text(formatProblems(r2) + reload, bad);
     })
@@ -57103,10 +57259,10 @@ ${guideText()}`))
     },
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
-      fs6.mkdirSync(path4.join(dir, "prompts"), { recursive: true });
+      fs6.mkdirSync(path6.join(dir, "prompts"), { recursive: true });
       ensureModuleType(dir);
-      for (const [f2, body2] of Object.entries(prompts ?? {})) fs6.writeFileSync(path4.join(dir, "prompts", f2), body2);
-      const file2 = path4.join(dir, `${name2}.flow.ts`);
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs6.writeFileSync(path6.join(dir, "prompts", f2), body2);
+      const file2 = path6.join(dir, `${name2}.flow.ts`);
       fs6.writeFileSync(file2, source);
       const r2 = await checkFile(file2);
       const bad = r2.problems.some((p2) => p2.severity === "error");
@@ -57119,19 +57275,19 @@ ${guideText()}`))
 Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r2])}
-written ${path4.relative(project2, file2)}${tail}`, bad);
+written ${path6.relative(project2, file2)}${tail}`, bad);
     })
   );
   server.registerTool(
     "flow_list",
     {
       title: "List flows",
-      description: "List the flows in this project and in the shared library (~/AgentGraph, where Claude Desktop keeps its flows), with id, description, steps and whether they compile. Use flow_import to copy a library flow into this project to reuse it.",
+      description: "List the flows in this project and the global ones (the library, ~/AgentGraph/flows, where Claude Desktop keeps its flows), with id, description, steps and whether they compile. Global flows can be started in any project with flow_start; use flow_import only to copy one here and change it.",
       inputSchema: {}
     },
     guard(async () => {
       const home = defaultHome();
-      const places = [[project2, "this project"], ...path4.resolve(home) !== path4.resolve(project2) ? [[home, "library"]] : []];
+      const places = [[project2, "this project"], ...path6.resolve(home) !== path6.resolve(project2) ? [[home, "global (library)"]] : []];
       const out = [];
       for (const [dir, label] of places) {
         out.push(`## ${label} (${flowsDir(dir)})`);
@@ -57139,7 +57295,7 @@ written ${path4.relative(project2, file2)}${tail}`, bad);
         if (!files.length) out.push("(none)");
         for (const f2 of files) {
           const r2 = await checkFile(f2);
-          const name2 = path4.basename(f2).replace(/\.flow\.\w+$/, "");
+          const name2 = path6.basename(f2).replace(/\.flow\.\w+$/, "");
           const errs = r2.problems.filter((p2) => p2.severity === "error").length;
           for (const fl of r2.flows) {
             const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h2) => `${h2.name}(human)`), ...Object.keys(fl.handlers).map((h2) => h2.split(":").pop())];
@@ -57156,29 +57312,29 @@ written ${path4.relative(project2, file2)}${tail}`, bad);
     "flow_import",
     {
       title: "Import a library flow",
-      description: "Copy a flow file (and the prompt files it uses) from the library (~/AgentGraph) into this project's flows/, then compile and deploy it here. Won't overwrite unless overwrite=true.",
+      description: "Copy a global flow (and the prompt files it uses) from the library (~/AgentGraph) into this project's flows/ to customize it; the copy then replaces the global one in this project. Global flows can be started here without importing. Won't overwrite unless overwrite=true.",
       inputSchema: { name: external_exports.string().describe("File name without .flow.ts, as shown by flow_list"), overwrite: external_exports.boolean().optional() }
     },
     guard(async ({ name: name2, overwrite }) => {
       const home = defaultHome();
-      if (path4.resolve(home) === path4.resolve(project2)) return text("This project is the library already.", true);
-      const src = listFlowFiles(home).find((f2) => path4.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
+      if (path6.resolve(home) === path6.resolve(project2)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f2) => path6.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
       if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
-      const dst = path4.join(flowsDir(project2), path4.basename(src));
-      if (fs6.existsSync(dst) && !overwrite) return text(`${path4.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
-      fs6.mkdirSync(path4.join(flowsDir(project2), "prompts"), { recursive: true });
+      const dst = path6.join(flowsDir(project2), path6.basename(src));
+      if (fs6.existsSync(dst) && !overwrite) return text(`${path6.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs6.mkdirSync(path6.join(flowsDir(project2), "prompts"), { recursive: true });
       ensureModuleType(flowsDir(project2));
       fs6.copyFileSync(src, dst);
-      const copied = [path4.relative(project2, dst)];
+      const copied = [path6.relative(project2, dst)];
       const r0 = await checkFile(src);
       for (const fl of r0.flows)
         for (const t of fl.tasks)
           if (t.prompt) {
-            const p2 = path4.join(flowsDir(home), "prompts", t.prompt.resourceId);
-            const q = path4.join(flowsDir(project2), "prompts", t.prompt.resourceId);
+            const p2 = path6.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path6.join(flowsDir(project2), "prompts", t.prompt.resourceId);
             if (fs6.existsSync(p2) && (overwrite || !fs6.existsSync(q))) {
               fs6.copyFileSync(p2, q);
-              copied.push(path4.relative(project2, q));
+              copied.push(path6.relative(project2, q));
             }
           }
       const r2 = await checkFile(dst);
@@ -57198,13 +57354,13 @@ Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
     },
     guard(async ({ name: name2 }) => {
       const files = listFlowFiles(project2);
-      if (!name2) return text(files.length ? files.map((f3) => path4.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
-      const f2 = files.find((x) => path4.basename(x).replace(/\.flow\.\w+$/, "") === name2);
+      if (!name2) return text(files.length ? files.map((f3) => path6.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
+      const f2 = files.find((x) => path6.basename(x).replace(/\.flow\.\w+$/, "") === name2);
       if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
-      const pdir = path4.join(flowsDir(project2), "prompts");
+      const pdir = path6.join(flowsDir(project2), "prompts");
       const prompts = fs6.existsSync(pdir) ? fs6.readdirSync(pdir).map((p2) => `--- prompts/${p2}
-${fs6.readFileSync(path4.join(pdir, p2), "utf8")}`) : [];
-      return text([`--- ${path4.basename(f2)}`, fs6.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+${fs6.readFileSync(path6.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path6.basename(f2)}`, fs6.readFileSync(f2, "utf8"), ...prompts].join("\n"));
     })
   );
   K3(
@@ -57223,10 +57379,10 @@ ${fs6.readFileSync(path4.join(pdir, p2), "utf8")}`) : [];
     guard(async ({ flowId, instanceKey, taskKey }) => {
       const info = await daemon();
       const hash2 = taskKey ? `task=${taskKey}` : instanceKey ? `instance=${instanceKey}` : flowId ? `flow=${flowId}` : "";
-      const r2 = text(`${summarize(await api(info, "/api/state"))}
+      const r2 = text(`${summarize(await api(info, stateUrl), project2)}
 
-Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${info.url}/${hash2 ? `#${hash2}` : ""}`);
-      r2.structuredContent = { hash: hash2, url: info.url };
+Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${explorerUrl(info, hash2)}`);
+      r2.structuredContent = { hash: hash2, url: info.url, project: project2 };
       return r2;
     })
   );
@@ -57256,22 +57412,22 @@ Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${info.url
     "flow_status",
     {
       title: "Engine status",
-      description: "Overview of the project's engine: deployed flows, active instances and where they wait, open user tasks, session jobs, incidents, running jobs. Pass instanceKey for one instance in detail (variables, activity).",
+      description: "Overview of the engine: the flows this project can start (its own and the global ones), and active instances, open user tasks, incidents and running jobs in every project (others marked [project]). Pass instanceKey for one instance in detail (variables, activity).",
       inputSchema: { instanceKey: external_exports.string().optional() }
     },
     guard(async ({ instanceKey }) => {
       const info = await daemon();
       if (instanceKey) return json4(await api(info, `/api/instances/${instanceKey}`));
-      return text(`${summarize(await api(info, "/api/state"))}
+      return text(`${summarize(await api(info, stateUrl), project2)}
 
-explorer: ${info.url}`);
+explorer: ${explorerUrl(info)}`);
     })
   );
   server.registerTool(
     "flow_start",
     {
       title: "Start a flow",
-      description: "Start an instance of a deployed flow. Returns the instance key; the daemon runs it in the background (it keeps running after this session ends).",
+      description: "Start an instance of a flow in this project: one of its own flows/, or a global one from ~/AgentGraph/flows (it runs here, in this project). Returns the instance key; the engine runs it in the background (it keeps running after this session ends).",
       inputSchema: {
         flowId: external_exports.string(),
         variables: external_exports.record(external_exports.string(), external_exports.any()).optional().describe("Initial process variables"),
@@ -57280,19 +57436,19 @@ explorer: ${info.url}`);
     },
     guard(async ({ flowId, variables, title }) => {
       const info = await daemon();
-      const r2 = await api(info, "/api/start", { flowId, variables: variables ?? {}, title });
-      return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${info.url}/#instance=${r2.instanceKey}`);
+      const r2 = await api(info, "/api/start", { flowId, variables: variables ?? {}, title, project: project2 });
+      return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${explorerUrl(info, `instance=${r2.instanceKey}`)}`);
     })
   );
   server.registerTool(
     "task_list",
     {
       title: "Open user tasks",
-      description: "User tasks (human steps) waiting for an answer, with their forms and the instance variables they show.",
+      description: "User tasks (human steps) waiting for an answer in any project (each says its project), with their forms and the instance variables they show.",
       inputSchema: {}
     },
     guard(async () => {
-      const s = await api(await daemon(), "/api/state");
+      const s = await api(await daemon(), stateUrl);
       if (!s.userTasks.length) return text("No user tasks waiting.");
       return json4(s.userTasks.map((t) => ({ ...t, variables: void 0 })));
     })
@@ -57306,7 +57462,7 @@ explorer: ${info.url}`);
     },
     guard(async ({ taskKey }) => {
       const info = await daemon();
-      const s = await api(info, "/api/state");
+      const s = await api(info, stateUrl);
       const t = s.userTasks.find((u2) => u2.key === taskKey);
       if (!t) return text(`No open user task ${taskKey}`, true);
       const form = t.form ?? { title: `${t.flowId}: ${t.elementId}`, fields: { response: { type: "string", title: "Your answer" } }, required: ["response"] };
@@ -57322,7 +57478,7 @@ ${message}
 Fields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `
 Required: ${form.required.join(", ")}` : ""}
 
-Or answer in the explorer: ${info.url}/#task=${taskKey}`
+Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
         );
       }
       const r2 = await server.server.elicitInput({
@@ -57358,7 +57514,7 @@ Or answer in the explorer: ${info.url}/#task=${taskKey}`
       }
     },
     guard(async ({ jobType: jobType2, max }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2, max: max ?? 1 });
+      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2, max: max ?? 1, project: project2 });
       if (!jobs.length) return text("No session jobs waiting.");
       return json4(max && max > 1 ? jobs : jobs[0]);
     })
@@ -57550,7 +57706,7 @@ __export(hooks_exports, {
   runHook: () => runHook
 });
 import fs7 from "node:fs";
-import path5 from "node:path";
+import path7 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
   let s = "";
@@ -57566,13 +57722,20 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   const project2 = input2.cwd ? resolveProject(input2.cwd) : projectArg;
   const info = await findDaemon(project2);
   if (!info) return;
-  const s = await api(info, "/api/state");
-  const tasks = s.userTasks;
-  const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created");
-  const incidents = s.incidents;
-  const keys = [...tasks.map((t) => `t${t.key}`), ...sessionJobs.map((j2) => `j${j2.key}`), ...incidents.map((i) => `i${i.key}`)].sort();
+  const s = await api(info, `/api/state?project=${encodeURIComponent(project2)}`);
+  const here = (x) => !x.project || x.project === path7.resolve(project2);
+  const tasks = s.userTasks.filter(here);
+  const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created" && here(j2));
+  const incidents = s.incidents.filter(here);
+  const elsewhere = [...s.userTasks, ...s.incidents].filter((x) => !here(x));
+  const keys = [
+    ...tasks.map((t) => `t${t.key}`),
+    ...sessionJobs.map((j2) => `j${j2.key}`),
+    ...incidents.map((i) => `i${i.key}`),
+    ...event === "SessionStart" ? elsewhere.map((x) => `e${x.key}`) : []
+  ].sort();
   if (!keys.length) return;
-  const seenFile = path5.join(stateDir(project2), "hook-seen.json");
+  const seenFile = path7.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
@@ -57585,6 +57748,10 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""}`);
+  if (elsewhere.length) {
+    const names = [...new Set(elsewhere.map((x) => path7.basename(x.project)))];
+    lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) \u2014 flow_status lists them`);
+  }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
   for (const i of incidents) lines.push(`- incident ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${String(i.reason).slice(0, 200)}`);
   lines.push(
@@ -57604,23 +57771,25 @@ init_compile2();
 init_paths();
 init_summary();
 import { spawn as spawn3 } from "node:child_process";
-import path6 from "node:path";
+import path8 from "node:path";
 var HELP = `age \u2014 Agent Graph Engine
 
   age check                     compile + lint flows/*.flow.ts (writes nothing)
-  age up                        start the project's daemon (if not running), print its URL
-  age down                      stop the daemon
-  age status                    flows, instances, open tasks, incidents
+  age up                        start the engine (one per user) if needed, print its URL
+  age down                      stop the engine
+  age status                    flows here; runs, open tasks, incidents in every project
   age start <flow> [json]       start an instance with variables
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
                                 or a route like /instances); prints the URL
-  age daemon                    run the daemon in the foreground
+  age daemon                    run the engine in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
 
-  Options: --project <dir> (default: nearest dir with flows/ or .agent-graph/)`;
+  Options: --project <dir> (default: nearest dir with flows/, else the git root, else cwd)
+  The engine keeps its state in ~/.agent-graph (AGE_STATE_DIR); ~/AgentGraph/flows are
+  global flows, offered in every project (AGE_HOME).`;
 function arg(name2) {
   const i = process.argv.indexOf(name2);
   if (i < 0) return void 0;
@@ -57629,7 +57798,7 @@ function arg(name2) {
   return v2;
 }
 var projectOpt = arg("--project");
-var project = projectOpt ? path6.resolve(projectOpt) : resolveProject();
+var project = projectOpt ? path8.resolve(projectOpt) : resolveProject();
 var [cmd, ...rest] = process.argv.slice(2);
 function parseVars(s) {
   if (!s) return {};
@@ -57643,15 +57812,15 @@ async function main() {
   switch (cmd) {
     case "check": {
       const r2 = await checkProject(project);
-      if (!r2.length) console.log(`no flows in ${path6.join(project, "flows")}`);
+      if (!r2.length) console.log(`no flows in ${path8.join(project, "flows")}`);
       else console.log(formatProblems(r2));
       process.exitCode = r2.some((x) => x.problems.some((p2) => p2.severity === "error")) ? 1 : 0;
       return;
     }
     case "daemon": {
       const { serve: serve2 } = await Promise.resolve().then(() => (init_daemon(), daemon_exports));
-      const { info } = await serve2(project);
-      console.log(`agent-graph daemon ${info.url} (pid ${info.pid}) for ${info.project}`);
+      const { info } = await serve2();
+      console.log(`agent-graph engine ${info.url} (pid ${info.pid})`);
       return;
     }
     case "up": {
@@ -57662,7 +57831,7 @@ async function main() {
     case "open": {
       const info = await ensureDaemon(project);
       const view = (rest[0] ?? "").replace(/^#/, "");
-      const target = `${info.url}/${view ? `#${view}` : ""}`;
+      const target = `${info.url}/?project=${encodeURIComponent(project)}${view ? `#${view}` : ""}`;
       console.log(target);
       openBrowser(target);
       return;
@@ -57675,13 +57844,13 @@ async function main() {
     }
     case "status": {
       const info = await ensureDaemon(project);
-      console.log(summarize(await api(info, "/api/state")));
+      console.log(summarize(await api(info, `/api/state?project=${encodeURIComponent(project)}`), project));
       return;
     }
     case "start": {
       const info = await ensureDaemon(project);
-      const r2 = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]) });
-      console.log(`started instance ${r2.instanceKey} \u2014 ${info.url}/#instance=${r2.instanceKey}`);
+      const r2 = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]), project });
+      console.log(`started instance ${r2.instanceKey} \u2014 ${info.url}/?project=${encodeURIComponent(project)}#instance=${r2.instanceKey}`);
       return;
     }
     case "tasks": {

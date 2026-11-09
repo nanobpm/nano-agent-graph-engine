@@ -10,19 +10,21 @@ import { summarize } from "./summary.ts";
 const HELP = `age — Agent Graph Engine
 
   age check                     compile + lint flows/*.flow.ts (writes nothing)
-  age up                        start the project's daemon (if not running), print its URL
-  age down                      stop the daemon
-  age status                    flows, instances, open tasks, incidents
+  age up                        start the engine (one per user) if needed, print its URL
+  age down                      stop the engine
+  age status                    flows here; runs, open tasks, incidents in every project
   age start <flow> [json]       start an instance with variables
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
                                 or a route like /instances); prints the URL
-  age daemon                    run the daemon in the foreground
+  age daemon                    run the engine in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
 
-  Options: --project <dir> (default: nearest dir with flows/ or .agent-graph/)`;
+  Options: --project <dir> (default: nearest dir with flows/, else the git root, else cwd)
+  The engine keeps its state in ~/.agent-graph (AGE_STATE_DIR); ~/AgentGraph/flows are
+  global flows, offered in every project (AGE_HOME).`;
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -56,8 +58,8 @@ async function main() {
     }
     case "daemon": {
       const { serve } = await import("./daemon.ts");
-      const { info } = await serve(project);
-      console.log(`agent-graph daemon ${info.url} (pid ${info.pid}) for ${info.project}`);
+      const { info } = await serve();
+      console.log(`agent-graph engine ${info.url} (pid ${info.pid})`);
       return;
     }
     case "up": {
@@ -68,7 +70,7 @@ async function main() {
     case "open": {
       const info = await ensureDaemon(project);
       const view = (rest[0] ?? "").replace(/^#/, "");
-      const target = `${info.url}/${view ? `#${view}` : ""}`;
+      const target = `${info.url}/?project=${encodeURIComponent(project)}${view ? `#${view}` : ""}`;
       console.log(target);
       openBrowser(target);
       return;
@@ -81,13 +83,13 @@ async function main() {
     }
     case "status": {
       const info = await ensureDaemon(project);
-      console.log(summarize(await api(info, "/api/state")));
+      console.log(summarize(await api(info, `/api/state?project=${encodeURIComponent(project)}`), project));
       return;
     }
     case "start": {
       const info = await ensureDaemon(project);
-      const r = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]) });
-      console.log(`started instance ${r.instanceKey} — ${info.url}/#instance=${r.instanceKey}`);
+      const r = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]), project });
+      console.log(`started instance ${r.instanceKey} — ${info.url}/?project=${encodeURIComponent(project)}#instance=${r.instanceKey}`);
       return;
     }
     case "tasks": {

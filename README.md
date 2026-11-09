@@ -19,7 +19,7 @@ timers and no shell. Agent Graph flows are long-lived, can wait for people or ti
 real code, and can be inspected as a diagram.
 
 ```
-flows/*.flow.ts ──check──▶ BPMN + DI ──deploy──▶ daemon (WASM engine, .agent-graph/journal.json)
+flows/*.flow.ts ──check──▶ BPMN + DI ──deploy──▶ engine (one per user, ~/.agent-graph/journal.json)
                                                    │  workers: run handlers · claude -p · timers
 Claude Code ──MCP (stdio)──▶ age mcp ──HTTP──▶─────┤
    hooks (SessionStart/UserPromptSubmit) ──────────┤  "user task waiting…" → context
@@ -42,7 +42,7 @@ No server to run and no workers to configure. Add one entry to
 
 Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `nvm` installs aren't found otherwise.
 
-- **Project and global flows.** A project's flows are in its `flows/`. The flows in `~/AgentGraph/flows` (the library; `AGE_HOME` moves it) are *global*: every project's engine offers them too and runs them in that project, so agent steps work on that repo. A project flow with the same id shadows the global one (`flow_import` copies one in to customize it). The explorer and the `/flows` pane list them as **Project flows** and **Global flows**. Engine state is in the project's `.agent-graph/`, which ignores itself in git.
+- **One engine, every project.** You have one engine (state in `~/.agent-graph`, `AGE_STATE_DIR` moves it). Each project's flows are in its `flows/`; a project joins the engine the first time a flow tool, the CLI or the `/flows` pane is used there. The flows in `~/AgentGraph/flows` (the library; `AGE_HOME` moves it) are *global*: offered in every project and run in the project they were started from. A project flow with the same id takes the global one's place there (`flow_import` copies one in to customize it). Every run belongs to a project: its `sh()` steps and agent steps run in that folder, and files a step writes should use `projectPath("file")`. `flow_status`, the `/flows` pane and the explorer show work in all projects (the explorer has a project picker), so nothing waits somewhere you aren't looking. Agent steps for the session only go to a session in the run's project. Nothing is written into your repos.
 - **Where flows live.** Desktop starts servers in `/`, so flows go in `~/AgentGraph/flows/`. Override with `"env": {"AGE_PROJECT": "/some/dir"}`.
 - **Authoring.** Claude reads `flow_guide`, then writes flows with `flow_write`, which saves, compiles, lints and deploys in one step. Nothing is needed on your side.
 - **Agent steps** (`jobType: "claude"`) need no setup:
@@ -101,8 +101,8 @@ in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS 
   New user tasks show a toast.
 - **No engine running?** The pane offers **Start engine**.
 
-The mod polls the project's engine every 3 s over its local HTTP API. It reads the
-engine's address from `.agent-graph/daemon.json`. Run the mod's tests with
+The mod polls the engine every 3 s over its local HTTP API. It reads the engine's
+address from `~/.agent-graph/daemon.json`. Run the mod's tests with
 `claude plugin test .`; `npm test` runs them after the engine tests.
 
 **Organisations.** Mods are on by default. An administrator can allow only managed mods
@@ -237,7 +237,7 @@ Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflo
 
 - **Engine**: `@nanobpm/engine-wasm` (`TestEngine`) running in Node. The host owns the clock (`tickNow(Date.now())` every 500 ms) and runs the job workers.
 - **Durability**:
-  - After each change, `engine.events()` is written atomically to `.agent-graph/journal.json`.
+  - After each change, `engine.events()` is written atomically to `~/.agent-graph/journal.json`.
   - On start, `replayEvents()` restores it.
   - Jobs that were mid-run when the daemon died are handed back out.
   - Tested by the e2e test: it stops the daemon in the middle of a flow.
@@ -245,9 +245,11 @@ Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflo
   - `run` handlers are imported from the flow file. A failed job gets 3 retries with backoff, then an incident.
   - The `claude` worker spawns `claude -p --output-format json --permission-mode dontAsk` with optional `--json-schema`, `--allowedTools` and `--model`. Options come from `export const agents`. The cost is logged.
   - `AGE_CLAUDE_CMD` swaps the binary (the tests use a fake).
-- **One daemon per project**:
-  - Its info is in `.agent-graph/daemon.json`, and it listens on `127.0.0.1`.
-  - The MCP server, CLI and hooks are thin HTTP clients. MCP/CLI start the daemon detached on first use.
+- **One engine per user**:
+  - Its info is in `~/.agent-graph/daemon.json`, and it listens on `127.0.0.1`.
+  - The MCP server, CLI and hooks are thin HTTP clients. MCP/CLI start the engine detached on first use (one client starts it; the others wait) and register their project with it (`projects.json`).
+  - A project's flows deploy as `<folder>-<hash>.<id>`, so two repos can both have a `release` flow; global flows keep their id. Runs record their project; handlers run inside an async context that `sh()`, `claude()` and `projectPath()` read.
+  - Before 0.5 each project had its own engine in `<project>/.agent-graph/`. Those aren't migrated: stop one with the old version's `age down` once its runs are done (its history stays in that folder).
   - `flow_start` output includes the explorer URL.
 - **Explorer** (`GET /`), a single HTML file using the bpmn-js viewer, shows:
   - the task inbox with forms

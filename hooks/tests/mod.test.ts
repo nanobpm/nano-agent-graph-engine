@@ -4,7 +4,10 @@ const STATE = {
   flows: [{ id: 'release-notes', description: 'Draft release notes' }],
   instances: [{ key: '7', flowId: 'release-notes', title: 'v2', state: 'Active', completed: false, activeElements: ['review'] }],
   userTasks: [{ key: '9', instanceKey: '7', flowId: 'release-notes', elementId: 'review', form: { title: 'Approve notes', fields: { ok: { type: 'boolean', title: 'OK?' }, note: { type: 'string' } }, required: ['ok'] } }],
-  sessionJobs: [{ key: '11', jobType: 'claude' }, { key: '12', jobType: 'claude' }],
+  sessionJobs: [
+    { key: '11', jobType: 'claude', state: 'Created', project: '/work' },
+    { key: '12', jobType: 'claude', state: 'Created', project: '/work' },
+  ],
   incidents: [],
   problems: [],
 }
@@ -13,10 +16,12 @@ function engine(on: any, calls: any[]) {
   mock.clock(on)
   mock.env(on, { HOME: '/home/u' })
   on('fs.exists', ($: any, e: any) => ({ value: e.path.endsWith('/work/flows') }))
-  on('fs.read', () => ({ value: JSON.stringify({ url: 'http://127.0.0.1:5555', pid: 1 }) }))
+  on('fs.read', ($: any, e: any) =>
+    e.path === '/home/u/.agent-graph/daemon.json' ? { value: JSON.stringify({ url: 'http://127.0.0.1:5555', pid: 1 }) } : { deny: 'ENOENT' },
+  )
   on('http.fetch', ($: any, e: any) => {
     calls.push({ url: e.url, init: e.init })
-    if (e.url.endsWith('/api/state')) return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(STATE) } }
+    if (e.url.includes('/api/state?project=%2Fwork')) return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(STATE) } }
     if (e.url.endsWith('/api/start')) return { value: { status: 200, ok: true, headers: {}, text: '{"instanceKey":"8"}' } }
     return { value: { status: 200, ok: true, headers: {}, text: '{"ok":true}' } }
   })
@@ -61,7 +66,9 @@ test('pane: start a flow with JSON inputs; answer a task', async ($, on) => {
   await ui.press({ key: 'start-release-notes' })
   await ui.input({ key: 'inputs-release-notes', text: '{"since":"v1.0"}' })
   const st = calls.find((c) => c.url.endsWith('/api/start'))
-  expect(JSON.parse(st.init.body)).toEqual({ flowId: 'release-notes', variables: { since: 'v1.0' } })
+  expect(JSON.parse(st.init.body)).toEqual({ flowId: 'release-notes', variables: { since: 'v1.0' }, project: '/work' })
+  // a project with flows/ registers with the (shared) engine
+  expect(JSON.parse(calls.find((c) => c.url.endsWith('/api/projects')).init.body)).toEqual({ path: '/work' })
   await ui.unmount()
 })
 
@@ -77,7 +84,7 @@ test('no engine: the pane offers to start it', async ($, on) => {
   on('ui.render', () => ({ type: 'Text', props: {}, children: ['claude'] }))
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
   const ui = await $.ui.mount(PANE)
-  expect(await ui.find({ type: 'Text', text: /not running for \/work/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /engine is not running/ })).toBeDefined()
   await ui.press({ key: 'start-engine' })
   expect(argv[0].slice(2)).toEqual(['up', '--project', '/work'])
   expect(argv[0][1]).toMatch(/\/dist\/cli\.js$/)
@@ -117,12 +124,33 @@ test('flows tab: project flows, then global flows from the library', async ($, o
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
     const ui = await $.ui.mount(PANE)
     await ui.press({ key: 'tab-flows' })
-    expect(await ui.find({ type: 'Text', text: /Project flows \(1\)/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Project flows · work \(1\)/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Global flows \(1\)/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /publish-video/ })).toBeDefined()
     await ui.unmount()
   } finally {
     STATE.flows = saved.flows
     ;(STATE as any).globalDir = saved.globalDir
+  }
+})
+
+test('one engine: work in other projects is shown and marked, but not handed to this session', async ($, on) => {
+  const saved = { ...STATE }
+  STATE.instances = [...STATE.instances, { key: '20', flowId: 'deploy', state: 'Active', completed: false, activeElements: ['wait'], project: '/other/api' } as any]
+  STATE.userTasks = [...STATE.userTasks, { key: '21', instanceKey: '20', flowId: 'deploy', elementId: 'approve', project: '/other/api', form: { title: 'Approve deploy', fields: {} } } as any]
+  STATE.sessionJobs = [{ key: '22', jobType: 'claude', state: 'Created', project: '/other/api' }]
+  const prompts: string[] = []
+  try {
+    engine(on, [])
+    on('prompt.submit', ($: any, e: any) => (prompts.push(e.text), { text: e.text }))
+    await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+    const band = await $.ui.mount(BAND)
+    expect(await band.find({ type: 'Text', text: /2 flows running \(1 in other projects\) · 2 tasks waiting/ })).toBeDefined()
+    expect(prompts.length).toBe(0) // the other project's agent step is not ours
+    const ui = await $.ui.mount(PANE)
+    expect(await ui.find({ type: 'Text', text: /deploy #20 · api/ })).toBeDefined()
+    await ui.unmount()
+  } finally {
+    Object.assign(STATE, saved)
   }
 })

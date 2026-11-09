@@ -3,15 +3,18 @@
 //  - /flows opens a pane: start a flow, answer user tasks, retry/cancel incidents
 //  - /explorer (and the pane's "Explorer" buttons) open the web explorer in the browser
 //  - wakes the agent when a flow hands agent steps to this session
-// The mod talks to the project's engine daemon over its local HTTP API; it reads the
-// daemon's address from <project>/.agent-graph/daemon.json and never starts a model turn
-// except to hand session jobs to the agent.
+// One engine serves every project. The mod talks to it over its local HTTP API (address
+// in ~/.agent-graph/daemon.json), shows this project's flows plus the global ones, and
+// all running work with other projects' marked. It never starts a model turn except to
+// hand this project's session jobs to the agent.
 
 const PANE = 'agent-graph'
 const POLL_MS = 3000
 
 let project = ''
 let url = ''
+let engineFile = '' // ~/.agent-graph/daemon.json (AGE_STATE_DIR)
+let registered = '' // engine url this project was registered with
 let state = null // last /api/state, trimmed
 let error = ''
 let tab = 'inbox'
@@ -22,20 +25,26 @@ let notified = new Set() // user task keys already toasted
 
 const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's')
 
-/** The project the engine runs for: nearest ancestor with flows/ or .agent-graph/,
- *  else ~/AgentGraph when the session runs in / or $HOME, else the cwd. */
+/** The project this session works on: nearest ancestor with flows/, else the git root,
+ *  else the cwd — or ~/AgentGraph (the global library) in / or $HOME. */
 async function findProject($, cwd) {
-  let dir = cwd
-  for (;;) {
-    if ((await $.fs.exists(dir + '/flows')) || (await $.fs.exists(dir + '/.agent-graph'))) return dir
+  const home = (await $.env.get('HOME')) || ''
+  if (cwd === '/' || cwd === home) return (await $.env.get('AGE_HOME')) || home + '/AgentGraph'
+  let git = ''
+  for (let dir = cwd; dir && dir !== home; ) {
+    if (await $.fs.exists(dir + '/flows')) return dir
+    if (!git && (await $.fs.exists(dir + '/.git'))) git = dir
     const up = dir.replace(/\/[^/]+\/?$/, '') || '/'
     if (up === dir) break
     dir = up
   }
-  const home = (await $.env.get('HOME')) || ''
-  if (cwd === '/' || cwd === home) return (await $.env.get('AGE_HOME')) || home + '/AgentGraph'
-  return cwd
+  return git || cwd
 }
+
+const base = (p) => String(p || '').split('/').filter(Boolean).pop() || p
+/** " · <project>" for work that belongs to another project. */
+const elsewhere = (x) => (x && x.project && x.project !== project ? ' · ' + base(x.project) : '')
+const explorerUrl = () => url + '/?project=' + encodeURIComponent(project)
 
 async function api($, path, body) {
   const r = await $.http.fetch(url + path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -48,7 +57,7 @@ async function refresh($) {
   if (!project) return
   let info
   try {
-    info = JSON.parse(await $.fs.read(project + '/.agent-graph/daemon.json'))
+    info = JSON.parse(await $.fs.read(engineFile))
   } catch {
     url = ''
     state = null
@@ -57,13 +66,19 @@ async function refresh($) {
   }
   url = info.url
   try {
-    const s = await api($, '/api/state')
+    // A project with flows/ joins the engine as soon as the engine is up.
+    if (registered !== url && (await $.fs.exists(project + '/flows'))) {
+      await api($, '/api/projects', { path: project })
+      registered = url
+    }
+    const s = await api($, '/api/state?project=' + encodeURIComponent(project))
     state = {
       flows: s.flows || [],
       globalDir: s.globalDir || '',
       instances: (s.instances || []).filter((i) => !i.completed),
       userTasks: s.userTasks || [],
-      sessionJobs: s.sessionJobs || [],
+      // agent steps for this session: only runs in this project
+      sessionJobs: (s.sessionJobs || []).filter((j) => j.state === 'Created' && (!j.project || j.project === project)),
       incidents: (s.incidents || []).filter((i) => i.state !== 'Resolved'),
       problems: s.problems || [],
     }
@@ -83,7 +98,7 @@ async function announce($) {
   for (const t of state.userTasks) {
     if (notified.has(t.key)) continue
     notified.add(t.key)
-    $.ui.toast('Flow ' + (t.title || t.flowId) + ' is waiting for you: ' + ((t.form && t.form.title) || t.elementId) + ' — /flows')
+    $.ui.toast('Flow ' + (t.title || t.flowId) + elsewhere(t) + ' is waiting for you: ' + ((t.form && t.form.title) || t.elementId) + ' — /flows')
   }
   const fresh = state.sessionJobs.filter((j) => !woken.has(j.key))
   if (!fresh.length) return
@@ -144,7 +159,7 @@ async function startFlow($, flowId, input) {
   startFor = ''
   if (variables && typeof variables === 'object' && !Array.isArray(variables)) {
     try {
-      const r = await api($, '/api/start', { flowId, variables })
+      const r = await api($, '/api/start', { flowId, variables, project })
       $.ui.toast('Started ' + flowId + ' #' + r.instanceKey)
     } catch (e) {
       $.ui.toast('Could not start ' + flowId + ': ' + ((e && e.message) || e))
@@ -217,6 +232,7 @@ export function register(on) {
       immediate: true,
     })
     project = await findProject($, (r && r.cwd) || e.cwd || (await $.session.cwd()))
+    engineFile = ((await $.env.get('AGE_STATE_DIR')) || ((await $.env.get('HOME')) || '') + '/.agent-graph') + '/daemon.json'
     await refresh($)
     $.clock.every(POLL_MS, () => refresh($))
     return r
@@ -245,7 +261,8 @@ export function register(on) {
     const running = state.instances.length
     if (!tasks && !incidents && !running) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
-    const parts = [plural(running, 'flow') + ' running']
+    const away = state.instances.filter((i) => elsewhere(i)).length
+    const parts = [plural(running, 'flow') + ' running' + (away ? ' (' + away + ' in other projects)' : '')]
     if (tasks) parts.push(plural(tasks, 'task') + ' waiting for you')
     if (incidents) parts.push(plural(incidents, 'incident'))
     const mine = Box({
@@ -281,7 +298,7 @@ export function register(on) {
         flexDirection: 'column',
         rowGap: 1,
         children: [
-          Text({ children: ['The Agent Graph engine is not running for ' + project + '.'] }),
+          Text({ children: ['The Agent Graph engine is not running.'] }),
           error ? Text({ color: 'red', children: [error] }) : dim('It starts with the first flow tool call, or here.'),
           Button({ key: 'start-engine', label: 'Start engine', hotkey: 's', variant: 'primary', onPress: () => startEngine($) }),
         ],
@@ -309,7 +326,7 @@ export function register(on) {
         const draft = drafts[t.key] || (drafts[t.key] = {})
         const rows = [
           Text({ bold: true, children: [(form.title || t.elementId) + '  '] }),
-          dim((t.title || t.flowId) + ' #' + t.instanceKey),
+          dim((t.title || t.flowId) + ' #' + t.instanceKey + elsewhere(t)),
         ]
         if (form.description) rows.push(Text({ wrap: 'wrap', children: [String(form.description).slice(0, 4000)] }))
         for (const [name, field] of Object.entries(form.fields || {})) {
@@ -345,7 +362,7 @@ export function register(on) {
             borderColor: 'red',
             paddingX: 1,
             children: [
-              Text({ color: 'red', children: ['Incident in #' + inc.instanceKey + ' at ' + inc.elementId] }),
+              Text({ color: 'red', children: ['Incident in #' + inc.instanceKey + ' at ' + inc.elementId + elsewhere(inc)] }),
               Text({ wrap: 'wrap', children: [String(inc.errorMessage || inc.message || '').slice(0, 1000)] }),
               Box({
                 flexDirection: 'row',
@@ -362,9 +379,9 @@ export function register(on) {
       }
     } else if (tab === 'flows') {
       // Project flows, then the shared library's (~/AgentGraph/flows), which run here too.
-      const sections = state.globalDir
+      const sections = state.globalDir && state.globalDir !== project
         ? [
-            ['Project flows', state.flows.filter((f) => f.scope !== 'global'), 'None in ' + project + '/flows. Ask Claude to write one, e.g. "make a flow that…".'],
+            ['Project flows · ' + base(project), state.flows.filter((f) => f.scope !== 'global'), 'None in ' + project + '/flows. Ask Claude to write one, e.g. "make a flow that…".'],
             ['Global flows', state.flows.filter((f) => f.scope === 'global'), 'None in ' + String(state.globalDir) + '/flows.'],
           ]
         : [['', state.flows, 'No flows yet. Ask Claude to write one, e.g. "make a flow that…".']]
@@ -408,7 +425,7 @@ export function register(on) {
             columnGap: 2,
             children: [
               Text({ bold: true, children: ['#' + i.key] }),
-              Text({ children: [(i.title || i.flowId) + ' → ' + ((i.activeElements || []).join(', ') || i.state)] }),
+              Text({ children: [(i.title || i.flowId) + ' → ' + ((i.activeElements || []).join(', ') || i.state) + elsewhere(i)] }),
               Button({ key: 'open-run-' + i.key, label: '↗', plain: true, onPress: () => openExplorer($, 'instance=' + i.key) }),
               Button({ key: 'cancel-run-' + i.key, label: 'x', plain: true, onPress: () => cancelInstance($, i.key) }),
             ],
@@ -420,7 +437,7 @@ export function register(on) {
     return Box({
       flexDirection: 'column',
       rowGap: 1,
-      children: [header, ...body, Link({ href: url, label: 'Open the process explorer (diagrams, history)' })],
+      children: [header, ...body, Link({ href: explorerUrl(), label: 'Open the process explorer (diagrams, history)' })],
     })
   })
 }

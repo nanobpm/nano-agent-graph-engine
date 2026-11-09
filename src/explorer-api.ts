@@ -3,6 +3,7 @@
 // wire model (InstancePage / InstanceDetail / InstanceTrace), so the explorer's
 // ExplorerDataSource is a thin fetch (or ui_api) client. Field names follow that
 // model, including its mix of snake_case and camelCase.
+import path from "node:path";
 import type { Host } from "./daemon.ts";
 
 type Ev = Record<string, any>;
@@ -190,19 +191,22 @@ function json(v: unknown) {
 function instanceView(host: Host, f: Facts, live: any, incidentOpen: boolean) {
   const state = live?.state ?? (f.outcome === "completed" ? "Completed" : f.outcome === "terminated" ? "Terminated" : "Active");
   const meta = host.instanceMeta[f.key];
+  const project = host.projectOf(f.key);
   return {
     key: f.key,
-    process_id: f.processId,
-    // Agent Graph deploys one definition per flow id; the flow id doubles as its key
-    // so getProcessXml can fetch the flow's current BPMN.
+    // The flow's own id; project flows deploy as "<projectSlug>.<id>".
+    process_id: host.flows.get(f.processId)?.id ?? meta?.flowId ?? f.processId,
+    // One definition per deployed process id, which doubles as its key so
+    // getProcessXml can fetch the flow's current BPMN.
     process_definition_key: f.processId,
+    project,
     version: 1,
     state: state === "Canceled" || state === "Cancelled" ? "Terminated" : state,
     start_date_ms: f.startedAt,
     has_incident: incidentOpen,
     business_id: f.businessId ?? meta?.title ?? null,
     suspendedDate: null,
-    tags: meta?.title ? [meta.title] : [],
+    tags: [path.basename(project), ...(meta?.title ? [meta.title] : [])],
     parent_process_instance_key: f.parentKey,
     parent_element_instance_key: f.parentElementKey,
   };
@@ -216,14 +220,19 @@ function load(host: Host) {
   return { snap, facts, live, openIncidents };
 }
 
-export function listInstances(host: Host, q: { page?: number; pageSize?: number; state?: string; hasIncident?: boolean }) {
+export function listInstances(host: Host, q: { page?: number; pageSize?: number; state?: string; hasIncident?: boolean; project?: string }) {
   const { facts, live, openIncidents } = load(host);
   // Zero-based, like the console API the explorer was written against.
   const page = Math.max(0, Number(q.page ?? 0) || 0);
   const pageSize = Math.min(200, Math.max(1, Number(q.pageSize ?? 50)));
   const all = [...facts.values()]
     .map((f) => instanceView(host, f, live.get(f.key), openIncidents.has(f.key)))
-    .filter((i) => (!q.state || i.state === q.state) && (q.hasIncident === undefined || i.has_incident === q.hasIncident))
+    .filter(
+      (i) =>
+        (!q.state || i.state === q.state) &&
+        (q.hasIncident === undefined || i.has_incident === q.hasIncident) &&
+        (!q.project || i.project === path.resolve(q.project)),
+    )
     .sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
   return { items: all.slice(page * pageSize, (page + 1) * pageSize), total: all.length, page, pageSize };
 }
@@ -275,7 +284,7 @@ export function getInstance(host: Host, key: string) {
       .filter((c) => c.parentKey === key)
       .map((c) => ({
         key: c.key,
-        process_id: c.processId,
+        process_id: host.flows.get(c.processId)?.id ?? c.processId,
         version: 1,
         state: instanceView(host, c, live.get(c.key), openIncidents.has(c.key)).state,
         has_incident: openIncidents.has(c.key),
@@ -291,7 +300,7 @@ export function getTrace(host: Host, key: string) {
   if (!f) return null;
   return {
     instanceKey: f.key,
-    processId: f.processId,
+    processId: host.flows.get(f.processId)?.id ?? f.processId,
     version: 1,
     businessId: f.businessId ?? host.instanceMeta[key]?.title ?? null,
     tags: [],

@@ -40,6 +40,10 @@ function guideText(): string {
 export function createServer(project: string): McpServer {
   const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   const daemon = () => ensureDaemon(project);
+  // One engine serves every project: ask for the flows this one can start, and link the
+  // explorer filtered to it.
+  const stateUrl = `/api/state?project=${encodeURIComponent(project)}`;
+  const explorerUrl = (info: { url: string }, hash = "") => `${info.url}/?project=${encodeURIComponent(project)}${hash ? `#${hash}` : ""}`;
   const guard =
     <A,>(fn: (a: A) => Promise<Result>) =>
     async (a: A): Promise<Result> => {
@@ -66,10 +70,10 @@ export function createServer(project: string): McpServer {
       if (!bad) {
         const info = await daemon();
         const d = await api(info, "/api/reload", {});
-        const st = await api(info, "/api/state");
+        const st = await api(info, stateUrl);
         reload =
           `\n\nlive: ${st.flows.map((f: any) => f.id).join(", ")}${d.deployed.length ? ` (new version: ${d.deployed.join(", ")})` : ""}` +
-          `\nBPMN: .agent-graph/compiled/<flow>.bpmn — explorer ${info.url}`;
+          `\nBPMN: ~/.agent-graph/compiled/<flow>.bpmn — explorer ${explorerUrl(info)}`;
       }
       return text(formatProblems(r) + reload, bad);
     }),
@@ -121,12 +125,12 @@ export function createServer(project: string): McpServer {
     {
       title: "List flows",
       description:
-        "List the flows in this project and in the shared library (~/AgentGraph, where Claude Desktop keeps its flows), with id, description, steps and whether they compile. Use flow_import to copy a library flow into this project to reuse it.",
+        "List the flows in this project and the global ones (the library, ~/AgentGraph/flows, where Claude Desktop keeps its flows), with id, description, steps and whether they compile. Global flows can be started in any project with flow_start; use flow_import only to copy one here and change it.",
       inputSchema: {},
     },
     guard(async () => {
       const home = defaultHome();
-      const places = [[project, "this project"], ...(path.resolve(home) !== path.resolve(project) ? [[home, "library"]] : [])];
+      const places = [[project, "this project"], ...(path.resolve(home) !== path.resolve(project) ? [[home, "global (library)"]] : [])];
       const out: string[] = [];
       for (const [dir, label] of places) {
         out.push(`## ${label} (${flowsDir(dir)})`);
@@ -151,7 +155,7 @@ export function createServer(project: string): McpServer {
     "flow_import",
     {
       title: "Import a library flow",
-      description: "Copy a flow file (and the prompt files it uses) from the library (~/AgentGraph) into this project's flows/, then compile and deploy it here. Won't overwrite unless overwrite=true.",
+      description: "Copy a global flow (and the prompt files it uses) from the library (~/AgentGraph) into this project's flows/ to customize it; the copy then replaces the global one in this project. Global flows can be started here without importing. Won't overwrite unless overwrite=true.",
       inputSchema: { name: z.string().describe("File name without .flow.ts, as shown by flow_list"), overwrite: z.boolean().optional() },
     },
     guard(async ({ name, overwrite }) => {
@@ -218,8 +222,8 @@ export function createServer(project: string): McpServer {
     guard(async ({ flowId, instanceKey, taskKey }: { flowId?: string; instanceKey?: string; taskKey?: string }) => {
       const info = await daemon();
       const hash = taskKey ? `task=${taskKey}` : instanceKey ? `instance=${instanceKey}` : flowId ? `flow=${flowId}` : "";
-      const r: any = text(`${summarize(await api(info, "/api/state"))}\n\nShowing the explorer${hash ? ` (${hash})` : ""}. Also in a browser: ${info.url}/${hash ? `#${hash}` : ""}`);
-      r.structuredContent = { hash, url: info.url };
+      const r: any = text(`${summarize(await api(info, stateUrl), project)}\n\nShowing the explorer${hash ? ` (${hash})` : ""}. Also in a browser: ${explorerUrl(info, hash)}`);
+      r.structuredContent = { hash, url: info.url, project };
       return r;
     }),
   );
@@ -253,13 +257,13 @@ export function createServer(project: string): McpServer {
     {
       title: "Engine status",
       description:
-        "Overview of the project's engine: deployed flows, active instances and where they wait, open user tasks, session jobs, incidents, running jobs. Pass instanceKey for one instance in detail (variables, activity).",
+        "Overview of the engine: the flows this project can start (its own and the global ones), and active instances, open user tasks, incidents and running jobs in every project (others marked [project]). Pass instanceKey for one instance in detail (variables, activity).",
       inputSchema: { instanceKey: z.string().optional() },
     },
     guard(async ({ instanceKey }) => {
       const info = await daemon();
       if (instanceKey) return json(await api(info, `/api/instances/${instanceKey}`));
-      return text(`${summarize(await api(info, "/api/state"))}\n\nexplorer: ${info.url}`);
+      return text(`${summarize(await api(info, stateUrl), project)}\n\nexplorer: ${explorerUrl(info)}`);
     }),
   );
 
@@ -267,7 +271,8 @@ export function createServer(project: string): McpServer {
     "flow_start",
     {
       title: "Start a flow",
-      description: "Start an instance of a deployed flow. Returns the instance key; the daemon runs it in the background (it keeps running after this session ends).",
+      description:
+        "Start an instance of a flow in this project: one of its own flows/, or a global one from ~/AgentGraph/flows (it runs here, in this project). Returns the instance key; the engine runs it in the background (it keeps running after this session ends).",
       inputSchema: {
         flowId: z.string(),
         variables: z.record(z.string(), z.any()).optional().describe("Initial process variables"),
@@ -276,8 +281,8 @@ export function createServer(project: string): McpServer {
     },
     guard(async ({ flowId, variables, title }) => {
       const info = await daemon();
-      const r = await api(info, "/api/start", { flowId, variables: variables ?? {}, title });
-      return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${info.url}/#instance=${r.instanceKey}`);
+      const r = await api(info, "/api/start", { flowId, variables: variables ?? {}, title, project });
+      return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${explorerUrl(info, `instance=${r.instanceKey}`)}`);
     }),
   );
 
@@ -285,11 +290,11 @@ export function createServer(project: string): McpServer {
     "task_list",
     {
       title: "Open user tasks",
-      description: "User tasks (human steps) waiting for an answer, with their forms and the instance variables they show.",
+      description: "User tasks (human steps) waiting for an answer in any project (each says its project), with their forms and the instance variables they show.",
       inputSchema: {},
     },
     guard(async () => {
-      const s = await api(await daemon(), "/api/state");
+      const s = await api(await daemon(), stateUrl);
       if (!s.userTasks.length) return text("No user tasks waiting.");
       return json(s.userTasks.map((t: any) => ({ ...t, variables: undefined })));
     }),
@@ -305,14 +310,14 @@ export function createServer(project: string): McpServer {
     },
     guard(async ({ taskKey }) => {
       const info = await daemon();
-      const s = await api(info, "/api/state");
+      const s = await api(info, stateUrl);
       const t = s.userTasks.find((u: any) => u.key === taskKey);
       if (!t) return text(`No open user task ${taskKey}`, true);
       const form = t.form ?? { title: `${t.flowId}: ${t.elementId}`, fields: { response: { type: "string", title: "Your answer" } }, required: ["response"] };
       const message = [form.title, form.description].filter(Boolean).join("\n\n") + (t.title ? `\n\n(${t.flowId} — ${t.title})` : "");
       if (!server.server.getClientCapabilities()?.elicitation) {
         return text(
-          `This client can't show a form dialog. Ask the user, then call task_complete with taskKey ${taskKey}.\n\n${message}\n\nFields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `\nRequired: ${form.required.join(", ")}` : ""}\n\nOr answer in the explorer: ${info.url}/#task=${taskKey}`,
+          `This client can't show a form dialog. Ask the user, then call task_complete with taskKey ${taskKey}.\n\n${message}\n\nFields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `\nRequired: ${form.required.join(", ")}` : ""}\n\nOr answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`,
         );
       }
       const r = await server.server.elicitInput({
@@ -351,7 +356,8 @@ export function createServer(project: string): McpServer {
       },
     },
     guard(async ({ jobType, max }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType, max: max ?? 1 });
+      // Only this project's runs: the work happens in this session's folder.
+      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType, max: max ?? 1, project });
       if (!jobs.length) return text("No session jobs waiting.");
       return json(max && max > 1 ? jobs : jobs[0]);
     }),

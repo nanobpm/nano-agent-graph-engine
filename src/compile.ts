@@ -42,6 +42,8 @@ export interface CompiledFlow {
   forms: Record<string, FormDef>;
   /** Per agent-task options (schema, allowedTools, model), keyed by step name. */
   agents: Record<string, AgentOptions>;
+  /** The process id in the engine: "<projectSlug>.<id>" for project flows, the id for global ones. */
+  key: string;
   /** Project root the flow file belongs to (parent of flows/). */
   projectDir: string;
   /** "project": from this project's flows/. "global": from the shared library
@@ -93,7 +95,7 @@ function isFlow(v: any): boolean {
 
 /** Import a flow file fresh (cache-busted, so edits are picked up) and compile every
  *  flow it exports. Never throws: problems are reported. */
-export async function checkFile(file: string): Promise<CheckResult> {
+export async function checkFile(file: string, keyFor: (id: string) => string = (id) => id): Promise<CheckResult> {
   installResolveHook();
   const problems: Problem[] = [];
   const flows: CompiledFlow[] = [];
@@ -110,12 +112,14 @@ export async function checkFile(file: string): Promise<CheckResult> {
   const found = Object.values(mod).filter(isFlow);
   if (!found.length) problems.push({ severity: "error", message: `${path.basename(file)} exports no defineFlow(...) flow` });
 
-  for (const flow of found as any[]) {
+  for (const authored of found as any[]) {
+    // The engine knows a flow by its key (project-prefixed process id); job types derive from it.
+    const flow = { ...authored, id: keyFor(authored.id) };
     let xml: string;
     try {
       xml = await declarativeToLayoutedBpmn(flow);
     } catch (e: any) {
-      problems.push({ severity: "error", message: `flow "${flow.id}": compile failed: ${e?.message ?? e}` });
+      problems.push({ severity: "error", message: `flow "${authored.id}": compile failed: ${e?.message ?? e}` });
       continue;
     }
     const handlers: CompiledFlow["handlers"] = {};
@@ -161,16 +165,16 @@ export async function checkFile(file: string): Promise<CheckResult> {
     try {
       newEngine().deploy(xml);
     } catch (e: any) {
-      problems.push({ severity: "error", message: `flow "${flow.id}": engine rejected the BPMN: ${e?.message ?? e}` });
+      problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: flow.id, file, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
   }
   return { file, flows, problems };
 }
 
-export async function checkProject(project: string): Promise<CheckResult[]> {
+export async function checkProject(project: string, keyFor?: (id: string) => string): Promise<CheckResult[]> {
   const out: CheckResult[] = [];
-  for (const f of listFlowFiles(project)) out.push(await checkFile(f));
+  for (const f of listFlowFiles(project)) out.push(await checkFile(f, keyFor));
   return out;
 }
 

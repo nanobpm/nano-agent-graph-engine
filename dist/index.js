@@ -1,7 +1,9 @@
 import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);
 
 // src/index.ts
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
+import path from "node:path";
 
 // node_modules/@nanobpm/workflow/dist/xml.js
 function escapeXml(s) {
@@ -1013,6 +1015,16 @@ function envelope(name, fields) {
 }
 
 // src/index.ts
+var jobContext = globalThis[/* @__PURE__ */ Symbol.for("agent-graph.job")] ??= new AsyncLocalStorage();
+function jobProject() {
+  return jobContext.getStore()?.project;
+}
+function projectPath(...parts) {
+  return path.resolve(jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(), ...parts);
+}
+function runInProject(project, fn) {
+  return jobContext.run({ project }, fn);
+}
 function defineForms(forms) {
   return forms;
 }
@@ -1022,7 +1034,7 @@ function defineAgents(agents) {
 function sh(command, opts = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn("bash", ["-c", command], {
-      cwd: opts.cwd ?? process.env.AGE_PROJECT ?? process.cwd(),
+      cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: { ...process.env, ...opts.env },
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs
@@ -1051,7 +1063,7 @@ async function claude(prompt, opts = {}) {
   if (opts.schema) args.push("--json-schema", JSON.stringify(opts.schema));
   const out = await new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
-      cwd: opts.cwd ?? process.env.AGE_PROJECT ?? process.cwd(),
+      cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs ?? 30 * 6e4
@@ -1084,5 +1096,8 @@ export {
   defineFlow,
   defineForms,
   envelope,
+  jobProject,
+  projectPath,
+  runInProject,
   sh
 };

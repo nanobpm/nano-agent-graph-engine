@@ -1,6 +1,8 @@
 // Authoring API for Agent Graph Engine flows. A flow file (flows/*.flow.ts) imports
 // from "agent-graph-engine" — the daemon resolves that specifier to this module.
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
+import path from "node:path";
 
 export { defineFlow, envelope } from "@nanobpm/workflow";
 export type { FlowBuilder, Job, JsonObject } from "@nanobpm/workflow";
@@ -18,6 +20,26 @@ export interface FormDef {
   description?: string;
   fields: Record<string, FormField>;
   required?: string[];
+}
+
+/** The project the current job runs for (one engine serves every project). Kept on
+ *  globalThis: the engine and flow files may load this module from different copies. */
+const jobContext: AsyncLocalStorage<{ project: string }> = ((globalThis as any)[Symbol.for("agent-graph.job")] ??= new AsyncLocalStorage());
+
+/** The project folder of the run this job belongs to: sh() and claude() run there. */
+export function jobProject(): string | undefined {
+  return jobContext.getStore()?.project;
+}
+
+/** A path in the project the current run belongs to. Use it for files a step reads or
+ *  writes: the engine serves every project, so its working directory is not yours. */
+export function projectPath(...parts: string[]): string {
+  return path.resolve(jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(), ...parts);
+}
+
+/** Run fn as part of a job for `project` (the engine wraps every handler in this). */
+export function runInProject<T>(project: string, fn: () => T): T {
+  return jobContext.run({ project }, fn);
 }
 
 /** Declare the forms the flow's `w.human(name, { form })` steps refer to. Export the
@@ -51,7 +73,7 @@ export function sh(
 ): Promise<ShResult> {
   return new Promise((resolve, reject) => {
     const child = spawn("bash", ["-c", command], {
-      cwd: opts.cwd ?? process.env.AGE_PROJECT ?? process.cwd(),
+      cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: { ...process.env, ...opts.env },
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs,
@@ -105,7 +127,7 @@ export async function claude<T = string>(prompt: string, opts: ClaudeOptions = {
   if (opts.schema) args.push("--json-schema", JSON.stringify(opts.schema));
   const out = await new Promise<string>((resolve, reject) => {
     const child = spawn(cmd, args, {
-      cwd: opts.cwd ?? process.env.AGE_PROJECT ?? process.cwd(),
+      cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs ?? 30 * 60_000,

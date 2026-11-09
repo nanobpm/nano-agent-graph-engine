@@ -26,6 +26,8 @@ function tempProject(): string {
 
 /** An empty global flow library, so the user's ~/AgentGraph flows stay out of tests. */
 const emptyHome = () => fs.mkdtempSync(path.join(os.tmpdir(), "age-lib-"));
+/** A private engine (state dir), so tests never touch the user's ~/.agent-graph. */
+const engineHome = () => fs.mkdtempSync(path.join(os.tmpdir(), "age-engine-"));
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -41,7 +43,7 @@ async function until<T>(fn: () => Promise<T | undefined>, ms = 15000): Promise<T
 
 test("changelog flow over MCP with elicitation, durable across daemon restart", async () => {
   const project = tempProject();
-  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome() } as Record<string, string>;
+  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome(), AGE_STATE_DIR: engineHome() } as Record<string, string>;
   const answers = [{ decision: "redo", feedback: "shorter" }, { decision: "publish" }];
   const asked: any[] = [];
 
@@ -109,7 +111,7 @@ test("changelog flow over MCP with elicitation, durable across daemon restart", 
 
 test("hook reports a waiting user task; check reports lint problems", async () => {
   const project = tempProject();
-  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome() } as Record<string, string>;
+  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome(), AGE_STATE_DIR: engineHome() } as Record<string, string>;
   try {
     execFileSync(process.execPath, [cli, "start", "changelog"], { env, cwd: project });
     let out = "";
@@ -239,17 +241,18 @@ test("flow_list shows project + library; flow_import copies a library flow with 
   };
   try {
     const l = await call("flow_list");
-    assert.match(l.text, /## this project[\s\S]*\(none\)[\s\S]*## library[\s\S]*changelog: flow "changelog" — Draft release notes/);
+    assert.match(l.text, /## this project[\s\S]*\(none\)[\s\S]*## global \(library\)[\s\S]*changelog: flow "changelog" — Draft release notes/);
     assert.match(l.text, /draft\(claude\)/);
     // Library flows are offered in every project: "global", until a project copy shadows them.
-    const daemonUrl = () => JSON.parse(fs.readFileSync(path.join(project, ".agent-graph/daemon.json"), "utf8")).url;
+    // one engine per user: its address is in ~/.agent-graph, not in the project
+    const daemonUrl = () => JSON.parse(fs.readFileSync(path.join(home, ".agent-graph/daemon.json"), "utf8")).url;
     const scopeOf = async () => {
-      const st: any = await (await fetch(`${daemonUrl()}/api/state`)).json();
+      const st: any = await (await fetch(`${daemonUrl()}/api/state?project=${encodeURIComponent(project)}`)).json();
       return st.flows.find((f: any) => f.id === "changelog")?.scope;
     };
     await call("flow_status");
     assert.equal(await scopeOf(), "global");
-    assert.equal(fs.readFileSync(path.join(project, ".agent-graph/.gitignore"), "utf8"), "*\n");
+    assert.equal(fs.existsSync(path.join(project, ".agent-graph")), false); // nothing written into the repo
     const im = await call("flow_import", { name: "changelog" });
     assert.equal(im.isError, false, im.text);
     assert.ok(fs.existsSync(path.join(project, "flows/prompts/changelog.md")));
@@ -299,5 +302,65 @@ export const f = defineFlow("fixme", (w) => {
   } finally {
     await client.close();
     execFileSync(process.execPath, [cli, "down"], { env });
+  }
+});
+
+test("one engine for every project: same flow id in two repos, global flows run where started, session jobs stay in their project", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "age-home-"));
+  const lib = path.join(home, "AgentGraph/flows");
+  const flow = (id: string, tag: string) => `import { defineFlow, sh } from "agent-graph-engine";
+export const f = defineFlow("${id}", (w) => {
+  w.run("where", async () => ({ cwd: (await sh("pwd")).stdout.trim(), tag: "${tag}" }));
+  w.task("think", { jobType: "session" });
+});`;
+  fs.mkdirSync(lib, { recursive: true });
+  fs.writeFileSync(path.join(lib, "shared.flow.ts"), flow("shared", "global"));
+  const repos = ["alpha", "beta"].map((n) => {
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `age-${n}-`)));
+    fs.mkdirSync(path.join(dir, "flows"));
+    fs.writeFileSync(path.join(dir, "flows/build.flow.ts"), flow("build", n));
+    return dir;
+  });
+  const connect = async (project: string) => {
+    const env = { PATH: process.env.PATH!, HOME: home, AGE_PROJECT: project, AGE_AGENT_MODE: "session" } as Record<string, string>;
+    const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
+    const call = async (name: string, args: Record<string, unknown> = {}) => {
+      const r: any = await client.callTool({ name, arguments: args });
+      return { text: r.content.map((c: any) => c.text).join("\n"), isError: !!r.isError };
+    };
+    return { client, call, env };
+  };
+  const [a, b] = await Promise.all(repos.map(connect));
+  try {
+    const keyOf = (t: string) => t.match(/instance (\d+)/)![1];
+    const ka = keyOf((await a.call("flow_start", { flowId: "build" })).text);
+    const kb = keyOf((await b.call("flow_start", { flowId: "build" })).text);
+    const kg = keyOf((await b.call("flow_start", { flowId: "shared" })).text);
+    // one engine: both sessions see the same pid
+    const info = JSON.parse(fs.readFileSync(path.join(home, ".agent-graph/daemon.json"), "utf8"));
+    const vars = async (k: string) =>
+      until(async () => {
+        const i: any = await (await fetch(`${info.url}/api/instances/${k}`)).json();
+        return i.history?.variables?.cwd ? i : undefined;
+      });
+    const [ia, ib, ig] = [await vars(ka), await vars(kb), await vars(kg)];
+    assert.deepEqual([ia.history.variables.tag, ia.history.variables.cwd, ia.project], ["alpha", repos[0], repos[0]]);
+    assert.deepEqual([ib.history.variables.tag, ib.history.variables.cwd], ["beta", repos[1]]);
+    assert.deepEqual([ig.history.variables.tag, ig.history.variables.cwd, ig.flowId], ["global", repos[1], "shared"]); // global flow, run in beta
+    // alpha's status lists beta's runs too, marked
+    const st = (await a.call("flow_status")).text;
+    assert.match(st, /project flows: build/);
+    assert.match(st, /global flows .*: shared/);
+    assert.match(st, new RegExp(`${kb} build \\[${path.basename(repos[1])}\\]`));
+    // session jobs: alpha's session only gets alpha's agent step
+    const ja = JSON.parse((await a.call("session_job_next", { max: 5 })).text);
+    assert.deepEqual(ja.map((j: any) => j.instanceKey), [ka]);
+    const jb = JSON.parse((await b.call("session_job_next", { max: 5 })).text);
+    assert.deepEqual(jb.map((j: any) => j.instanceKey).sort(), [kb, kg].sort());
+  } finally {
+    await a.client.close();
+    await b.client.close();
+    execFileSync(process.execPath, [cli, "down"], { env: a.env });
   }
 });

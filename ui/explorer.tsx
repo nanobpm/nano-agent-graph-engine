@@ -47,6 +47,37 @@ async function api(path: string, body?: unknown): Promise<any> {
 
 const enc = encodeURIComponent;
 
+// ---------------- project scope ----------------
+// One engine serves every project. The explorer shows one project (the one it was
+// opened from: ?project=… in the browser, or the tool result in an MCP App) or all.
+
+let scope = __APP__ ? "" : (new URLSearchParams(location.search).get("project") ?? "");
+const scopeListeners = new Set<() => void>();
+function setScope(p: string) {
+  scope = p;
+  if (!__APP__) {
+    const u = new URL(location.href);
+    if (p) u.searchParams.set("project", p);
+    else u.searchParams.delete("project");
+    history.replaceState(null, "", u);
+  }
+  queryClient.invalidateQueries();
+  for (const l of scopeListeners) l();
+}
+function useScope(): string {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const l = () => bump((n) => n + 1);
+    scopeListeners.add(l);
+    return () => void scopeListeners.delete(l);
+  }, []);
+  return scope;
+}
+const baseName = (p?: string) => String(p ?? "").split("/").filter(Boolean).pop() ?? "";
+const tilde = (p?: string) => String(p ?? "").replace(/^\/(Users|home)\/[^/]+/, "~");
+/** Work in another project than the one shown is marked with its folder name. */
+const inScope = (x: any) => !scope || !x?.project || x.project === scope;
+
 /** Polls the engine and reports when anything moved (the daemon has no push feed). */
 function pollChanges(onChange: () => void, everyMs: number): () => void {
   let last = "";
@@ -72,6 +103,7 @@ const source: ExplorerDataSource = {
   listInstances: (q) => {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(q)) if (v !== undefined) qs.set(k, String(v));
+    if (scope) qs.set("project", scope);
     return api(`/api/explorer/instances?${qs}`);
   },
   getInstance: (key) => api(`/api/explorer/instances/${enc(key)}`),
@@ -133,7 +165,8 @@ function useRoute(): [string, (r: string, replace?: boolean) => void] {
 // ---------------- app ----------------
 
 function useEngineState() {
-  return useQuery({ queryKey: ["state"], queryFn: () => api("/api/state"), refetchInterval: 1500 });
+  const sc = useScope();
+  return useQuery({ queryKey: ["state", sc], queryFn: () => api(`/api/state${sc ? `?project=${enc(sc)}` : ""}`), refetchInterval: 1500 });
 }
 
 function Shell() {
@@ -142,8 +175,9 @@ function Shell() {
   const s = state.data;
   const [path, query = ""] = route.split("?");
   const [, section = "inbox", id] = path.split("/").map(decodeURIComponent);
-  const tasks: any[] = s?.userTasks ?? [];
-  const openIncidents: number = s?.incidents?.length ?? 0;
+  const sc = useScope();
+  const tasks: any[] = (s?.userTasks ?? []).filter(inScope);
+  const openIncidents: number = (s?.incidents ?? []).filter(inScope).length;
 
   useEffect(() => {
     document.title = tasks.length ? `(${tasks.length}) Agent Graph` : "Agent Graph";
@@ -165,7 +199,7 @@ function Shell() {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-edge bg-panel px-4 py-2">
         <b className="text-sm">◆ Agent Graph</b>
-        <span className="truncate text-xs text-fg-faint">{s?.project}</span>
+        <ProjectPicker state={s} value={sc} />
         <nav className="ml-4 flex gap-1">
           {tab(
             "inbox",
@@ -196,6 +230,29 @@ function Shell() {
         )}
       </main>
     </div>
+  );
+}
+
+/** Which project the explorer shows: one, or all of them. */
+function ProjectPicker({ state, value }: { state: any; value: string }) {
+  const projects: { path: string; name: string }[] = state?.projects ?? [];
+  const options = [...projects.map((p) => [p.path, p.name] as const), ...(state?.home ? [[state.home, `${baseName(state.home)} (library)`] as const] : [])];
+  if (value && !options.some(([p]) => p === value)) options.unshift([value, baseName(value)]);
+  return (
+    <select
+      aria-label="Project"
+      title={value || "every project"}
+      value={value}
+      onChange={(e) => setScope(e.target.value)}
+      className="rounded-md border border-edge bg-panel px-2 py-1 text-xs text-fg"
+    >
+      <option value="">All projects</option>
+      {options.map(([p, name]) => (
+        <option key={p} value={p}>
+          {name}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -238,9 +295,12 @@ function Item({ selected, onClick, title, sub }: { selected: boolean; onClick: (
 // ---------------- inbox ----------------
 
 function InboxView({ state, taskKey, go }: { state: any; taskKey?: string; go: (r: string, replace?: boolean) => void }) {
-  const tasks: any[] = state?.userTasks ?? [];
-  const sessionJobs: any[] = state?.sessionJobs ?? [];
-  const task = tasks.find((t) => t.key === taskKey) ?? (taskKey ? undefined : tasks[0]);
+  const all: any[] = state?.userTasks ?? [];
+  const tasks = all.filter(inScope);
+  const away = all.length - tasks.length;
+  const sessionJobs: any[] = (state?.sessionJobs ?? []).filter((j: any) => j.state === "Created" && inScope(j));
+  // A linked task shows even when it belongs to another project.
+  const task = all.find((t) => t.key === taskKey) ?? (taskKey ? undefined : tasks[0]);
   return (
     <div className="flex h-full">
       <Sidebar title={`Waiting for you · ${tasks.length}`}>
@@ -251,9 +311,16 @@ function InboxView({ state, taskKey, go }: { state: any; taskKey?: string; go: (
             selected={t.key === task?.key}
             onClick={() => go(`/inbox/${t.key}`)}
             title={t.form?.title ?? t.elementId}
-            sub={`${t.flowId} #${t.instanceKey}${t.title ? ` · ${t.title}` : ""}`}
+            sub={`${t.flowId} #${t.instanceKey}${t.title ? ` · ${t.title}` : ""}${scope ? "" : ` · ${baseName(t.project)}`}`}
           />
         ))}
+        {away > 0 && (
+          <li className="px-2 pt-2 text-xs text-fg-muted">
+            <button type="button" className="underline" onClick={() => setScope("")}>
+              {away} more in other projects
+            </button>
+          </li>
+        )}
       </Sidebar>
       <section className="min-w-0 flex-1 overflow-auto p-6">
         {sessionJobs.length > 0 && (
@@ -376,28 +443,29 @@ function TaskForm({ task, onDone }: { task: any; onDone: () => void }) {
 function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r: string, replace?: boolean) => void }) {
   const flows: any[] = state?.flows ?? [];
   const problems: any[] = state?.problems ?? [];
-  const flow = flows.find((f) => f.id === flowId) ?? (flowId ? undefined : flows[0]);
+  // Routes name a flow by key (unique across projects); old links by id.
+  const flow = flows.find((f) => f.key === flowId) ?? flows.find((f) => f.id === flowId) ?? (flowId ? undefined : flows[0]);
   const xml = useQuery({
-    queryKey: ["flow-xml", flow?.id],
-    queryFn: () => api(`/api/flows/${enc(flow!.id)}/bpmn`) as Promise<string>,
+    queryKey: ["flow-xml", flow?.key],
+    queryFn: () => api(`/api/flows/${enc(flow!.key)}/bpmn`) as Promise<string>,
     enabled: !!flow,
   });
   const active = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const i of state?.instances ?? []) if (i.flowId === flow?.id && !i.completed) for (const a of i.activeElements) counts[a] = (counts[a] ?? 0) + 1;
+    for (const i of state?.instances ?? []) if (i.flowKey === flow?.key && inScope(i) && !i.completed) for (const a of i.activeElements) counts[a] = (counts[a] ?? 0) + 1;
     return counts;
-  }, [state, flow?.id]);
+  }, [state, flow?.key]);
 
   return (
     <div className="flex h-full">
-      <Sidebar title={<span title={state?.project}>Flows</span>}>
+      <Sidebar title="Flows">
         {segments(state).map(([label, list, empty]) => (
           <li key={label} className="mb-3">
             {segments(state).length > 1 && <div className="px-2 pb-1 text-xs font-medium text-fg-muted">{label}</div>}
             <ul className="flex flex-col gap-1">
               {list.length === 0 && <li className="px-2 text-xs text-fg-faint">{empty}</li>}
               {list.map((f) => (
-                <Item key={f.id} selected={f.id === flow?.id} onClick={() => go(`/flows/${f.id}`)} title={f.id} sub={f.description ?? f.file} />
+                <Item key={f.key} selected={f.key === flow?.key} onClick={() => go(`/flows/${f.key}`)} title={f.id} sub={f.description ?? f.file} />
               ))}
             </ul>
           </li>
@@ -431,7 +499,7 @@ function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r:
             />
           </div>
           <div className="flex-1 overflow-auto p-6">
-            <StartForm key={flow.id} flow={flow} go={go} />
+            <StartForm key={flow.key} flow={flow} home={state?.home} go={go} />
           </div>
         </section>
       ) : (
@@ -443,32 +511,34 @@ function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r:
   );
 }
 
-/** The flows list in sections: this project's flows/, then the shared library's
- *  (~/AgentGraph/flows, offered in every project). The library's own engine has one. */
+/** The flows list in sections: the shown project's own flows/, then the global ones
+ *  (~/AgentGraph/flows, offered in every project). With all projects shown: a section
+ *  per project. */
 function segments(state: any): [string, any[], ReactNode][] {
   const flows: any[] = state?.flows ?? [];
-  const project = flows.filter((f) => f.scope !== "global");
-  const projectName = String(state?.project ?? "").split("/").pop();
-  const empty = (
+  const global: [string, any[], ReactNode] = [
+    "Global flows",
+    flows.filter((f) => f.scope === "global"),
     <>
-      None yet — add <code>flows/&lt;name&gt;.flow.ts</code>
-      {projectName ? ` in ${projectName}` : ""}.
+      None in <code>{tilde(state?.globalDir)}/flows</code>.
+    </>,
+  ];
+  const none = (name: string) => (
+    <>
+      None yet — add <code>flows/&lt;name&gt;.flow.ts</code> in {name}.
     </>
   );
-  if (!state?.globalDir) return [["Flows", project, empty]];
-  return [
-    [`Project flows · ${projectName}`, project, empty],
-    [
-      "Global flows",
-      flows.filter((f) => f.scope === "global"),
-      <>
-        None in <code>{String(state.globalDir).replace(/^\/(Users|home)\/[^/]+/, "~")}/flows</code>.
-      </>,
-    ],
-  ];
+  if (scope && scope === state?.home) return [global];
+  if (scope) return [[`Project flows · ${baseName(scope)}`, flows.filter((f) => f.scope !== "global"), none(baseName(scope))], global];
+  const byProject = new Map<string, any[]>();
+  for (const p of state?.projects ?? []) byProject.set(p.path, []);
+  for (const f of flows) if (f.scope !== "global") byProject.set(f.project, [...(byProject.get(f.project) ?? []), f]);
+  return [...[...byProject].map(([p, list]) => [baseName(p), list, none(baseName(p))] as [string, any[], ReactNode]), global];
 }
 
-function StartForm({ flow, go }: { flow: any; go: (r: string) => void }) {
+function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: string) => void }) {
+  // Project flows run in their project; global ones in the project shown (else the library).
+  const where: string = flow.project ?? (scope || home || "");
   const [title, setTitle] = useState("");
   const [vars, setVars] = useState("{}");
   const [error, setError] = useState("");
@@ -476,7 +546,7 @@ function StartForm({ flow, go }: { flow: any; go: (r: string) => void }) {
     e.preventDefault();
     try {
       const variables = JSON.parse(vars || "{}");
-      const r = await api("/api/start", { flowId: flow.id, variables, title: title || undefined });
+      const r = await api("/api/start", { flowId: flow.key, variables, title: title || undefined, project: where || undefined });
       go(`/instances?instance=${r.instanceKey}`);
     } catch (err: any) {
       setError(err.message);
@@ -488,11 +558,15 @@ function StartForm({ flow, go }: { flow: any; go: (r: string) => void }) {
         <h2 className="flex items-center gap-2 text-base font-semibold">
           Start {flow.id}
           {flow.scope === "global" && (
-            <span title={`${flow.file} — runs in this project`}>
+            <span title={flow.file}>
               <Badge tone="info">global</Badge>
             </span>
           )}
         </h2>
+        <p className="-mt-2 text-xs text-fg-muted">
+          Runs in <code title={where}>{tilde(where)}</code>
+          {flow.scope === "global" && !scope && " — pick a project above to run it there"}
+        </p>
         <input className={inputClass} placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <textarea className={`${inputClass} font-mono`} rows={4} value={vars} onChange={(e) => setVars(e.target.value)} aria-label="Variables (JSON)" />
         {error && <ErrorText>{error}</ErrorText>}
@@ -541,8 +615,10 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.4.0" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.5.0" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
+    const p = r?.structuredContent?.project;
+    if (typeof p === "string" && p !== scope) setScope(p);
     const h = r?.structuredContent?.hash;
     if (typeof h !== "string" || !h) return;
     if (setRouteFromOutside) setRouteFromOutside(h);
