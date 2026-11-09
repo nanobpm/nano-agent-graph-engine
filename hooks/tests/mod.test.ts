@@ -91,23 +91,31 @@ test('no engine: the pane offers to start it', async ($, on) => {
   expect(argv[0][1]).not.toMatch(/undefined/)
 })
 
-test('/explorer and the pane open the web explorer in the browser', async ($, on) => {
+test('terminal: Open goes to what needs you (the waiting task); ↗ opens a run, in the browser', async ($, on) => {
   const calls: any[] = []
   const argv: string[][] = []
   engine(on, calls)
   on('prompt.submit', ($: any, e: any) => ({ text: e.text }))
-  on('process.run', ($: any, e: any) => (argv.push(e.argv), { value: { exitCode: 0, stdout: 'http://127.0.0.1:5555/#instance=7\n', stderr: '' } }))
+  on('process.run', ($: any, e: any) => (argv.push(e.argv), { value: { exitCode: 0, stdout: 'http://localhost:5555/#task=9\n', stderr: '' } }))
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
-  await $.command.run({ command: 'explorer', args: '7' })
-  expect(argv[0].slice(2)).toEqual(['open', 'instance=7', '--project', '/work'])
-  await $.command.run({ command: 'explorer', args: '' })
-  expect(argv[1].slice(2)).toEqual(['open', '--project', '/work'])
   const ui = await $.ui.mount(PANE)
+  await ui.press({ key: 'open-explorer' })
+  expect(argv[0].slice(2)).toEqual(['open', 'task=9', '--project', '/work'])
   await ui.press({ key: 'tab-runs' })
   await ui.press({ key: 'open-run-7' })
-  expect(argv[2].slice(2)).toEqual(['open', 'instance=7', '--project', '/work'])
-  await ui.press({ key: 'open-explorer' })
-  expect(argv[3].slice(2)).toEqual(['open', '/instances', '--project', '/work'])
+  expect(argv[1].slice(2)).toEqual(['open', 'instance=7', '--project', '/work'])
+  await ui.unmount()
+})
+
+test('Desktop: Open is a localhost link (the app opens it in its Browser pane)', async ($, on) => {
+  const calls: any[] = []
+  engine(on, calls)
+  on('prompt.submit', ($: any, e: any) => ({ text: e.text }))
+  await $.session.start({ surface: 'desktop', isInteractive: true, cwd: '/work' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  const link: any = await ui.find({ type: 'Link' })
+  expect(link).toBeDefined()
+  expect(JSON.stringify(link)).toContain('http://localhost:5555/?project=%2Fwork#task=9')
   await ui.unmount()
 })
 

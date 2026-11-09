@@ -732,7 +732,14 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
 
   await new Promise<void>((r) => server.listen(port, "127.0.0.1", r));
   const addr = server.address() as { port: number };
-  const info: DaemonInfo = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.home, startedAt: new Date().toISOString() };
+  // The address is http://localhost:<port> (the Desktop app only makes localhost links
+  // clickable, and opens them in its Browser pane), so answer on IPv6 loopback too.
+  const v6 = http.createServer();
+  for (const l of server.listeners("request")) v6.on("request", l as any);
+  v6.on("error", () => {}); // no IPv6 loopback: localhost resolves to 127.0.0.1
+  v6.listen(addr.port, "::1");
+  server.on("close", () => v6.close());
+  const info: DaemonInfo = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: new Date().toISOString() };
   fs.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }

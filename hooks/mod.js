@@ -1,7 +1,8 @@
 // Agent Graph mod for Claude Code: makes the flow engine part of the interface.
 //  - a band above the prompt: running flows, tasks waiting for you, incidents
 //  - /flows opens a pane: start a flow, answer user tasks, retry/cancel incidents
-//  - /explorer (and the pane's "Explorer" buttons) open the web explorer in the browser
+//  - "Open ↗" links go to the web explorer, at what needs you (a waiting task, the one
+//    running flow, else the flows); in the Desktop app they open in its Browser pane
 //  - wakes the agent when a flow hands agent steps to this session
 // One engine serves every project. The mod talks to it over its local HTTP API (address
 // in ~/.agent-graph/daemon.json), shows this project's flows plus the global ones, and
@@ -44,7 +45,8 @@ async function findProject($, cwd) {
 const base = (p) => String(p || '').split('/').filter(Boolean).pop() || p
 /** " · <project>" for work that belongs to another project. */
 const elsewhere = (x) => (x && x.project && x.project !== project ? ' · ' + base(x.project) : '')
-const explorerUrl = () => url + '/?project=' + encodeURIComponent(project)
+// the Desktop app only links http://localhost (engines before 0.5.2 wrote 127.0.0.1)
+const explorerUrl = () => url.replace('//127.0.0.1:', '//localhost:') + '/?project=' + encodeURIComponent(project)
 
 async function api($, path, body) {
   const r = await $.http.fetch(url + path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -136,13 +138,26 @@ async function openExplorer($, view) {
   await refresh($)
 }
 
-/** `/explorer` arguments → explorer route: a number is an instance, else a flow id. */
-function explorerView(arg) {
-  const a = (arg || '').trim()
-  if (!a) return ''
-  if (/^(instance|task|flow)=|^\//.test(a)) return a
-  if (/^\d+$/.test(a)) return 'instance=' + a
-  return 'flow=' + a
+/** The explorer view that needs you: a task waiting in this project, else this project's
+ *  only running flow, else the flows. */
+function bestView() {
+  if (!state) return ''
+  const here = (x) => !x.project || x.project === project
+  const task = state.userTasks.find(here) || state.userTasks[0]
+  if (task) return 'task=' + task.key
+  const incident = state.incidents.find(here)
+  if (incident) return 'instance=' + incident.instanceKey
+  const runs = state.instances.filter(here)
+  if (runs.length === 1) return 'instance=' + runs[0].key
+  return runs.length ? '/instances' : '/flows'
+}
+
+/** A way to open an explorer view. The terminal gets a button that opens the default
+ *  browser (it can start the engine); the Desktop app and VS Code get a Link, which the
+ *  Desktop app opens in its Browser pane. */
+function openControl($, e, ui, key, label, view, hotkey) {
+  if (e.surface === 'terminal' || !url) return ui.Button({ key, label, hotkey, plain: true, onPress: () => openExplorer($, view) })
+  return ui.Link({ href: explorerUrl() + (view ? '#' + view.replace(/^#/, '') : ''), label })
 }
 
 async function startFlow($, flowId, input) {
@@ -225,12 +240,6 @@ export function register(on) {
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     await $.command.register({ name: 'flows', description: 'Agent Graph: start flows, answer tasks, handle incidents', immediate: true })
-    await $.command.register({
-      name: 'explorer',
-      description: 'Agent Graph: open the web explorer (diagrams, instances, history) in the browser',
-      argumentHint: '[instance key | flow id]',
-      immediate: true,
-    })
     project = await findProject($, (r && r.cwd) || e.cwd || (await $.session.cwd()))
     engineFile = ((await $.env.get('AGE_STATE_DIR')) || ((await $.env.get('HOME')) || '') + '/.agent-graph') + '/daemon.json'
     await refresh($)
@@ -248,11 +257,6 @@ export function register(on) {
     return {}
   })
 
-  on('command.run', { command: 'explorer' }, async ($, e) => {
-    await openExplorer($, explorerView(e.args))
-    return {}
-  })
-
   // the band above the prompt: only while something is going on
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (!state) return next(e)
@@ -260,7 +264,8 @@ export function register(on) {
     const incidents = state.incidents.length
     const running = state.instances.length
     if (!tasks && !incidents && !running) return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Text, Button } = ui
     const away = state.instances.filter((i) => elsewhere(i)).length
     const parts = [plural(running, 'flow') + ' running' + (away ? ' (' + away + ' in other projects)' : '')]
     if (tasks) parts.push(plural(tasks, 'task') + ' waiting for you')
@@ -279,7 +284,7 @@ export function register(on) {
             await $.ui.open({ id: PANE, title: 'Agent Graph', focus: true, closeOnEscape: true })
           },
         }),
-        Button({ key: 'band-explorer', label: 'Explorer', plain: true, onPress: () => openExplorer($, tasks ? 'task=' + state.userTasks[0].key : '') }),
+        openControl($, e, ui, 'band-explorer', 'Open ↗', bestView()),
       ],
     })
     const theirs = await next(e)
@@ -288,7 +293,8 @@ export function register(on) {
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== PANE) return next(e)
-    const { Box, Text, Button, Input, Select, Link } = $.ui.resolve(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Text, Button, Input, Select } = ui
     const redraw = () => $.ui.invalidate('ui.render')
     const width = (e.props && e.props.bodyColumns) || 60
     const dim = (s) => Text({ dimColor: true, children: [s] })
@@ -314,7 +320,7 @@ export function register(on) {
         tabButton('inbox', 'Inbox (' + (state.userTasks.length + state.incidents.length) + ')', '1'),
         tabButton('flows', 'Flows (' + state.flows.length + ')', '2'),
         tabButton('runs', 'Runs (' + state.instances.length + ')', '3'),
-        Button({ key: 'open-explorer', label: 'Explorer ↗', hotkey: 'o', plain: true, onPress: () => openExplorer($, tab === 'flows' ? '/flows' : tab === 'runs' ? '/instances' : '') }),
+        openControl($, e, ui, 'open-explorer', 'Open ↗', bestView(), 'o'),
       ],
     })
 
@@ -426,7 +432,7 @@ export function register(on) {
             children: [
               Text({ bold: true, children: ['#' + i.key] }),
               Text({ children: [(i.title || i.flowId) + ' → ' + ((i.activeElements || []).join(', ') || i.state) + elsewhere(i)] }),
-              Button({ key: 'open-run-' + i.key, label: '↗', plain: true, onPress: () => openExplorer($, 'instance=' + i.key) }),
+              openControl($, e, ui, 'open-run-' + i.key, '↗', 'instance=' + i.key),
               Button({ key: 'cancel-run-' + i.key, label: 'x', plain: true, onPress: () => cancelInstance($, i.key) }),
             ],
           }),
@@ -437,7 +443,7 @@ export function register(on) {
     return Box({
       flexDirection: 'column',
       rowGap: 1,
-      children: [header, ...body, Link({ href: explorerUrl(), label: 'Open the process explorer (diagrams, history)' })],
+      children: [header, ...body],
     })
   })
 }

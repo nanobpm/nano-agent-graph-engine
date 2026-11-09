@@ -7,7 +7,7 @@
       "name": "agent-graph-engine",
       "source": "./",
       "description": "Durable process engine: defineFlow → BPMN, local daemon, user tasks, web explorer",
-      "version": "0.5.1"
+      "version": "0.5.2"
     }
   ]
 }

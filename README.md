@@ -92,10 +92,14 @@ in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS 
     the run directly, with no model turn. Type plain words and Claude works out the
     variables.
   - **Runs:** what's active and where.
-  - **Explorer ↗** (hotkey `o`) opens the web explorer in your browser, and **↗** on a
-    run opens that instance.
-- **`/explorer [instance key | flow id]`** opens the web explorer in your browser,
-  starting the engine if needed. Same as `age open [instance=K | flow=ID]` on the CLI.
+  - **Open ↗** (hotkey `o`) opens the web explorer at what needs you: the waiting
+    task, else the incident, else this project's one running flow, else the flows. **↗**
+    on a run opens that instance. The band's **Open ↗** does the same.
+- **Where it opens:** in the terminal, your default browser (the engine starts if
+  needed; `age open [instance=K | task=K | flow=ID]` does the same from a shell). In the
+  Desktop app, the links open in its Browser pane, if you chose "Open links in built-in
+  browser" there (Browser pane ⋮ menu). The engine answers on `http://localhost`, the
+  only plain-http links the app makes clickable.
 - **Wakes the agent.** When a flow hands agent steps to the session, the mod submits a
   prompt so the agent picks them up, using `session_job_next` with `max` for a fan-out.
   New user tasks show a toast.

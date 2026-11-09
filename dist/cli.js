@@ -36840,7 +36840,13 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   process.on("SIGINT", shutdown);
   await new Promise((r2) => server.listen(port, "127.0.0.1", r2));
   const addr = server.address();
-  const info = { pid: process.pid, port: addr.port, url: `http://127.0.0.1:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const v6 = http.createServer();
+  for (const l of server.listeners("request")) v6.on("request", l);
+  v6.on("error", () => {
+  });
+  v6.listen(addr.port, "::1");
+  server.on("close", () => v6.close());
+  const info = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
   fs5.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
