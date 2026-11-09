@@ -1,6 +1,6 @@
 {
   "name": "agent-graph-engine",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Durable process engine for Claude Code: write flows in TypeScript (defineFlow), compile them to BPMN, and run them in a local daemon that orchestrates scripts, headless Claude agents, this session and you (user tasks).",
   "license": "Apache-2.0",
   "keywords": ["bpmn", "workflow", "orchestration", "agents", "durable"],

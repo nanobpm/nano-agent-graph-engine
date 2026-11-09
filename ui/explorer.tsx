@@ -233,26 +233,44 @@ function Shell() {
   );
 }
 
-/** Which project the explorer shows: one, or all of them. */
+/** Which project the explorer shows: one, or all of them. The engine serves every
+ *  project; runs started outside a project (Claude Desktop) belong to the library folder. */
 function ProjectPicker({ state, value }: { state: any; value: string }) {
   const projects: { path: string; name: string }[] = state?.projects ?? [];
-  const options = [...projects.map((p) => [p.path, p.name] as const), ...(state?.home ? [[state.home, `${baseName(state.home)} (library)`] as const] : [])];
-  if (value && !options.some(([p]) => p === value)) options.unshift([value, baseName(value)]);
+  const home: string | undefined = state?.home;
+  const listed = [...projects.map((p) => p.path), ...(home ? [home] : [])];
+  const extra = value && !listed.includes(value) ? [{ path: value, name: baseName(value) }] : [];
+  const hint = !value
+    ? "Showing runs and tasks from every project, and the global flows."
+    : value === home
+      ? `Runs started outside a project (e.g. in Claude Desktop). They work in ${home}.`
+      : `Runs, tasks and flows of the project in ${value}, plus the global flows.`;
   return (
-    <select
-      aria-label="Project"
-      title={value || "every project"}
-      value={value}
-      onChange={(e) => setScope(e.target.value)}
-      className="rounded-md border border-edge bg-panel px-2 py-1 text-xs text-fg"
-    >
-      <option value="">All projects</option>
-      {options.map(([p, name]) => (
-        <option key={p} value={p}>
-          {name}
-        </option>
-      ))}
-    </select>
+    <label className="flex items-center gap-2 text-xs text-fg-muted" title={hint}>
+      Project
+      <select
+        aria-label="Project"
+        value={value}
+        onChange={(e) => setScope(e.target.value)}
+        className="rounded-md border border-edge bg-panel px-2 py-1 text-xs text-fg"
+      >
+        <option value="">All projects</option>
+        {(projects.length > 0 || extra.length > 0) && (
+          <optgroup label="Projects">
+            {[...extra, ...projects].map((p) => (
+              <option key={p.path} value={p.path}>
+                {p.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {home && (
+          <optgroup label="Outside a project">
+            <option value={home}>No project (Claude Desktop) · {baseName(home)}</option>
+          </optgroup>
+        )}
+      </select>
+    </label>
   );
 }
 
@@ -615,7 +633,7 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.5.0" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.5.1" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
     const p = r?.structuredContent?.project;
     if (typeof p === "string" && p !== scope) setScope(p);
