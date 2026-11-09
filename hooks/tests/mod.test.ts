@@ -66,7 +66,7 @@ test('pane: start a flow with JSON inputs; answer a task', async ($, on) => {
   await ui.press({ key: 'start-release-notes' })
   await ui.input({ key: 'inputs-release-notes', text: '{"since":"v1.0"}' })
   const st = calls.find((c) => c.url.endsWith('/api/start'))
-  expect(JSON.parse(st.init.body)).toEqual({ flowId: 'release-notes', variables: { since: 'v1.0' }, project: '/work' })
+  expect(JSON.parse(st.init.body)).toEqual({ flowId: 'release-notes', variables: { since: 'v1.0' }, project: '/work', host: 'claude-code' })
   // a project with flows/ registers with the (shared) engine
   expect(JSON.parse(calls.find((c) => c.url.endsWith('/api/projects')).init.body)).toEqual({ path: '/work' })
   await ui.unmount()
