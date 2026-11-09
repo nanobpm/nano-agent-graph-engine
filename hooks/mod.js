@@ -238,8 +238,14 @@ async function cancelInstance($, key) {
 
 export function register(on) {
   on('session.start', async ($, e, next) => {
+    // Register before next(): the Desktop app and VS Code take their / menu from what is
+    // registered when the session starts.
+    try {
+      await $.command.register({ name: 'flows', description: 'Agent Graph: start flows, answer tasks, handle incidents', argumentHint: '[flows | runs]', immediate: true })
+    } catch (err) {
+      error = String((err && err.message) || err)
+    }
     const r = await next(e)
-    await $.command.register({ name: 'flows', description: 'Agent Graph: start flows, answer tasks, handle incidents', immediate: true })
     project = await findProject($, (r && r.cwd) || e.cwd || (await $.session.cwd()))
     engineFile = ((await $.env.get('AGE_STATE_DIR')) || ((await $.env.get('HOME')) || '') + '/.agent-graph') + '/daemon.json'
     await refresh($)
