@@ -44,6 +44,9 @@ export interface CompiledFlow {
   agents: Record<string, AgentOptions>;
   /** Project root the flow file belongs to (parent of flows/). */
   projectDir: string;
+  /** "project": from this project's flows/. "global": from the shared library
+   *  (~/AgentGraph/flows), available in every project and run there. */
+  scope: "project" | "global";
   description?: string;
 }
 
@@ -160,7 +163,7 @@ export async function checkFile(file: string): Promise<CheckResult> {
     } catch (e: any) {
       problems.push({ severity: "error", message: `flow "${flow.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: flow.id, file, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, description: mod.description });
+    flows.push({ id: flow.id, file, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
   }
   return { file, flows, problems };
 }

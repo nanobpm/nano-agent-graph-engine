@@ -24,6 +24,9 @@ function tempProject(): string {
   return dir;
 }
 
+/** An empty global flow library, so the user's ~/AgentGraph flows stay out of tests. */
+const emptyHome = () => fs.mkdtempSync(path.join(os.tmpdir(), "age-lib-"));
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function until<T>(fn: () => Promise<T | undefined>, ms = 15000): Promise<T> {
@@ -38,7 +41,7 @@ async function until<T>(fn: () => Promise<T | undefined>, ms = 15000): Promise<T
 
 test("changelog flow over MCP with elicitation, durable across daemon restart", async () => {
   const project = tempProject();
-  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project } as Record<string, string>;
+  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome() } as Record<string, string>;
   const answers = [{ decision: "redo", feedback: "shorter" }, { decision: "publish" }];
   const asked: any[] = [];
 
@@ -106,7 +109,7 @@ test("changelog flow over MCP with elicitation, durable across daemon restart", 
 
 test("hook reports a waiting user task; check reports lint problems", async () => {
   const project = tempProject();
-  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project } as Record<string, string>;
+  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome() } as Record<string, string>;
   try {
     execFileSync(process.execPath, [cli, "start", "changelog"], { env, cwd: project });
     let out = "";
@@ -238,11 +241,21 @@ test("flow_list shows project + library; flow_import copies a library flow with 
     const l = await call("flow_list");
     assert.match(l.text, /## this project[\s\S]*\(none\)[\s\S]*## library[\s\S]*changelog: flow "changelog" — Draft release notes/);
     assert.match(l.text, /draft\(claude\)/);
+    // Library flows are offered in every project: "global", until a project copy shadows them.
+    const daemonUrl = () => JSON.parse(fs.readFileSync(path.join(project, ".agent-graph/daemon.json"), "utf8")).url;
+    const scopeOf = async () => {
+      const st: any = await (await fetch(`${daemonUrl()}/api/state`)).json();
+      return st.flows.find((f: any) => f.id === "changelog")?.scope;
+    };
+    await call("flow_status");
+    assert.equal(await scopeOf(), "global");
+    assert.equal(fs.readFileSync(path.join(project, ".agent-graph/.gitignore"), "utf8"), "*\n");
     const im = await call("flow_import", { name: "changelog" });
     assert.equal(im.isError, false, im.text);
     assert.ok(fs.existsSync(path.join(project, "flows/prompts/changelog.md")));
     assert.match(im.text, /Deployed here: changelog/);
     assert.equal((await call("flow_import", { name: "changelog" })).isError, true); // no silent overwrite
+    assert.equal(await until(async () => ((await scopeOf()) === "project" ? "project" : undefined)), "project");
     // the imported flow shows up as a "start" prompt (slash command / prompt menu)
     const names = await until(async () => {
       const ps = (await client.listPrompts()).prompts.map((p) => p.name);

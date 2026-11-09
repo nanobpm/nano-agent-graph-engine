@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compile.ts";
 import { claude } from "./index.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
-import { stateDir, type DaemonInfo } from "./paths.ts";
+import { defaultHome, stateDir, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
 
@@ -46,6 +46,9 @@ export class Host {
     this.project = path.resolve(project);
     this.dir = stateDir(this.project);
     fs.mkdirSync(path.join(this.dir, "compiled"), { recursive: true });
+    // Engine state is local: keep it out of the project's git status.
+    const ignore = path.join(this.dir, ".gitignore");
+    if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n");
     this.engine = newEngine();
     const journal = path.join(this.dir, "journal.json");
     if (fs.existsSync(journal)) {
@@ -112,15 +115,27 @@ export class Host {
     }
   }
 
-  /** Compile flows/ and deploy every flow whose BPMN changed. */
+  /** The shared flow library (~/AgentGraph): its flows are offered in every project.
+   *  Undefined when this daemon *is* the library's. */
+  get globalDir(): string | undefined {
+    const home = path.resolve(defaultHome());
+    return home === this.project ? undefined : home;
+  }
+
+  /** Compile flows/ (and the global library's) and deploy every flow whose BPMN
+   *  changed. A project flow shadows a global one with the same id. */
   async reload(): Promise<{ deployed: string[]; problems: Host["problems"] }> {
     const results = await checkProject(this.project);
-    this.problems = results.filter((r) => r.problems.length).map((r) => ({ file: path.relative(this.project, r.file), problems: r.problems }));
+    const globals = this.globalDir ? await checkProject(this.globalDir) : [];
+    for (const r of globals) for (const f of r.flows) f.scope = "global";
+    const rel = (file: string) => (file.startsWith(this.project + path.sep) ? path.relative(this.project, file) : file.replace(process.env.HOME ?? "\0", "~"));
+    this.problems = [...results, ...globals].filter((r) => r.problems.length).map((r) => ({ file: rel(r.file), problems: r.problems }));
     const deployed: string[] = [];
     const flows = new Map<string, CompiledFlow>();
-    for (const r of results) {
+    for (const r of [...results, ...globals]) {
       if (r.problems.some((p) => p.severity === "error")) continue;
       for (const f of r.flows) {
+        if (flows.has(f.id)) continue; // project first: it shadows the library
         flows.set(f.id, f);
         fs.writeFileSync(path.join(this.dir, "compiled", `${f.id}.bpmn`), f.xml);
         const hash = crypto.createHash("sha256").update(f.xml).digest("hex");
@@ -320,9 +335,11 @@ export class Host {
       project: this.project,
       now: snap.now,
       eventCount: snap.eventCount,
+      globalDir: this.globalDir,
       flows: [...this.flows.values()].map((f) => ({
         id: f.id,
-        file: path.relative(this.project, f.file),
+        scope: f.scope,
+        file: f.scope === "global" ? f.file.replace(process.env.HOME ?? "\0", "~") : path.relative(this.project, f.file),
         description: f.description,
         humans: f.humans,
         tasks: f.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent })),
@@ -524,8 +541,8 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
   host.run();
 
   let reloadTimer: NodeJS.Timeout | undefined;
-  const dir = flowsDir(host.project);
-  if (fs.existsSync(dir)) {
+  for (const dir of [flowsDir(host.project), ...(host.globalDir ? [flowsDir(host.globalDir)] : [])]) {
+    if (!fs.existsSync(dir)) continue;
     fs.watch(dir, { recursive: true }, () => {
       clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => host.reload().catch(() => {}), 300);

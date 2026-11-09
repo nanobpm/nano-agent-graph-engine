@@ -42,6 +42,7 @@ No server to run and no workers to configure. Add one entry to
 
 Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `nvm` installs aren't found otherwise.
 
+- **Project and global flows.** A project's flows are in its `flows/`. The flows in `~/AgentGraph/flows` (the library; `AGE_HOME` moves it) are *global*: every project's engine offers them too and runs them in that project, so agent steps work on that repo. A project flow with the same id shadows the global one (`flow_import` copies one in to customize it). The explorer and the `/flows` pane list them as **Project flows** and **Global flows**. Engine state is in the project's `.agent-graph/`, which ignores itself in git.
 - **Where flows live.** Desktop starts servers in `/`, so flows go in `~/AgentGraph/flows/`. Override with `"env": {"AGE_PROJECT": "/some/dir"}`.
 - **Authoring.** Claude reads `flow_guide`, then writes flows with `flow_write`, which saves, compiles, lints and deploys in one step. Nothing is needed on your side.
 - **Agent steps** (`jobType: "claude"`) need no setup:

@@ -60,6 +60,7 @@ async function refresh($) {
     const s = await api($, '/api/state')
     state = {
       flows: s.flows || [],
+      globalDir: s.globalDir || '',
       instances: (s.instances || []).filter((i) => !i.completed),
       userTasks: s.userTasks || [],
       sessionJobs: s.sessionJobs || [],
@@ -360,8 +361,17 @@ export function register(on) {
         )
       }
     } else if (tab === 'flows') {
-      if (!state.flows.length) body.push(dim('No flows yet. Ask Claude to write one, e.g. "make a flow that…".'))
-      for (const f of state.flows) {
+      // Project flows, then the shared library's (~/AgentGraph/flows), which run here too.
+      const sections = state.globalDir
+        ? [
+            ['Project flows', state.flows.filter((f) => f.scope !== 'global'), 'None in ' + project + '/flows. Ask Claude to write one, e.g. "make a flow that…".'],
+            ['Global flows', state.flows.filter((f) => f.scope === 'global'), 'None in ' + String(state.globalDir) + '/flows.'],
+          ]
+        : [['', state.flows, 'No flows yet. Ask Claude to write one, e.g. "make a flow that…".']]
+      for (const [label, list, empty] of sections) {
+      if (label) body.push(Text({ bold: true, dimColor: true, children: [label + ' (' + list.length + ')'] }))
+      if (!list.length) body.push(dim(empty))
+      for (const f of list) {
         const row = [
           Box({
             flexDirection: 'row',
@@ -386,6 +396,7 @@ export function register(on) {
             }),
           )
         body.push(Box({ flexDirection: 'column', children: row }))
+      }
       }
       for (const p of state.problems.slice(0, 5)) body.push(Text({ color: 'red', children: [(p.file || '') + ': ' + (p.message || '')] }))
     } else {

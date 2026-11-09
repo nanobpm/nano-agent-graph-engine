@@ -103,3 +103,26 @@ test('/explorer and the pane open the web explorer in the browser', async ($, on
   expect(argv[3].slice(2)).toEqual(['open', '/instances', '--project', '/work'])
   await ui.unmount()
 })
+
+test('flows tab: project flows, then global flows from the library', async ($, on) => {
+  const saved = { flows: STATE.flows, globalDir: (STATE as any).globalDir }
+  STATE.flows = [
+    { id: 'release-notes', description: 'Draft release notes' },
+    { id: 'publish-video', description: 'Publish a video', scope: 'global' } as any,
+  ]
+  ;(STATE as any).globalDir = '/home/u/AgentGraph'
+  try {
+    engine(on, [])
+    on('prompt.submit', ($: any, e: any) => ({ text: e.text }))
+    await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+    const ui = await $.ui.mount(PANE)
+    await ui.press({ key: 'tab-flows' })
+    expect(await ui.find({ type: 'Text', text: /Project flows \(1\)/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Global flows \(1\)/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /publish-video/ })).toBeDefined()
+    await ui.unmount()
+  } finally {
+    STATE.flows = saved.flows
+    ;(STATE as any).globalDir = saved.globalDir
+  }
+})

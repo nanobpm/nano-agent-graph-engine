@@ -36172,7 +36172,7 @@ async function checkFile(file2) {
     } catch (e) {
       problems.push({ severity: "error", message: `flow "${flow.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: flow.id, file: file2, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, description: mod.description });
+    flows.push({ id: flow.id, file: file2, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
   }
   return { file: file2, flows, problems };
 }
@@ -36677,8 +36677,8 @@ async function serve(project2, port = Number(process.env.AGE_PORT ?? 0)) {
   await host.reload();
   host.run();
   let reloadTimer;
-  const dir = flowsDir(host.project);
-  if (fs5.existsSync(dir)) {
+  for (const dir of [flowsDir(host.project), ...host.globalDir ? [flowsDir(host.globalDir)] : []]) {
+    if (!fs5.existsSync(dir)) continue;
     fs5.watch(dir, { recursive: true }, () => {
       clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => host.reload().catch(() => {
@@ -36794,6 +36794,8 @@ var init_daemon = __esm({
         this.project = path3.resolve(project2);
         this.dir = stateDir(this.project);
         fs5.mkdirSync(path3.join(this.dir, "compiled"), { recursive: true });
+        const ignore = path3.join(this.dir, ".gitignore");
+        if (!fs5.existsSync(ignore)) fs5.writeFileSync(ignore, "*\n");
         this.engine = newEngine();
         const journal = path3.join(this.dir, "journal.json");
         if (fs5.existsSync(journal)) {
@@ -36851,15 +36853,26 @@ var init_daemon = __esm({
           }
         }
       }
-      /** Compile flows/ and deploy every flow whose BPMN changed. */
+      /** The shared flow library (~/AgentGraph): its flows are offered in every project.
+       *  Undefined when this daemon *is* the library's. */
+      get globalDir() {
+        const home = path3.resolve(defaultHome());
+        return home === this.project ? void 0 : home;
+      }
+      /** Compile flows/ (and the global library's) and deploy every flow whose BPMN
+       *  changed. A project flow shadows a global one with the same id. */
       async reload() {
         const results = await checkProject(this.project);
-        this.problems = results.filter((r2) => r2.problems.length).map((r2) => ({ file: path3.relative(this.project, r2.file), problems: r2.problems }));
+        const globals = this.globalDir ? await checkProject(this.globalDir) : [];
+        for (const r2 of globals) for (const f2 of r2.flows) f2.scope = "global";
+        const rel = (file2) => file2.startsWith(this.project + path3.sep) ? path3.relative(this.project, file2) : file2.replace(process.env.HOME ?? "\0", "~");
+        this.problems = [...results, ...globals].filter((r2) => r2.problems.length).map((r2) => ({ file: rel(r2.file), problems: r2.problems }));
         const deployed = [];
         const flows = /* @__PURE__ */ new Map();
-        for (const r2 of results) {
+        for (const r2 of [...results, ...globals]) {
           if (r2.problems.some((p2) => p2.severity === "error")) continue;
           for (const f2 of r2.flows) {
+            if (flows.has(f2.id)) continue;
             flows.set(f2.id, f2);
             fs5.writeFileSync(path3.join(this.dir, "compiled", `${f2.id}.bpmn`), f2.xml);
             const hash2 = crypto2.createHash("sha256").update(f2.xml).digest("hex");
@@ -37051,9 +37064,11 @@ ${vars.appendPrompt}
           project: this.project,
           now: snap.now,
           eventCount: snap.eventCount,
+          globalDir: this.globalDir,
           flows: [...this.flows.values()].map((f2) => ({
             id: f2.id,
-            file: path3.relative(this.project, f2.file),
+            scope: f2.scope,
+            file: f2.scope === "global" ? f2.file.replace(process.env.HOME ?? "\0", "~") : path3.relative(this.project, f2.file),
             description: f2.description,
             humans: f2.humans,
             tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent }))

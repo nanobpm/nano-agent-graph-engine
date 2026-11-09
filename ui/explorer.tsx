@@ -390,14 +390,17 @@ function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r:
 
   return (
     <div className="flex h-full">
-      <Sidebar title="Flows">
-        {flows.length === 0 && (
-          <li className="px-2 text-xs text-fg-faint">
-            No flows — add <code>flows/&lt;name&gt;.flow.ts</code>.
+      <Sidebar title={<span title={state?.project}>Flows</span>}>
+        {segments(state).map(([label, list, empty]) => (
+          <li key={label} className="mb-3">
+            {segments(state).length > 1 && <div className="px-2 pb-1 text-xs font-medium text-fg-muted">{label}</div>}
+            <ul className="flex flex-col gap-1">
+              {list.length === 0 && <li className="px-2 text-xs text-fg-faint">{empty}</li>}
+              {list.map((f) => (
+                <Item key={f.id} selected={f.id === flow?.id} onClick={() => go(`/flows/${f.id}`)} title={f.id} sub={f.description ?? f.file} />
+              ))}
+            </ul>
           </li>
-        )}
-        {flows.map((f) => (
-          <Item key={f.id} selected={f.id === flow?.id} onClick={() => go(`/flows/${f.id}`)} title={f.id} sub={f.description ?? f.file} />
         ))}
         {problems.length > 0 && (
           <li className="mt-4">
@@ -440,6 +443,31 @@ function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r:
   );
 }
 
+/** The flows list in sections: this project's flows/, then the shared library's
+ *  (~/AgentGraph/flows, offered in every project). The library's own engine has one. */
+function segments(state: any): [string, any[], ReactNode][] {
+  const flows: any[] = state?.flows ?? [];
+  const project = flows.filter((f) => f.scope !== "global");
+  const projectName = String(state?.project ?? "").split("/").pop();
+  const empty = (
+    <>
+      None yet — add <code>flows/&lt;name&gt;.flow.ts</code>
+      {projectName ? ` in ${projectName}` : ""}.
+    </>
+  );
+  if (!state?.globalDir) return [["Flows", project, empty]];
+  return [
+    [`Project flows · ${projectName}`, project, empty],
+    [
+      "Global flows",
+      flows.filter((f) => f.scope === "global"),
+      <>
+        None in <code>{String(state.globalDir).replace(/^\/(Users|home)\/[^/]+/, "~")}/flows</code>.
+      </>,
+    ],
+  ];
+}
+
 function StartForm({ flow, go }: { flow: any; go: (r: string) => void }) {
   const [title, setTitle] = useState("");
   const [vars, setVars] = useState("{}");
@@ -457,7 +485,14 @@ function StartForm({ flow, go }: { flow: any; go: (r: string) => void }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <form onSubmit={start} className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold">Start {flow.id}</h2>
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          Start {flow.id}
+          {flow.scope === "global" && (
+            <span title={`${flow.file} — runs in this project`}>
+              <Badge tone="info">global</Badge>
+            </span>
+          )}
+        </h2>
         <input className={inputClass} placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <textarea className={`${inputClass} font-mono`} rows={4} value={vars} onChange={(e) => setVars(e.target.value)} aria-label="Variables (JSON)" />
         {error && <ErrorText>{error}</ErrorText>}
@@ -506,7 +541,7 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.3.0" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.4.0" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
     const h = r?.structuredContent?.hash;
     if (typeof h !== "string" || !h) return;
