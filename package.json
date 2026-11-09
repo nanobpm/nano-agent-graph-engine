@@ -9,9 +9,9 @@
     "age": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc --noEmit && node scripts/build.mjs",
+    "build": "node scripts/fetch-explorer.mjs && npm run typecheck && node scripts/build.mjs",
     "test": "node --test test/*.spec.ts && claude plugin test .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p ui/tsconfig.json"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
@@ -22,9 +22,17 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@nanobpm/nano-app-schema": "^0.11.0",
+    "@tailwindcss/cli": "^4.3.5",
+    "@tanstack/react-query": "^5.107.1",
     "@types/node": "^26.6.6",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "bpmn-js": "^18.31.1",
     "esbuild": "^0.28.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^4.3.5",
     "typescript": "5.9"
   }
 }

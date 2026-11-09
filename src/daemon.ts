@@ -10,6 +10,7 @@ import { claude } from "./index.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
 import { stateDir, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
+import * as explorer from "./explorer-api.ts";
 
 const WORKER = "age-daemon";
 const TICK_MS = 500;
@@ -318,6 +319,7 @@ export class Host {
     return {
       project: this.project,
       now: snap.now,
+      eventCount: snap.eventCount,
       flows: [...this.flows.values()].map((f) => ({
         id: f.id,
         file: path.relative(this.project, f.file),
@@ -437,6 +439,12 @@ export class Host {
     this.persist();
   }
 
+  setVariables(scopeKey: string, variables: Record<string, unknown>, local = false) {
+    this.engine.setVariables(scopeKey, JSON.stringify(variables), local);
+    this.log({ kind: "variables", instanceKey: scopeKey, message: `variables ${Object.keys(variables).join(", ")} set` });
+    this.persist();
+  }
+
   cancel(key: string) {
     this.engine.cancelInstance(key);
     this.log({ kind: "cancel", instanceKey: key, message: `instance ${key} cancelled` });
@@ -539,6 +547,26 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
       if (req.method === "GET" && (mm = m(/^\/api\/instances\/([^/]+)$/))) {
         return send(res, 200, { ...host.instance(mm[1]), history: host.history(mm[1]) });
       }
+      // The shared Process Explorer's wire model (see explorer-api.ts).
+      if (req.method === "GET" && p === "/api/explorer/instances") {
+        const q = url.searchParams;
+        const hasIncident = q.get("hasIncident");
+        return send(
+          res,
+          200,
+          explorer.listInstances(host, {
+            page: Number(q.get("page") ?? 0),
+            pageSize: Number(q.get("pageSize") ?? 50),
+            state: q.get("state") ?? undefined,
+            hasIncident: hasIncident == null ? undefined : hasIncident === "true",
+          }),
+        );
+      }
+      if (req.method === "GET" && (mm = m(/^\/api\/explorer\/instances\/([^/]+)$/))) return send(res, 200, explorer.getInstance(host, mm[1]));
+      if (req.method === "GET" && (mm = m(/^\/api\/explorer\/instances\/([^/]+)\/trace$/))) {
+        const t = explorer.getTrace(host, mm[1]);
+        return t ? send(res, 200, t) : send(res, 404, { error: "no trace" });
+      }
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
       if (p === "/api/reload") return send(res, 200, await host.reload());
@@ -549,6 +577,8 @@ export async function serve(project: string, port = Number(process.env.AGE_PORT 
       if ((mm = m(/^\/api\/jobs\/([^/]+)\/fail$/))) return send(res, 200, (host.failJob(mm[1], b.message ?? "failed", b.retries), { ok: true }));
       if ((mm = m(/^\/api\/incidents\/([^/]+)\/resolve$/))) return send(res, 200, (host.resolveIncident(mm[1], b.retries), { ok: true }));
       if ((mm = m(/^\/api\/instances\/([^/]+)\/cancel$/))) return send(res, 200, (host.cancel(mm[1]), { ok: true }));
+      if ((mm = m(/^\/api\/instances\/([^/]+)\/variables$/)))
+        return send(res, 200, (host.setVariables(b.scopeKey ?? mm[1], b.variables ?? {}, !!b.local), { ok: true }));
       if (p === "/api/messages") return send(res, 200, (host.correlate(b.name, b.correlationKey ?? "", b.variables ?? {}), { ok: true }));
       if (p === "/api/shutdown") {
         send(res, 200, { ok: true });

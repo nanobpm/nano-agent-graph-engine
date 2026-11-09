@@ -235,7 +235,7 @@ export function createServer(project: string): McpServer {
     },
     async ({ path: p, body }: { path: string; body?: unknown }) => {
       try {
-        if (!/^\/api\/[\w/.-]*$/.test(p) || p === "/api/shutdown") throw new Error("not allowed");
+        if (!/^\/api\/[\w/.-]*(\?[\w=&.%-]*)?$/.test(p) || p === "/api/shutdown") throw new Error("not allowed");
         const data = await api(await daemon(), p, body);
         return { content: [{ type: "text" as const, text: "ok" }], structuredContent: { data } };
       } catch (e: any) {

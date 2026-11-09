@@ -1,0 +1,27 @@
+{
+  // The browser explorer: React + the vendored @nanobpm/process-explorer source
+  // (scripts/fetch-explorer.mjs). Typechecked apart from the Node code.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": [],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@nanobpm/process-explorer": ["../node_modules/.cache/nano-bpm/process-explorer/src/index.ts"],
+      "react": ["../node_modules/@types/react"],
+      "react-dom": ["../node_modules/@types/react-dom"],
+      "react-dom/client": ["../node_modules/@types/react-dom/client"],
+      "react/jsx-runtime": ["../node_modules/@types/react/jsx-runtime"],
+      "@tanstack/react-query": ["../node_modules/@tanstack/react-query"],
+      "bpmn-js/lib/NavigatedViewer": ["../node_modules/bpmn-js/lib/NavigatedViewer"],
+      "@nanobpm/nano-app-schema": ["../node_modules/@nanobpm/nano-app-schema"]
+    }
+  },
+  "include": ["explorer.tsx", "vite-env.d.ts"]
+}

@@ -264,20 +264,32 @@ Without mods, nothing can *interrupt* an idle session. Waiting work is surfaced 
 
 ```sh
 npm install
-npm run build      # tsc + esbuild → dist/{cli.js,index.js,explorer.html,nanobpmn_engine_bg.wasm}
+npm run build      # fetch the Process Explorer, typecheck, esbuild + tailwind →
+                   #   dist/{cli.js,index.js,explorer.html,explorer-app.html,nanobpmn_engine_bg.wasm}
 npm test           # e2e: MCP client with elicitation → server → daemon, restart mid-flow, hooks, lint,
                    #      and a Desktop-like client (cwd /, no CLI, no elicitation) authoring + running via MCP only
 node dist/cli.js mcp --http 3001          # Streamable HTTP, for MCP Apps hosts / inspector
 PLAYWRIGHT_FROM=/tmp/bh node test/app-host-e2e.mjs http://localhost:8090   # explorer as MCP App in basic-host
-node test/explorer-e2e.mjs <daemon-url>   # Playwright screenshots (PLAYWRIGHT_FROM=<dir with playwright>)
+node test/explorer-e2e.mjs [out-prefix]  # temp project + daemon, drives inbox → instance → flows; screenshots
+                                          #   (PLAYWRIGHT_FROM=<dir with playwright>)
 ```
+
+The explorer's Instances tab is the nano console's Process Explorer
+([`@nanobpm/process-explorer`](https://github.com/nanobpm/nano-bpm/tree/main/process-explorer)),
+over the daemon's `/api/explorer/*` routes (`src/explorer-api.ts` maps the engine snapshot and
+event log onto the console's wire model, including the trace). It isn't on npm yet
+([nanobpm/nano-bpm#1475](https://github.com/nanobpm/nano-bpm/issues/1475)) and npm can't install a
+git subdirectory, so `scripts/fetch-explorer.mjs` sparse-clones it at a pinned commit into
+`node_modules/.cache/nano-bpm` and the build bundles it. `dist/` is committed, so only building
+needs access to that repo. Bump `NANO_BPM_REV` to update it.
 
 Flow files import `"agent-graph-engine"`. The daemon maps that specifier to `dist/index.js`
 with `module.registerHooks`, so the user's project needs no install.
 
 ## Limitations and next steps
 
-- The explorer draws the *current* BPMN of a flow, even for instances started on an older version.
+- The explorer draws the *current* BPMN of a flow, even for instances started on an older version (the flow id is the definition key).
+- The explorer polls (every 1.5 s); the daemon has no push feed.
 - The journal is rewritten whole on each change. Fine for local use, but long-lived projects will want compaction (snapshot + tail).
 - One process: `run` handlers share the daemon. A blocking handler stalls ticks; use async APIs.
 - Headless agents never prompt for permissions: list the tools they need in `agents.<step>.allowedTools`. No cost caps yet beyond what you set in prompts. Spend is logged per job.

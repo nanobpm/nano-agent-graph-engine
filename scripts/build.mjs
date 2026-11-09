@@ -4,6 +4,8 @@ import { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
+import { fetchExplorer } from "./fetch-explorer.mjs";
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -29,31 +31,46 @@ fs.chmodSync(path.join(dist, "cli.js"), 0o755);
 const wasm = require.resolve("@nanobpm/engine-wasm").replace(/nanobpmn_engine\.js$/, "nanobpmn_engine_bg.wasm");
 fs.copyFileSync(wasm, path.join(dist, "nanobpmn_engine_bg.wasm"));
 
-// Explorer: one self-contained HTML file, built for the browser and for MCP Apps.
+// Explorer: one self-contained HTML file, built for the browser and for MCP Apps. It
+// renders the nano console's Process Explorer (@nanobpm/process-explorer), fetched
+// from nanobpm/nano-bpm at a pinned commit into node_modules/.cache (not on npm yet).
+const explorerSrc = path.join(fetchExplorer(), "process-explorer", "src");
+const css = execFileSync(path.join(root, "node_modules", ".bin", "tailwindcss"), ["-i", "ui/explorer.css", "--minify"], {
+  cwd: root,
+  stdio: ["ignore", "pipe", "inherit"],
+}).toString();
 for (const [isApp, out] of [[false, "explorer.html"], [true, "explorer-app.html"]]) {
-const ui = await build({
-  define: { __APP__: String(isApp) },
-  entryPoints: ["ui/explorer.ts"],
-  bundle: true,
-  format: "esm",
-  platform: "browser",
-  target: "es2022",
-  minify: true,
-  write: false,
-  logLevel: "warning",
-});
-const bpmnDist = path.dirname(require.resolve("bpmn-js/package.json")) + "/dist/assets";
-const css = [
-  fs.readFileSync(path.join(bpmnDist, "diagram-js.css"), "utf8"),
-  fs.readFileSync(path.join(bpmnDist, "bpmn-js.css"), "utf8"),
-  fs.readFileSync("ui/explorer.css", "utf8"),
-].join("\n");
-const js = ui.outputFiles[0].text.replace(/<\/script/gi, "<\\/script");
-const html = fs
-  .readFileSync("ui/explorer.html", "utf8")
-  .replace("/*CSS*/", () => css)
-  .replace("/*JS*/", () => js);
-fs.writeFileSync(path.join(dist, out), html);
+  const ui = await build({
+    define: { __APP__: String(isApp), "process.env.NODE_ENV": '"production"' },
+    entryPoints: ["ui/explorer.tsx"],
+    bundle: true,
+    format: "esm",
+    platform: "browser",
+    target: "es2022",
+    jsx: "automatic",
+    minify: true,
+    write: false,
+    outdir: "out",
+    // The vendored package has no node_modules: its bare imports (react, bpmn-js, …)
+    // resolve from ours.
+    // react-query is pinned to one build: through nodePaths esbuild otherwise picks
+    // its "legacy" build for the package and "modern" for us — two contexts, and the
+    // explorer can't see our QueryClientProvider.
+    alias: {
+      "@nanobpm/process-explorer": path.join(explorerSrc, "index.ts"),
+      "@tanstack/react-query": path.join(root, "node_modules/@tanstack/react-query/build/modern/index.js"),
+    },
+    nodePaths: [path.join(root, "node_modules")],
+    loader: { ".woff": "dataurl", ".woff2": "dataurl", ".ttf": "dataurl", ".eot": "dataurl", ".svg": "dataurl" },
+    logLevel: "warning",
+  });
+  const pick = (ext) => ui.outputFiles.filter((f) => f.path.endsWith(ext)).map((f) => f.text).join("\n");
+  const js = pick(".js").replace(/<\/script/gi, "<\\/script");
+  const html = fs
+    .readFileSync("ui/explorer.html", "utf8")
+    .replace("/*CSS*/", () => `${pick(".css")}\n${css}`.replace(/<\/style/gi, "<\\/style"))
+    .replace("/*JS*/", () => js);
+  fs.writeFileSync(path.join(dist, out), html);
 }
 fs.copyFileSync("skills/agent-graph/SKILL.md", path.join(dist, "guide.md"));
 
