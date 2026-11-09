@@ -28,7 +28,7 @@ await build({
 });
 fs.chmodSync(path.join(dist, "cli.js"), 0o755);
 
-const wasm = require.resolve("@nanobpm/engine-wasm").replace(/nanobpmn_engine\.js$/, "nanobpmn_engine_bg.wasm");
+const wasm = require.resolve("@nanobpm/engine-wasm/readmodel").replace(/nanobpmn_engine\.js$/, "nanobpmn_engine_bg.wasm");
 fs.copyFileSync(wasm, path.join(dist, "nanobpmn_engine_bg.wasm"));
 
 // Explorer: one self-contained HTML file, built for the browser and for MCP Apps. It

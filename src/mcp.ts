@@ -278,7 +278,7 @@ export function createServer(project: string): McpServer {
     },
     guard(async ({ flowId, variables, title }) => {
       const c = await engine();
-      const r = await c.start(flowId, variables ?? {}, title);
+      const r = await c.start(flowId, variables ?? {}, title, server.server.getClientVersion()?.name);
       return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${c.explorerUrl(`instance=${r.instanceKey}`)}`);
     }),
   );

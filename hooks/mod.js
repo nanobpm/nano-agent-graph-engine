@@ -174,7 +174,7 @@ async function startFlow($, flowId, input) {
   startFor = ''
   if (variables && typeof variables === 'object' && !Array.isArray(variables)) {
     try {
-      const r = await api($, '/api/start', { flowId, variables, project })
+      const r = await api($, '/api/start', { flowId, variables, project, host: 'claude-code' })
       $.ui.toast('Started ' + flowId + ' #' + r.instanceKey)
     } catch (e) {
       $.ui.toast('Could not start ' + flowId + ': ' + ((e && e.message) || e))

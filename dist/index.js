@@ -1031,6 +1031,9 @@ function runInProject(project, fn, signal) {
 function defineForms(forms) {
   return forms;
 }
+function defineAgentProfiles(profiles) {
+  return profiles;
+}
 function defineAgents(agents) {
   return agents;
 }
@@ -1097,6 +1100,7 @@ async function claude(prompt, opts = {}) {
 }
 export {
   claude,
+  defineAgentProfiles,
   defineAgents,
   defineFlow,
   defineForms,

@@ -19,6 +19,8 @@ const HELP = `age — Agent Graph Engine
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
                                 or a route like /instances); prints the URL
+  age agent [list]              agent profiles (which CLI runs agent steps) and the default
+  age agent default <name>      set the default profile (~/.agent-graph/agents.json)
   age daemon                    run the engine in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
@@ -56,6 +58,25 @@ async function main() {
       else console.log(formatProblems(r));
       process.exitCode = r.some((x) => x.problems.some((p) => p.severity === "error")) ? 1 : 0;
       return;
+    }
+    case "agent": {
+      const { allProfiles, readAgentsFile, writeAgentsFile, agentsFile, commandOf, which, resolveAgent } = await import("./agents.ts");
+      if (rest[0] === "default") {
+        const all = allProfiles();
+        if (!rest[1] || !all[rest[1]]) throw new Error(`usage: age agent default <${Object.keys(all).join("|")}>`);
+        writeAgentsFile({ ...readAgentsFile(), default: rest[1] });
+        console.log(`default agent: ${rest[1]} (${agentsFile()})`);
+        break;
+      }
+      const dflt = resolveAgent({});
+      for (const [name, p] of Object.entries(allProfiles())) {
+        const cmd = commandOf(name, p);
+        const found = which(cmd);
+        console.log(`${name === dflt?.name ? "*" : " "} ${name.padEnd(14)} ${p.protocol.padEnd(6)} ${[cmd, ...(p.args ?? [])].join(" ")}${p.model ? `  model=${p.model}` : ""}  [${p.source}${found ? "" : ", not installed"}]`);
+      }
+      console.log(`\n* default (${dflt?.reason ?? "none installed"}). Add profiles or set "default" in ${agentsFile()};`);
+      console.log(`  a run started from a host (Claude Code, OpenCode) uses that host's CLI unless a default is set.`);
+      break;
     }
     case "daemon": {
       const { serve } = await import("./daemon.ts");

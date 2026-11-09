@@ -5,7 +5,7 @@ It compiles to BPMN with a generated diagram and runs in a small local daemon. A
 orchestrate:
 
 - **scripts**: `w.run` with Node code, plus `sh()`
-- **headless Claude agents**: `w.task({ jobType: "claude" })`, which runs `claude -p` with a prompt file
+- **headless agents**: `w.task({ jobType: "claude" })` runs a prompt file on an agent CLI of your choice — `claude -p`, or any ACP agent such as OpenCode or nano-coder — and records the transcript as an AgentInstance
 - **the live Claude Code session**: `w.task({ jobType: "session" })`, which the agent picks up through MCP
 - **people**: `w.human` user tasks, asked in a Claude Code dialog or in the web explorer
 - **time and events**: `w.timer` and `w.signal`
@@ -217,6 +217,57 @@ export const changelog = defineFlow("changelog", (w) => {
 
 Flows that pass are deployed. A new version is deployed only when the BPMN changed, and the daemon watches `flows/`.
 
+## Which agent runs an agent step
+
+An agent step (`jobType: "claude"`) runs on an **agent profile**: a CLI the engine starts headless for that step. So one tool can orchestrate while another subscription or model does the work, or you can pit models of different classes against each other (a writer on one, a critic on another).
+
+Built-in profiles:
+
+| profile | runs | protocol |
+| --- | --- | --- |
+| `claude` | `claude -p --output-format stream-json` | Claude Code print mode |
+| `opencode` | `opencode acp` | [ACP](https://agentclientprotocol.com) |
+| `nano-coder` | `nano-coder --acp` | ACP |
+| `gemini` | `gemini --experimental-acp` | ACP |
+
+Any ACP agent works. Add your own in `~/.agent-graph/agents.json`, or in a flow file:
+
+```jsonc
+// ~/.agent-graph/agents.json
+{
+  "default": "nano-coder",
+  "profiles": {
+    "critic": { "protocol": "acp", "command": "nano-coder", "args": ["--acp"], "model": "openrouter/openai/gpt-5", "modelArg": "--model" },
+    "oc-sonnet": { "protocol": "acp", "command": "opencode", "args": ["acp"], "model": "anthropic/claude-sonnet-4-5" }
+  }
+}
+```
+
+```ts
+// flows/review.flow.ts
+export const agentProfiles = defineAgentProfiles({ critic: { protocol: "acp", command: "nano-coder", args: ["--acp"], model: "…" } });
+export const defaultAgent = "claude";
+export const agents = { critique: { use: "critic" }, draft: { model: "opus" } };
+```
+
+The profile for a step is the first of:
+
+1. the step's `use`;
+2. the flow's `defaultAgent`;
+3. `default` in `agents.json`;
+4. the CLI of the host that started the run (Claude Code → `claude`, OpenCode → `opencode`, nano-coder → `nano-coder`);
+5. the first installed of `claude`, `opencode`, `nano-coder`.
+
+On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. An unknown `use` is a compile error. `age agent` lists the profiles and the default; `age agent default <name>` sets it. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before.
+
+ACP agents run in the run's project directory with permission requests approved, so give them a sandbox you trust. Each step is a fresh ACP session. `schema` is passed as an instruction to answer with JSON; the first JSON object in the answer becomes variables.
+
+### Agent transcripts (AgentInstance)
+
+Each agent step is recorded in the engine as an **AgentInstance** with its **history** (the same read model Camunda's agentic orchestration and `c8ctl-plugin-nano` use): a CONFIGURATION item (profile as provider, model, prompt), the USER prompt, each ASSISTANT turn with its tool calls and token/time metrics, and each TOOL_RESULT. Agent jobs are activated with a lease token, so writes are fenced to the activation; the history is committed when the step completes and discarded if it fails. A retry of the same step continues the same AgentInstance.
+
+The explorer shows an agent badge on the step; click it for the transcript, with a timeline, metrics and a run picker when a step ran several times. The data comes from `GET /api/explorer/instances/<key>/agents` and `GET /api/explorer/agents/<key>/history`. Recording is best-effort: a failure is logged and never fails the step.
+
 ## Parallelism and fan-out
 
 Flows fan out with `w.parallel([...])`, a fixed set of branches, and
@@ -256,8 +307,8 @@ Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflo
   - Flow code runs on step threads, not the engine's thread. Steps that compute run in parallel, and the engine keeps ticking timers and answering the explorer meanwhile. A step that doesn't stop within 2 s of its timeout, even one stuck in a synchronous loop, has its thread terminated. `process.exit()` in a step ends only its thread and fails the step. Threads are replaced when flows are reloaded. `AGE_STEP_THREADS=0` runs flow code on the engine's thread, as before 0.7.
   - Threads share the process's memory, so a step that exhausts memory or crashes native code still stops the engine. Module-level state in a flow file isn't shared between steps, since each thread has its own copy; keep shared state in variables or files.
   - Agent steps (`claude`) stay on the engine's thread: they only wait on the `claude` process.
-  - The `claude` worker spawns `claude -p --output-format json --permission-mode dontAsk` with optional `--json-schema`, `--allowedTools` and `--model`. Options come from `export const agents`. The cost is logged.
-  - `AGE_CLAUDE_CMD` swaps the binary (the tests use a fake).
+  - The agent worker runs the step's profile (see [Which agent runs an agent step](#which-agent-runs-an-agent-step)). For `claude` it spawns `claude -p --output-format stream-json --verbose --permission-mode dontAsk` with optional `--json-schema`, `--allowedTools` and `--model`; ACP profiles go through the `@nanobpm/agentic` ACP client. Options come from `export const agents`. The cost is logged when the CLI reports it.
+  - `AGE_CLAUDE_CMD` swaps the `claude` binary (the tests use fakes: `test/fixtures/fake-claude.mjs`, `fake-acp.mjs`).
 - **One engine per user**:
   - Its info is in `~/.agent-graph/daemon.json`, and it listens on `localhost` (`127.0.0.1` and `::1`).
   - The MCP server, CLI and hooks are thin HTTP clients. MCP/CLI start the engine detached on first use (one client starts it; the others wait) and register their project with it (`projects.json`).

@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { declarativeToLayoutedBpmn, inlineJobTypes, walkNodes } from "@nanobpm/workflow";
 import type { AgentOptions, FormDef } from "./index.ts";
+import { allProfiles, type AgentProfile } from "./agents.ts";
 import { newEngine } from "./wasm.ts";
 import { installResolveHook } from "./resolve-hook.ts";
 
@@ -42,8 +43,11 @@ export interface CompiledFlow {
   humans: HumanStep[];
   tasks: TaskStep[];
   forms: Record<string, FormDef>;
-  /** Per agent-task options (schema, allowedTools, model), keyed by step name. */
+  /** Per agent-task options (schema, allowedTools, model, use), keyed by step name. */
   agents: Record<string, AgentOptions>;
+  /** `export const agentProfiles` / `export const defaultAgent` from the flow file. */
+  agentProfiles: Record<string, AgentProfile>;
+  defaultAgent?: string;
   /** The process id in the engine: "<projectSlug>.<id>" for project flows, the id for global ones. */
   key: string;
   /** The flow file's mtime when it was loaded: step threads import the same version. */
@@ -143,6 +147,9 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
         });
       if (t.jobType === "claude" && !t.prompt)
         problems.push({ severity: "error", element: t.name, message: `task("${t.name}") with jobType "claude" needs { prompt: { resourceId } }` });
+      const use = (mod.agents?.[t.name] as AgentOptions | undefined)?.use ?? (t.agent ? mod.defaultAgent : undefined);
+      if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
+        problems.push({ severity: "error", element: t.name, message: `agent profile "${use}" is unknown (known: ${Object.keys(allProfiles(mod.agentProfiles)).join(", ")}; add it to agentProfiles or ~/.agent-graph/agents.json)` });
       if (t.prompt && !fs.existsSync(path.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
@@ -155,7 +162,7 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
     } catch (e: any) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file, stamp, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file, stamp, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : undefined, projectDir, scope: "project", description: mod.description });
   }
   return { file, flows, problems };
 }

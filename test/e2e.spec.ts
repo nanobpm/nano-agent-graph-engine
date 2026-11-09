@@ -96,6 +96,18 @@ test("changelog flow over MCP with elicitation, durable across daemon restart", 
     const status = await call("flow_status");
     assert.match(status.text, /0 active, 1 finished/, status.text);
 
+    // each agent run is an AgentInstance with its transcript, kept across the restart
+    const url = JSON.parse(fs.readFileSync(path.join(env.AGE_STATE_DIR, "daemon.json"), "utf8")).url;
+    const runKey = started.text.match(/instance (\d+)/)![1];
+    const agents: any[] = await (await fetch(`${url}/api/explorer/instances/${runKey}/agents`)).json();
+    assert.equal(agents.length, 2, JSON.stringify(agents));
+    assert.ok(agents.every((a) => a.status === "COMPLETED" && a.elementId === "draft" && a.definition.provider === "claude"));
+    assert.equal(agents[0].metrics.toolCalls, 1);
+    const history: any[] = await (await fetch(`${url}/api/explorer/agents/${agents[0].agentInstanceKey}/history`)).json();
+    assert.deepEqual(history.map((h) => h.role), ["CONFIGURATION", "USER", "ASSISTANT", "TOOL_RESULT", "ASSISTANT"]);
+    assert.equal(history[2].toolCalls[0].toolName, "Bash");
+    assert.match(history[1].content[0].text, /Context \(process variables\)/);
+
     // hooks stay silent with nothing pending
     const hook = execFileSync(process.execPath, [cli, "hook", "SessionStart"], { env, cwd: project, input: JSON.stringify({ cwd: project }) }).toString();
     assert.equal(hook, "");

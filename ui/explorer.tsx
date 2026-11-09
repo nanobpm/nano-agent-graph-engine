@@ -121,6 +121,10 @@ const source: ExplorerDataSource = {
   resolveIncident: (_instanceKey, incidentKey) => api(`/api/incidents/${enc(incidentKey)}/resolve`, {}),
   setVariables: (key, req) => api(`/api/instances/${enc(key)}/variables`, req),
   subscribe: (onChange) => pollChanges(onChange, 1500),
+  agents: {
+    listAgentInstances: (key) => api(`/api/explorer/instances/${enc(key)}/agents`),
+    getAgentHistory: (key) => api(`/api/explorer/agents/${enc(key)}/history`),
+  },
 };
 
 // ---------------- routing ----------------
@@ -633,7 +637,7 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.7.0" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.8.0" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
     const p = r?.structuredContent?.project;
     if (typeof p === "string" && p !== scope) setScope(p);

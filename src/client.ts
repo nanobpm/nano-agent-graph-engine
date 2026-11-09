@@ -59,8 +59,10 @@ export class EngineClient {
     return this.call("/api/reload", {});
   }
 
-  start(flowId: string, variables: Record<string, unknown> = {}, title?: string): Promise<StartResult> {
-    return this.call("/api/start", { flowId, variables, title, project: this.project });
+  /** `host`: the app starting the run (an MCP clientInfo name such as "claude-code" or
+   *  "opencode"); its CLI runs the run's agent steps when nothing else is configured. */
+  start(flowId: string, variables: Record<string, unknown> = {}, title?: string, host?: string): Promise<StartResult> {
+    return this.call("/api/start", { flowId, variables, title, project: this.project, host });
   }
 
   completeTask(key: string, variables: Record<string, unknown> = {}): Promise<unknown> {

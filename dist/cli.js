@@ -1367,9 +1367,9 @@ function bind(fn, target) {
 function assign(target, ...others) {
   return Object.assign(target, ...others);
 }
-function set(target, path9, value) {
+function set(target, path10, value) {
   let currentTarget = target;
-  forEach(path9, function(key, idx) {
+  forEach(path10, function(key, idx) {
     if (typeof key !== "number" && typeof key !== "string") {
       throw new Error("illegal key type: " + typeof key + ". Key should be of type number or string.");
     }
@@ -1379,7 +1379,7 @@ function set(target, path9, value) {
     if (key === "__proto__") {
       throw new Error("illegal key: __proto__");
     }
-    let nextKey = path9[idx + 1];
+    let nextKey = path10[idx + 1];
     let nextTarget = currentTarget[key];
     if (isDefined(nextKey) && isNil(nextTarget)) {
       nextTarget = currentTarget[key] = isNaN(+nextKey) ? {} : [];
@@ -2020,7 +2020,7 @@ function Parser(options) {
   var parseStop = false;
   var nsChangesStack, nsMatrix, nodeStack;
   var nsUriToPrefix;
-  function handleError(err) {
+  function handleError2(err) {
     if (!(err instanceof Error)) {
       err = error(err);
     }
@@ -2237,7 +2237,7 @@ function Parser(options) {
             value = s.substring(i2, j3);
           }
           if (name2 === "xmlns:xml" && value !== "http://www.w3.org/XML/1998/namespace") {
-            handleError("illegal value of xmlns:xml");
+            handleError2("illegal value of xmlns:xml");
           }
           i2 = j3;
           for (; j3 + 1 < l; j3++) {
@@ -2380,10 +2380,10 @@ function Parser(options) {
           return xml2.substring(j2);
         }
         if (nodeStack.length) {
-          return handleError("unexpected end of file");
+          return handleError2("unexpected end of file");
         }
         if (!rootTagFound) {
-          return handleError("missing start tag");
+          return handleError2("missing start tag");
         }
         if (j2 < xml2.length) {
           if (xml2.substring(j2).trim()) {
@@ -2421,7 +2421,7 @@ function Parser(options) {
             if (streaming2) {
               return xml2.substring(i);
             }
-            return handleError("unclosed cdata");
+            return handleError2("unclosed cdata");
           }
           if (onCDATA) {
             onCDATA(xml2.substring(i + 9, j2), getContext);
@@ -2438,7 +2438,7 @@ function Parser(options) {
             if (streaming2) {
               return xml2.substring(i);
             }
-            return handleError("unclosed comment");
+            return handleError2("unclosed comment");
           }
           if (onComment) {
             onComment(xml2.substring(i + 4, j2), decodeEntities, getContext);
@@ -2456,7 +2456,7 @@ function Parser(options) {
           if (streaming2) {
             return xml2.substring(i);
           }
-          return handleError("unclosed question");
+          return handleError2("unclosed question");
         }
         if (onQuestion) {
           onQuestion(xml2.substring(i, j2 + 2), getContext);
@@ -2474,7 +2474,7 @@ function Parser(options) {
             return xml2.substring(i);
           }
           j2 = -1;
-          return handleError("unclosed tag");
+          return handleError2("unclosed tag");
         }
         if (v2 === 34) {
           q = xml2.indexOf('"', x + 1);
@@ -2502,19 +2502,19 @@ function Parser(options) {
         tagStart = false;
         tagEnd = true;
         if (!nodeStack.length) {
-          return handleError("missing open tag");
+          return handleError2("missing open tag");
         }
         x = elementName = nodeStack.pop();
         q = i + 2 + x.length;
         if (xml2.substring(i + 2, q) !== x) {
-          return handleError("closing tag mismatch");
+          return handleError2("closing tag mismatch");
         }
         for (; q < j2; q++) {
           w2 = xml2.charCodeAt(q);
           if (w2 === 32 || w2 > 8 && w2 < 14) {
             continue;
           }
-          return handleError("close tag");
+          return handleError2("close tag");
         }
       } else {
         if (xml2.charCodeAt(j2 - 1) === 47) {
@@ -2527,7 +2527,7 @@ function Parser(options) {
           tagEnd = false;
         }
         if (!(w2 > 96 && w2 < 123 || w2 > 64 && w2 < 91 || w2 === 95 || w2 === 58)) {
-          return handleError("illegal first char nodeName");
+          return handleError2("illegal first char nodeName");
         }
         for (q = 1, y = x.length; q < y; q++) {
           w2 = x.charCodeAt(q);
@@ -2539,7 +2539,7 @@ function Parser(options) {
             cachedAttrs = null;
             break;
           }
-          return handleError("invalid nodeName");
+          return handleError2("invalid nodeName");
         }
         if (!tagEnd) {
           nodeStack.push(elementName);
@@ -2572,7 +2572,7 @@ function Parser(options) {
           if (w2 !== -1) {
             xmlns = nsMatrix[elementName.substring(0, w2)];
             if (!xmlns) {
-              return handleError("missing namespace on <" + _elementName + ">");
+              return handleError2("missing namespace on <" + _elementName + ">");
             }
             elementName = elementName.substr(w2 + 1);
           } else {
@@ -2652,8 +2652,8 @@ function getSerializationType(element) {
   const type = getSerialization(element);
   return type !== SERIALIZE_PROPERTY && (type || null);
 }
-function capitalize(str2) {
-  return str2.charAt(0).toUpperCase() + str2.slice(1);
+function capitalize(str3) {
+  return str3.charAt(0).toUpperCase() + str3.slice(1);
 }
 function aliasToName(aliasNs, pkg) {
   if (!hasLowerCaseAlias(pkg)) {
@@ -2835,17 +2835,17 @@ function getSerializableProperties(element) {
     return p2.isMany ? value.length : true;
   });
 }
-function escape2(str2, charPattern, replaceMap) {
-  str2 = isString(str2) ? str2 : "" + str2;
-  return str2.replace(charPattern, function(s) {
+function escape2(str3, charPattern, replaceMap) {
+  str3 = isString(str3) ? str3 : "" + str3;
+  return str3.replace(charPattern, function(s) {
     return "&" + replaceMap[s] + ";";
   });
 }
-function escapeAttr(str2) {
-  return escape2(str2, ESCAPE_ATTR_CHARS, ESCAPE_ATTR_MAP);
+function escapeAttr(str3) {
+  return escape2(str3, ESCAPE_ATTR_CHARS, ESCAPE_ATTR_MAP);
 }
-function escapeBody(str2) {
-  return escape2(str2, ESCAPE_CHARS, ESCAPE_MAP);
+function escapeBody(str3) {
+  return escape2(str3, ESCAPE_CHARS, ESCAPE_MAP);
 }
 function filterAttributes(props) {
   return filter(props, function(p2) {
@@ -2913,14 +2913,14 @@ function TypeSerializer(parent, propertyDescriptor, serialization) {
 }
 function SavingWriter() {
   this.value = "";
-  this.write = function(str2) {
-    this.value += str2;
+  this.write = function(str3) {
+    this.value += str3;
   };
 }
 function FormatingWriter(out, format) {
   var indent = [""];
-  this.append = function(str2) {
-    out.write(str2);
+  this.append = function(str3) {
+    out.write(str3);
     return this;
   };
   this.appendNewLine = function() {
@@ -3261,7 +3261,7 @@ var init_dist4 = __esm({
       var context = new Context(assign({}, options, { rootHandler })), parser = new Parser({ proxy: true }), stack = createStack();
       rootHandler.context = context;
       stack.push(rootHandler);
-      function handleError(err, getContext, lax2) {
+      function handleError2(err, getContext, lax2) {
         var ctx = getContext();
         var line = ctx.line, column = ctx.column, data = ctx.data;
         if (data.charAt(0) === "<" && data.indexOf(" ") !== -1) {
@@ -3279,7 +3279,7 @@ var init_dist4 = __esm({
         }
       }
       function handleWarning(err, getContext) {
-        return handleError(err, getContext, true);
+        return handleError2(err, getContext, true);
       }
       function resolveReferences() {
         var elementsById = context.elementsById;
@@ -3336,7 +3336,7 @@ var init_dist4 = __esm({
         try {
           stack.push(handler.handleNode(node2));
         } catch (err) {
-          if (handleError(err, getContext, lax)) {
+          if (handleError2(err, getContext, lax)) {
             stack.push(new NoopHandler());
           }
         }
@@ -3377,7 +3377,7 @@ var init_dist4 = __esm({
         handleOpen(node2, getContext);
       }).on("question", handleQuestion).on("closeTag", handleClose).on("cdata", handleCData).on("text", function(text2, decodeEntities2, getContext) {
         handleText(decodeEntities2(text2), getContext);
-      }).on("error", handleError).on("warn", handleWarning);
+      }).on("error", handleError2).on("warn", handleWarning);
       return new Promise(function(resolve, reject) {
         var err;
         try {
@@ -8087,7 +8087,7 @@ function findCompactFlowRegions(records, graphEdges, outgoing, edgeOrder) {
       ];
     });
     const primaryEdge = selectPrimaryEdge(split, branches, edgeOrder, /* @__PURE__ */ new Set(), outgoing);
-    const primaryPath = paths.find((path9) => path9[0] === primaryEdge);
+    const primaryPath = paths.find((path10) => path10[0] === primaryEdge);
     regions.push({ split, join, paths, primaryPath });
   }
   return regions;
@@ -8125,13 +8125,13 @@ function shortestFlowPath(start, target, outgoing, edgeOrder, blocked) {
       visited.add(edge.targetRef);
       previous.set(edge.targetRef, edge);
       if (edge.targetRef === target) {
-        const path9 = [];
+        const path10 = [];
         for (let current = target; current !== start; ) {
           const previousEdge = previous.get(current);
-          path9.unshift(previousEdge);
+          path10.unshift(previousEdge);
           current = previousEdge.sourceRef;
         }
-        return path9;
+        return path10;
       }
       pending.push(edge.targetRef);
     }
@@ -8145,18 +8145,18 @@ function createCompactRankWeights(regions) {
   const weights = /* @__PURE__ */ new Map();
   for (const { paths, primaryPath } of regions) {
     const span = primaryPath.length;
-    for (const path9 of paths) {
-      if (path9 === primaryPath) {
+    for (const path10 of paths) {
+      if (path10 === primaryPath) {
         continue;
       }
-      const internalCount = path9.length - 1;
+      const internalCount = path10.length - 1;
       const offsets = [0];
       for (let index = 1; index <= internalCount; index++) {
         const offset = internalCount === 1 ? Math.floor(span / 2) : Math.floor((index - 1) * span / (internalCount - 1));
         offsets.push(offset);
       }
       offsets.push(span);
-      path9.forEach((edge, index) => {
+      path10.forEach((edge, index) => {
         const weight = offsets[index + 1] - offsets[index];
         const existing = weights.get(edge);
         weights.set(edge, existing === void 0 ? weight : Math.min(existing, weight));
@@ -8333,21 +8333,21 @@ function selectPrimaryEdge(node2, edges, edgeOrder, visited = /* @__PURE__ */ ne
   const preferred = endReaching.length ? endReaching : candidates;
   return preferred.find((edge) => edge === defaultEdge) || [...preferred].sort((a, b) => edgeOrder.get(a) - edgeOrder.get(b))[0];
 }
-function canReachEndEvent(node2, outgoing, path9) {
+function canReachEndEvent(node2, outgoing, path10) {
   if (is(node2, "bpmn:EndEvent")) {
     return true;
   }
-  if (path9.has(node2)) {
+  if (path10.has(node2)) {
     return false;
   }
-  path9.add(node2);
+  path10.add(node2);
   for (const edge of outgoing.get(node2) || []) {
-    if (canReachEndEvent(edge.targetRef, outgoing, path9)) {
-      path9.delete(node2);
+    if (canReachEndEvent(edge.targetRef, outgoing, path10)) {
+      path10.delete(node2);
       return true;
     }
   }
-  path9.delete(node2);
+  path10.delete(node2);
   return false;
 }
 function branchOffset(index, oneSided = false) {
@@ -14283,10 +14283,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path9) {
-  if (!path9)
+function getElementAtPath(obj, path10) {
+  if (!path10)
     return obj;
-  return path9.reduce((acc, key) => acc?.[key], obj);
+  return path10.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14301,14 +14301,14 @@ function promiseAllObject(promisesObj) {
 }
 function randomString(length = 10) {
   const chars = "abcdefghijklmnopqrstuvwxyz";
-  let str2 = "";
+  let str3 = "";
   for (let i = 0; i < length; i++) {
-    str2 += chars[Math.floor(Math.random() * chars.length)];
+    str3 += chars[Math.floor(Math.random() * chars.length)];
   }
-  return str2;
+  return str3;
 }
-function esc(str2) {
-  return JSON.stringify(str2);
+function esc(str3) {
+  return JSON.stringify(str3);
 }
 function slugify(input2) {
   return input2.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -14352,8 +14352,8 @@ function numKeys(data) {
   }
   return keyCount;
 }
-function escapeRegex(str2) {
-  return str2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escapeRegex(str3) {
+  return str3.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone(inst, def, params) {
   const cl = new inst._zod.constr(def ?? inst._zod.def);
@@ -14545,11 +14545,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path9, issues) {
+function prefixIssues(path10, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path9);
+    iss.path.unshift(path10);
     return iss;
   });
 }
@@ -14607,13 +14607,13 @@ function getSizableOrigin(input2) {
     return "file";
   return "unknown";
 }
-function codePointLength(str2) {
-  const units = str2.length;
-  if (!highSurrogate.test(str2))
+function codePointLength(str3) {
+  const units = str3.length;
+  if (!highSurrogate.test(str3))
     return units;
   let count = units;
   for (let i = 0; i < units - 1; i++) {
-    if ((str2.charCodeAt(i) & 64512) === 55296 && (str2.charCodeAt(i + 1) & 64512) === 56320) {
+    if ((str3.charCodeAt(i) & 64512) === 55296 && (str3.charCodeAt(i + 1) & 64512) === 56320) {
       count--;
       i++;
     }
@@ -15082,16 +15082,16 @@ function flattenError(error64, mapper = (issue2) => issue2.message) {
 }
 function formatError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error65, path9 = []) => {
+  const processError = (error65, path10 = []) => {
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -15130,17 +15130,17 @@ function formatError(error64, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error64, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error65, path9 = []) => {
+  const processError = (error65, path10 = []) => {
     var _a3;
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -15179,8 +15179,8 @@ function treeifyError(error64, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path9) {
+  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path10) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -33212,13 +33212,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path9 = ref.slice(1).split("/").filter(Boolean);
-  if (path9.length === 0) {
+  const path10 = ref.slice(1).split("/").filter(Boolean);
+  if (path10.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path9[0] === defsKey) {
-    const key = path9[1] === void 0 ? void 0 : decodeJSONPointerSegment(path9[1]);
+  if (path10[0] === defsKey) {
+    const key = path10[1] === void 0 ? void 0 : decodeJSONPointerSegment(path10[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -34477,14 +34477,305 @@ var init_dist7 = __esm({
   }
 });
 
-// node_modules/@nanobpm/engine-wasm/lean/nanobpmn_engine.js
+// src/paths.ts
+import fs from "node:fs";
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import crypto2 from "node:crypto";
+function engineDir() {
+  return path.resolve(process.env.AGE_STATE_DIR ?? path.join(process.env.HOME ?? "/tmp", ".agent-graph"));
+}
+function projectSlug(project2) {
+  const abs = path.resolve(project2);
+  let base = path.basename(abs).replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "project";
+  if (!/^[A-Za-z]/.test(base)) base = `p-${base}`;
+  return `${base}-${crypto2.createHash("sha1").update(abs).digest("hex").slice(0, 4)}`;
+}
+function defaultHome() {
+  return process.env.AGE_HOME ?? path.join(process.env.HOME ?? "/tmp", "AgentGraph");
+}
+function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()) {
+  if (process.env.AGE_PROJECT && start === process.env.AGE_PROJECT) return path.resolve(start);
+  const s = path.resolve(start);
+  const home = path.resolve(process.env.HOME ?? "/");
+  if (s === "/" || s === home) return defaultHome();
+  let git;
+  for (let dir = s; ; ) {
+    if (dir === home) break;
+    if (fs.existsSync(path.join(dir, "flows"))) return dir;
+    if (!git && fs.existsSync(path.join(dir, ".git"))) git = dir;
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return git ?? s;
+}
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function findDaemon(project2 = defaultHome()) {
+  const f2 = path.join(engineDir(), "daemon.json");
+  let info;
+  try {
+    info = JSON.parse(fs.readFileSync(f2, "utf8"));
+  } catch {
+    return void 0;
+  }
+  if (!alive(info.pid)) return void 0;
+  try {
+    const r2 = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500) });
+    return r2.ok ? { ...info, project: path.resolve(project2) } : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function ensureDaemon(project2) {
+  let info = await findDaemon(project2);
+  if (!info) info = await startDaemon(project2);
+  await api(info, "/api/projects", { path: path.resolve(project2) });
+  return info;
+}
+async function startDaemon(project2) {
+  const dir = engineDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const lock = path.join(dir, "starting.lock");
+  let mine = false;
+  try {
+    fs.writeFileSync(lock, String(process.pid), { flag: "wx" });
+    mine = true;
+  } catch {
+    if (Date.now() - fs.statSync(lock).mtimeMs > 15e3) {
+      fs.rmSync(lock, { force: true });
+      return startDaemon(project2);
+    }
+  }
+  try {
+    if (mine) spawnDaemon(dir);
+    for (let i = 0; i < 150; i++) {
+      await new Promise((r2) => setTimeout(r2, 100));
+      const info = await findDaemon(project2);
+      if (info) return info;
+    }
+  } finally {
+    if (mine) fs.rmSync(lock, { force: true });
+  }
+  throw new Error(`engine did not start; see ${path.join(dir, "daemon.log")}`);
+}
+function spawnDaemon(dir) {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const cli = fs.existsSync(path.join(here, "cli.js")) ? path.join(here, "cli.js") : path.join(here, "cli.ts");
+  const out = fs.openSync(path.join(dir, "daemon.log"), "a");
+  const { AGE_PROJECT: _p, ...env } = process.env;
+  const child = spawn(process.execPath, [cli, "daemon"], { detached: true, stdio: ["ignore", out, out], env, cwd: dir });
+  child.unref();
+}
+async function api(info, p2, body2) {
+  const r2 = await fetch(`${info.url}${p2}`, {
+    method: body2 === void 0 ? "GET" : "POST",
+    headers: { "content-type": "application/json" },
+    body: body2 === void 0 ? void 0 : JSON.stringify(body2)
+  });
+  const text2 = await r2.text();
+  const data = r2.headers.get("content-type")?.includes("json") ? JSON.parse(text2) : text2;
+  if (!r2.ok) throw new Error(data?.error ?? `HTTP ${r2.status}`);
+  return data;
+}
+var init_paths = __esm({
+  "src/paths.ts"() {
+    "use strict";
+  }
+});
+
+// src/agents.ts
+var agents_exports = {};
+__export(agents_exports, {
+  BUILTIN_PROFILES: () => BUILTIN_PROFILES,
+  HOST_PROFILE: () => HOST_PROFILE,
+  agentsFile: () => agentsFile,
+  allProfiles: () => allProfiles,
+  anyAgentInstalled: () => anyAgentInstalled,
+  commandOf: () => commandOf,
+  launch: () => launch,
+  readAgentsFile: () => readAgentsFile,
+  resolveAgent: () => resolveAgent,
+  which: () => which,
+  writeAgentsFile: () => writeAgentsFile
+});
+import fs2 from "node:fs";
+import path2 from "node:path";
+function agentsFile() {
+  return path2.join(engineDir(), "agents.json");
+}
+function readAgentsFile() {
+  try {
+    return JSON.parse(fs2.readFileSync(agentsFile(), "utf8"));
+  } catch {
+    return {};
+  }
+}
+function writeAgentsFile(f2) {
+  fs2.mkdirSync(path2.dirname(agentsFile()), { recursive: true });
+  fs2.writeFileSync(agentsFile(), JSON.stringify(f2, null, 2) + "\n");
+}
+function allProfiles(flowProfiles = {}) {
+  const out = {};
+  for (const [n, p2] of Object.entries(BUILTIN_PROFILES)) out[n] = { ...p2, source: "built-in" };
+  for (const [n, p2] of Object.entries(flowProfiles)) out[n] = { ...p2, source: "flow" };
+  for (const [n, p2] of Object.entries(readAgentsFile().profiles ?? {})) out[n] = { ...p2, source: "agents.json" };
+  return out;
+}
+function which(command) {
+  if (path2.isAbsolute(command)) return fs2.existsSync(command) ? command : void 0;
+  if (found.has(command)) return found.get(command);
+  const home = process.env.HOME ?? "";
+  const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, `${home}/.opencode/bin`, "/opt/homebrew/bin", "/usr/local/bin"];
+  let hit;
+  for (const d2 of dirs) {
+    const f2 = d2 && path2.join(d2, command);
+    if (f2 && fs2.existsSync(f2)) {
+      hit = f2;
+      break;
+    }
+  }
+  found.set(command, hit);
+  return hit;
+}
+function resolveAgent(opts) {
+  const profiles = allProfiles(opts.flowProfiles);
+  const pick3 = (name2, reason, mustExist) => {
+    if (!name2) return void 0;
+    const profile = profiles[name2];
+    if (!profile) {
+      if (mustExist) throw new Error(`unknown agent profile "${name2}" (known: ${Object.keys(profiles).join(", ")})`);
+      return void 0;
+    }
+    if (!mustExist && !which(commandOf(name2, profile))) return void 0;
+    return { name: name2, profile, reason };
+  };
+  return pick3(opts.use, "step", true) ?? pick3(opts.flowDefault, "flow default", true) ?? pick3(readAgentsFile().default, "agents.json default", true) ?? pick3(opts.host && HOST_PROFILE[opts.host], "host", false) ?? ["claude", "opencode", "nano-coder"].map((n) => pick3(n, "installed", false)).find(Boolean);
+}
+function commandOf(name2, p2) {
+  if (name2 === "claude" && p2.command === "claude" && process.env.AGE_CLAUDE_CMD) return process.env.AGE_CLAUDE_CMD;
+  return p2.command;
+}
+function anyAgentInstalled() {
+  const d2 = readAgentsFile().default;
+  if (d2) return true;
+  return ["claude", "opencode", "nano-coder"].some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
+}
+function launch(name2, p2, model) {
+  const command = which(commandOf(name2, p2)) ?? commandOf(name2, p2);
+  const args = [...p2.args ?? []];
+  const env = { ...p2.env ?? {} };
+  const m2 = model ?? p2.model;
+  if (m2 && p2.modelArg && p2.protocol === "acp") args.push(p2.modelArg, m2);
+  if (m2 && p2.modelEnv) for (const [k2, v2] of Object.entries(p2.modelEnv)) env[k2] = v2.replaceAll("{model}", m2);
+  return { command, args, env };
+}
+var BUILTIN_PROFILES, HOST_PROFILE, found;
+var init_agents = __esm({
+  "src/agents.ts"() {
+    "use strict";
+    init_paths();
+    BUILTIN_PROFILES = {
+      claude: { protocol: "claude", command: "claude", modelArg: "--model", description: "Claude Code, headless (claude -p)" },
+      opencode: {
+        protocol: "acp",
+        command: "opencode",
+        args: ["acp"],
+        modelEnv: { OPENCODE_CONFIG_CONTENT: '{"model":"{model}"}' },
+        description: "OpenCode over ACP (opencode acp)"
+      },
+      "nano-coder": { protocol: "acp", command: "nano-coder", args: ["--acp"], modelArg: "--model", description: "nano-coder over ACP (nano-coder --acp)" },
+      gemini: { protocol: "acp", command: "gemini", args: ["--experimental-acp"], modelArg: "--model", description: "Gemini CLI over ACP" }
+    };
+    HOST_PROFILE = { "claude-code": "claude", "claude-desktop": "claude", "claude-ai": "claude", opencode: "opencode", "nano-coder": "nano-coder" };
+    found = /* @__PURE__ */ new Map();
+  }
+});
+
+// node_modules/@nanobpm/engine-wasm/readmodel/nanobpmn_engine.js
 function __wbg_get_imports() {
   const import0 = {
     __proto__: null,
     __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
       throw new Error(getStringFromWasm0(arg0, arg1));
     },
-    __wbindgen_cast_0000000000000001: function(arg0, arg1) {
+    __wbg_error_c101d80a635fe63e: function(arg0, arg1) {
+      console.error(getStringFromWasm0(arg0, arg1));
+    },
+    __wbg_getDate_b0ac858991e80b2e: function(arg0) {
+      const ret = getObject(arg0).getDate();
+      return ret;
+    },
+    __wbg_getDay_d65e35285ba489ae: function(arg0) {
+      const ret = getObject(arg0).getDay();
+      return ret;
+    },
+    __wbg_getFullYear_d2ecaf3ecbfaddf9: function(arg0) {
+      const ret = getObject(arg0).getFullYear();
+      return ret;
+    },
+    __wbg_getHours_521ab343a38cb962: function(arg0) {
+      const ret = getObject(arg0).getHours();
+      return ret;
+    },
+    __wbg_getMinutes_27257e5640ea2e7c: function(arg0) {
+      const ret = getObject(arg0).getMinutes();
+      return ret;
+    },
+    __wbg_getMonth_9f2f20dab3150834: function(arg0) {
+      const ret = getObject(arg0).getMonth();
+      return ret;
+    },
+    __wbg_getRandomValues_896855b3a5f89999: function() {
+      return handleError(function(arg0, arg1) {
+        globalThis.crypto.getRandomValues(getArrayU8FromWasm0(arg0, arg1));
+      }, arguments);
+    },
+    __wbg_getSeconds_0071b90906b363f2: function(arg0) {
+      const ret = getObject(arg0).getSeconds();
+      return ret;
+    },
+    __wbg_getTime_63fb0332e6c4ec17: function(arg0) {
+      const ret = getObject(arg0).getTime();
+      return ret;
+    },
+    __wbg_getTimezoneOffset_4baa793e0d3962a8: function(arg0) {
+      const ret = getObject(arg0).getTimezoneOffset();
+      return ret;
+    },
+    __wbg_new_0_f117d868b403dc07: function() {
+      const ret = /* @__PURE__ */ new Date();
+      return addHeapObject(ret);
+    },
+    __wbg_new_f9d6489212f3b2b3: function(arg0) {
+      const ret = new Date(getObject(arg0));
+      return addHeapObject(ret);
+    },
+    __wbg_new_with_year_month_day_cc812ef210488bf4: function(arg0, arg1, arg2) {
+      const ret = new Date(arg0 >>> 0, arg1, arg2);
+      return addHeapObject(ret);
+    },
+    __wbg_now_8b265300afd5f2b9: function() {
+      const ret = Date.now();
+      return ret;
+    },
+    __wbg_random_b0d98802be10ff20: function() {
+      const ret = Math.random();
+      return ret;
+    },
+    __wbindgen_cast_0000000000000001: function(arg0) {
+      const ret = arg0;
+      return addHeapObject(ret);
+    },
+    __wbindgen_cast_0000000000000002: function(arg0, arg1) {
       const ret = getStringFromWasm0(arg0, arg1);
       return addHeapObject(ret);
     },
@@ -34509,6 +34800,10 @@ function dropObject(idx) {
   heap[idx] = heap_next;
   heap_next = idx;
 }
+function getArrayU8FromWasm0(ptr, len) {
+  ptr = ptr >>> 0;
+  return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
 function getDataViewMemory0() {
   if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || cachedDataViewMemory0.buffer.detached === void 0 && cachedDataViewMemory0.buffer !== wasm.memory.buffer) {
     cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
@@ -34526,6 +34821,13 @@ function getUint8ArrayMemory0() {
 }
 function getObject(idx) {
   return heap[idx];
+}
+function handleError(f2, args) {
+  try {
+    return f2.apply(this, args);
+  } catch (e) {
+    wasm.__wbindgen_export(addHeapObject(e));
+  }
 }
 function isLikeNone(x) {
   return x === void 0 || x === null;
@@ -34600,7 +34902,7 @@ function initSync(module2) {
 }
 var TestEngine, TestEngineFinalization, cachedDataViewMemory0, cachedUint8ArrayMemory0, heap, heap_next, cachedTextDecoder, MAX_SAFARI_DECODE_BYTES, numBytesDecoded, cachedTextEncoder, WASM_VECTOR_LEN, wasmModule, wasmInstance, wasm;
 var init_nanobpmn_engine = __esm({
-  "node_modules/@nanobpm/engine-wasm/lean/nanobpmn_engine.js"() {
+  "node_modules/@nanobpm/engine-wasm/readmodel/nanobpmn_engine.js"() {
     TestEngine = class {
       __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
@@ -34629,9 +34931,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_type, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_type, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(worker, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(worker, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_activateJobs(retptr, this.__wbg_ptr, ptr0, len0, max_jobs, timeout_ms, ptr1, len1, isLikeNone(with_lease) ? 16777215 : with_lease ? 1 : 0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34650,7 +34952,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -34681,7 +34983,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr1, len1);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+          wasm.__wbindgen_export4(deferred2_0, deferred2_1, 1);
         }
       }
       /**
@@ -34698,9 +35000,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(assignee, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(assignee, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_assignUserTask(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, allow_override);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34719,7 +35021,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -34736,9 +35038,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(signal_name, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(signal_name, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_broadcastSignal(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34757,7 +35059,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -34772,7 +35074,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(instance_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_cancelInstance(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34791,7 +35093,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -34806,7 +35108,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_completeAgentInstance(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34825,7 +35127,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -34859,13 +35161,13 @@ var init_nanobpmn_engine = __esm({
         let deferred6_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          const ptr2 = passStringToWasm0(agent_result_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr2 = passStringToWasm0(agent_result_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len2 = WASM_VECTOR_LEN;
-          var ptr3 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          var ptr3 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           var len3 = WASM_VECTOR_LEN;
           wasm.testengine_completeAgentJob(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34884,7 +35186,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr5, len5);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred6_0, deferred6_1, 1);
+          wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
         }
       }
       /**
@@ -34901,11 +35203,11 @@ var init_nanobpmn_engine = __esm({
         let deferred5_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          var ptr2 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          var ptr2 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           var len2 = WASM_VECTOR_LEN;
           wasm.testengine_completeJob(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34924,7 +35226,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr4, len4);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
         }
       }
       /**
@@ -34940,9 +35242,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_completeUserTask(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34961,7 +35263,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -34981,11 +35283,11 @@ var init_nanobpmn_engine = __esm({
         let deferred5_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(message_name, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(message_name, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(correlation_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(correlation_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          const ptr2 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr2 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len2 = WASM_VECTOR_LEN;
           wasm.testengine_correlateMessage(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35004,7 +35306,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr4, len4);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
         }
       }
       /**
@@ -35019,7 +35321,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(request_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(request_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_createAgentInstance(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35038,7 +35340,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35058,9 +35360,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(process_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(process_id, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_createInstance(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, isLikeNone(version2) ? Number.MAX_SAFE_INTEGER : version2 >> 0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35079,7 +35381,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35120,11 +35422,11 @@ var init_nanobpmn_engine = __esm({
         let deferred5_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(process_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(process_id, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          const ptr2 = passStringToWasm0(breakpoints_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr2 = passStringToWasm0(breakpoints_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len2 = WASM_VECTOR_LEN;
           wasm.testengine_debugCreateInstance(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35143,7 +35445,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr4, len4);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
         }
       }
       /**
@@ -35181,7 +35483,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr1, len1);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+          wasm.__wbindgen_export4(deferred2_0, deferred2_1, 1);
         }
       }
       /**
@@ -35212,7 +35514,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr1, len1);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+          wasm.__wbindgen_export4(deferred2_0, deferred2_1, 1);
         }
       }
       /**
@@ -35233,7 +35535,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(xml2, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(xml2, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_deploy(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35252,7 +35554,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35270,7 +35572,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(xml2, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(xml2, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_deployDecision(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35289,7 +35591,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35312,7 +35614,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(schema, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(schema, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_deployForm(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35331,7 +35633,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35355,9 +35657,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(resource_name, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(resource_name, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(content, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(content, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_deployResource(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35376,7 +35678,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35400,9 +35702,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(decision_id, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(decision_id, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_evaluateDecision(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35421,7 +35723,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35451,7 +35753,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr1, len1);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+          wasm.__wbindgen_export4(deferred2_0, deferred2_1, 1);
         }
       }
       /**
@@ -35468,11 +35770,11 @@ var init_nanobpmn_engine = __esm({
         let deferred5_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(message, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(message, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          var ptr2 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          var ptr2 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           var len2 = WASM_VECTOR_LEN;
           wasm.testengine_failJob(retptr, this.__wbg_ptr, ptr0, len0, retries, ptr1, len1, ptr2, len2);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35491,7 +35793,75 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr4, len4);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
+        }
+      }
+      /**
+       * The latest deployed form for `form_key`, as a `FormResult` JSON object
+       * (`{ tenantId, formId, schema, version, formKey }`), or JSON `null` when no
+       * form with that key exists. Mirrors `GET /forms/{formKey}`.
+       * @param {string} form_key
+       * @returns {string}
+       */
+      getFormByKey(form_key) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(form_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_getFormByKey(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * The generic resource for `resource_key`, as a `ResourceResult` JSON object,
+       * or JSON `null` when no resource with that key exists. Mirrors
+       * `GET /resources/{resourceKey}`.
+       * @param {string} resource_key
+       * @returns {string}
+       */
+      getResourceByKey(resource_key) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(resource_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_getResourceByKey(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35511,11 +35881,11 @@ var init_nanobpmn_engine = __esm({
         let deferred5_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(instance_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(target_process_definition_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(target_process_definition_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          const ptr2 = passStringToWasm0(mapping_instructions_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr2 = passStringToWasm0(mapping_instructions_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len2 = WASM_VECTOR_LEN;
           wasm.testengine_migrate(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35534,7 +35904,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr4, len4);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
         }
       }
       /**
@@ -35556,11 +35926,11 @@ var init_nanobpmn_engine = __esm({
         let deferred5_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(instance_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(activate_instructions_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(activate_instructions_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          const ptr2 = passStringToWasm0(terminate_instructions_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr2 = passStringToWasm0(terminate_instructions_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len2 = WASM_VECTOR_LEN;
           wasm.testengine_modify(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35579,7 +35949,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr4, len4);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred5_0, deferred5_1, 1);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
         }
       }
       /**
@@ -35610,7 +35980,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(events_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(events_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_replayEvents(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35629,7 +35999,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35655,7 +36025,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(incident_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(incident_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_resolveIncident(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35674,7 +36044,197 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * The AgentHistory turns for `agent_instance_key`, as an
+       * `AgentInstanceHistorySearchQueryResult` JSON object (`{ items, page }`),
+       * in the engine's canonical `(loopIteration, producedAt, historyItemKey)`
+       * order. `filter_json` is `{ commitStatus? }` where `commitStatus` is a REST
+       * spelling or array of them; **omitting it defaults to COMMITTED only**
+       * (PENDING/DISCARDED surface only when asked for explicitly). Accepts the
+       * canonical REST envelope `{ "filter": { commitStatus? } }` as well as the
+       * top-level shorthand. Mirrors
+       * `POST /agent-instances/{agentInstanceKey}/history/search`.
+       * @param {string} agent_instance_key
+       * @param {string} filter_json
+       * @returns {string}
+       */
+      searchAgentInstanceHistory(agent_instance_key, filter_json) {
+        let deferred4_0;
+        let deferred4_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          const ptr1 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len1 = WASM_VECTOR_LEN;
+          wasm.testengine_searchAgentInstanceHistory(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr3 = r0;
+          var len3 = r1;
+          if (r3) {
+            ptr3 = 0;
+            len3 = 0;
+            throw takeObject(r2);
+          }
+          deferred4_0 = ptr3;
+          deferred4_1 = len3;
+          return getStringFromWasm0(ptr3, len3);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
+        }
+      }
+      /**
+       * The AgentInstances matching an optional filter, as an
+       * `AgentInstanceSearchQueryResult` JSON object (`{ items, page }`). The
+       * filter is `{ agentInstanceKey?, agentDefinitionKey?, processInstanceKey?,
+       * rootProcessInstanceKey?, processDefinitionKey?, status?, elementId?,
+       * tenantId? }` (`status` a REST spelling, e.g. `"INITIALIZING"`); an
+       * empty/absent filter returns every instance. Accepts the canonical REST
+       * envelope `{ "filter": { … } }` as well as the top-level shorthand.
+       * Mirrors `POST /agent-instances/search`.
+       * @param {string} filter_json
+       * @returns {string}
+       */
+      searchAgentInstances(filter_json) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_searchAgentInstances(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * All process instances, as a `ProcessInstanceSearchQueryResult` JSON object
+       * (`{ items: [...], page: {...} }`). The request body is shape-validated like
+       * `POST /process-instances/search`, but filter/sort/page fields are not yet
+       * honoured — every instance is returned. Do not rely on gateway-side
+       * filtering through this method yet.
+       * @param {string} filter_json
+       * @returns {string}
+       */
+      searchProcessInstances(filter_json) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_searchProcessInstances(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * The user tasks matching an optional `{ state? }` filter, as a
+       * `UserTaskSearchQueryResult` JSON object (`{ items: [...], page: {...} }`).
+       * The `state` filter (e.g. `"CREATED"`) is honoured through the read model,
+       * not hardcoded. Mirrors `POST /user-tasks/search`.
+       * @param {string} filter_json
+       * @returns {string}
+       */
+      searchUserTasks(filter_json) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_searchUserTasks(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * All variables, as a `VariableSearchQueryResult` JSON object
+       * (`{ items: [...], page: {...} }`). The request body is shape-validated like
+       * `POST /variables/search`, but filter/sort/page fields are not yet honoured —
+       * every variable is returned. Values longer than `VARIABLE_VALUE_PREVIEW_LEN`
+       * are truncated with `isTruncated: true`; shorter values pass through intact
+       * with `isTruncated: false`. There is no `truncateValues` opt-out yet.
+       * @param {string} filter_json
+       * @returns {string}
+       */
+      searchVariables(filter_json) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_searchVariables(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35692,9 +36252,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(scope_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(scope_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_setVariables(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, local);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35713,7 +36273,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35742,7 +36302,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr1, len1);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+          wasm.__wbindgen_export4(deferred2_0, deferred2_1, 1);
         }
       }
       /**
@@ -35762,13 +36322,13 @@ var init_nanobpmn_engine = __esm({
         let deferred6_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(error_code, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(error_code, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
-          const ptr2 = passStringToWasm0(error_message, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr2 = passStringToWasm0(error_message, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len2 = WASM_VECTOR_LEN;
-          var ptr3 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          var ptr3 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           var len3 = WASM_VECTOR_LEN;
           wasm.testengine_throwError(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35787,7 +36347,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr5, len5);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred6_0, deferred6_1, 1);
+          wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
         }
       }
       /**
@@ -35820,7 +36380,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr1, len1);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
+          wasm.__wbindgen_export4(deferred2_0, deferred2_1, 1);
         }
       }
       /**
@@ -35834,7 +36394,7 @@ var init_nanobpmn_engine = __esm({
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_unassignUserTask(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35853,7 +36413,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr2, len2);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred3_0, deferred3_1, 1);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
         }
       }
       /**
@@ -35869,9 +36429,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(request_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(request_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_updateAgentInstance(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35890,7 +36450,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35907,9 +36467,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          var ptr1 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          var ptr1 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           var len1 = WASM_VECTOR_LEN;
           wasm.testengine_updateRetries(retptr, this.__wbg_ptr, ptr0, len0, retries, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35928,7 +36488,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35943,9 +36503,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(job_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          var ptr1 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          var ptr1 = isLikeNone(lease_token) ? 0 : passStringToWasm0(lease_token, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           var len1 = WASM_VECTOR_LEN;
           wasm.testengine_updateTimeout(retptr, this.__wbg_ptr, ptr0, len0, timeout_ms, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35964,7 +36524,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
       /**
@@ -35982,9 +36542,9 @@ var init_nanobpmn_engine = __esm({
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr0 = passStringToWasm0(user_task_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(changeset_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+          const ptr1 = passStringToWasm0(changeset_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_updateUserTask(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -36003,7 +36563,7 @@ var init_nanobpmn_engine = __esm({
           return getStringFromWasm0(ptr3, len3);
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
-          wasm.__wbindgen_export3(deferred4_0, deferred4_1, 1);
+          wasm.__wbindgen_export4(deferred4_0, deferred4_1, 1);
         }
       }
     };
@@ -36051,18 +36611,18 @@ var init_nanobpmn_engine = __esm({
 });
 
 // src/wasm.ts
-import fs from "node:fs";
+import fs3 from "node:fs";
 import { createRequire } from "node:module";
 function wasmPath() {
   const local = new URL("./nanobpmn_engine_bg.wasm", import.meta.url);
-  if (fs.existsSync(local)) return local.pathname;
+  if (fs3.existsSync(local)) return local.pathname;
   const req = createRequire(import.meta.url);
-  const pkg = req.resolve("@nanobpm/engine-wasm");
+  const pkg = req.resolve("@nanobpm/engine-wasm/readmodel");
   return pkg.replace(/nanobpmn_engine\.js$/, "nanobpmn_engine_bg.wasm");
 }
 function newEngine() {
   if (!ready) {
-    initSync({ module: fs.readFileSync(wasmPath()) });
+    initSync({ module: fs3.readFileSync(wasmPath()) });
     ready = true;
   }
   return new TestEngine();
@@ -36077,13 +36637,13 @@ var init_wasm = __esm({
 });
 
 // src/resolve-hook.ts
-import fs2 from "node:fs";
+import fs4 from "node:fs";
 import module from "node:module";
 function installResolveHook() {
   if (installed) return;
   installed = true;
   const js = new URL("./index.js", import.meta.url);
-  const target = fs2.existsSync(js) ? js.href : new URL("./index.ts", import.meta.url).href;
+  const target = fs4.existsSync(js) ? js.href : new URL("./index.ts", import.meta.url).href;
   module.registerHooks({
     resolve(specifier, context, next) {
       if (specifier === "agent-graph-engine") return { url: target, shortCircuit: true };
@@ -36100,16 +36660,16 @@ var init_resolve_hook = __esm({
 });
 
 // src/compile.ts
-import fs3 from "node:fs";
-import path from "node:path";
+import fs5 from "node:fs";
+import path3 from "node:path";
 import { pathToFileURL } from "node:url";
 function flowsDir(project2) {
-  return path.join(project2, "flows");
+  return path3.join(project2, "flows");
 }
 function listFlowFiles(project2) {
   const dir = flowsDir(project2);
-  if (!fs3.existsSync(dir)) return [];
-  return fs3.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path.join(dir, f2));
+  if (!fs5.existsSync(dir)) return [];
+  return fs5.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path3.join(dir, f2));
 }
 function isFlow(v2) {
   return v2 && typeof v2 === "object" && v2.kind === "declarative" && typeof v2.id === "string" && Array.isArray(v2.steps);
@@ -36121,16 +36681,16 @@ async function checkFile(file2, keyFor = (id) => id) {
   let mod;
   let stamp = 0;
   try {
-    stamp = fs3.statSync(file2).mtimeMs;
-    mod = await import(`${pathToFileURL(path.resolve(file2)).href}?v=${stamp}`);
+    stamp = fs5.statSync(file2).mtimeMs;
+    mod = await import(`${pathToFileURL(path3.resolve(file2)).href}?v=${stamp}`);
   } catch (e) {
-    problems.push({ severity: "error", message: `cannot load ${path.basename(file2)}: ${e?.message ?? e}` });
+    problems.push({ severity: "error", message: `cannot load ${path3.basename(file2)}: ${e?.message ?? e}` });
     return { file: file2, flows, problems };
   }
   const forms = mod.forms ?? {};
-  const found = Object.values(mod).filter(isFlow);
-  if (!found.length) problems.push({ severity: "error", message: `${path.basename(file2)} exports no defineFlow(...) flow` });
-  for (const authored of found) {
+  const found2 = Object.values(mod).filter(isFlow);
+  if (!found2.length) problems.push({ severity: "error", message: `${path3.basename(file2)} exports no defineFlow(...) flow` });
+  for (const authored of found2) {
     const flow = { ...authored, id: keyFor(authored.id) };
     let xml2;
     try {
@@ -36161,7 +36721,7 @@ async function checkFile(file2, keyFor = (id) => id) {
           message: `human("${h2.name}") uses form "${h2.form}" which is not in the exported forms \u2014 it will be asked as free text`
         });
     }
-    const projectDir = path.dirname(path.dirname(path.resolve(file2)));
+    const projectDir = path3.dirname(path3.dirname(path3.resolve(file2)));
     for (const t of tasks) {
       const builtin = t.jobType in BUILTIN_JOB_TYPES;
       if (!builtin && !(mod.workers && typeof mod.workers[t.jobType] === "function"))
@@ -36172,7 +36732,10 @@ async function checkFile(file2, keyFor = (id) => id) {
         });
       if (t.jobType === "claude" && !t.prompt)
         problems.push({ severity: "error", element: t.name, message: `task("${t.name}") with jobType "claude" needs { prompt: { resourceId } }` });
-      if (t.prompt && !fs3.existsSync(path.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
+      const use = mod.agents?.[t.name]?.use ?? (t.agent ? mod.defaultAgent : void 0);
+      if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
+        problems.push({ severity: "error", element: t.name, message: `agent profile "${use}" is unknown (known: ${Object.keys(allProfiles(mod.agentProfiles)).join(", ")}; add it to agentProfiles or ~/.agent-graph/agents.json)` });
+      if (t.prompt && !fs5.existsSync(path3.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
     if (mod.workers) {
@@ -36183,7 +36746,7 @@ async function checkFile(file2, keyFor = (id) => id) {
     } catch (e) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : void 0, projectDir, scope: "project", description: mod.description });
   }
   return { file: file2, flows, problems };
 }
@@ -36197,7 +36760,7 @@ function formatProblems(results) {
   for (const r2 of results) {
     const ids = r2.flows.map((f2) => f2.id).join(", ");
     const errs = r2.problems.filter((p2) => p2.severity === "error").length;
-    lines.push(`${errs ? "\u2717" : "\u2713"} ${path.basename(r2.file)}${ids ? ` (${ids})` : ""}`);
+    lines.push(`${errs ? "\u2717" : "\u2713"} ${path3.basename(r2.file)}${ids ? ` (${ids})` : ""}`);
     for (const p2 of r2.problems) lines.push(`  ${p2.severity}${p2.element ? ` [${p2.element}]` : ""}: ${p2.message}`);
   }
   return lines.join("\n");
@@ -36207,127 +36770,13 @@ var init_compile2 = __esm({
   "src/compile.ts"() {
     "use strict";
     init_dist7();
+    init_agents();
     init_wasm();
     init_resolve_hook();
     BUILTIN_JOB_TYPES = {
       claude: "headless Claude Code agent (claude -p) \u2014 prompt from flows/prompts/<resourceId>",
       session: "claimed by the live Claude Code session through the MCP tools (agent_next_job)"
     };
-  }
-});
-
-// src/paths.ts
-import fs4 from "node:fs";
-import path2 from "node:path";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import crypto2 from "node:crypto";
-function engineDir() {
-  return path2.resolve(process.env.AGE_STATE_DIR ?? path2.join(process.env.HOME ?? "/tmp", ".agent-graph"));
-}
-function projectSlug(project2) {
-  const abs = path2.resolve(project2);
-  let base = path2.basename(abs).replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "project";
-  if (!/^[A-Za-z]/.test(base)) base = `p-${base}`;
-  return `${base}-${crypto2.createHash("sha1").update(abs).digest("hex").slice(0, 4)}`;
-}
-function defaultHome() {
-  return process.env.AGE_HOME ?? path2.join(process.env.HOME ?? "/tmp", "AgentGraph");
-}
-function resolveProject(start = process.env.AGE_PROJECT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()) {
-  if (process.env.AGE_PROJECT && start === process.env.AGE_PROJECT) return path2.resolve(start);
-  const s = path2.resolve(start);
-  const home = path2.resolve(process.env.HOME ?? "/");
-  if (s === "/" || s === home) return defaultHome();
-  let git;
-  for (let dir = s; ; ) {
-    if (dir === home) break;
-    if (fs4.existsSync(path2.join(dir, "flows"))) return dir;
-    if (!git && fs4.existsSync(path2.join(dir, ".git"))) git = dir;
-    const up = path2.dirname(dir);
-    if (up === dir) break;
-    dir = up;
-  }
-  return git ?? s;
-}
-function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-async function findDaemon(project2 = defaultHome()) {
-  const f2 = path2.join(engineDir(), "daemon.json");
-  let info;
-  try {
-    info = JSON.parse(fs4.readFileSync(f2, "utf8"));
-  } catch {
-    return void 0;
-  }
-  if (!alive(info.pid)) return void 0;
-  try {
-    const r2 = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500) });
-    return r2.ok ? { ...info, project: path2.resolve(project2) } : void 0;
-  } catch {
-    return void 0;
-  }
-}
-async function ensureDaemon(project2) {
-  let info = await findDaemon(project2);
-  if (!info) info = await startDaemon(project2);
-  await api(info, "/api/projects", { path: path2.resolve(project2) });
-  return info;
-}
-async function startDaemon(project2) {
-  const dir = engineDir();
-  fs4.mkdirSync(dir, { recursive: true });
-  const lock = path2.join(dir, "starting.lock");
-  let mine = false;
-  try {
-    fs4.writeFileSync(lock, String(process.pid), { flag: "wx" });
-    mine = true;
-  } catch {
-    if (Date.now() - fs4.statSync(lock).mtimeMs > 15e3) {
-      fs4.rmSync(lock, { force: true });
-      return startDaemon(project2);
-    }
-  }
-  try {
-    if (mine) spawnDaemon(dir);
-    for (let i = 0; i < 150; i++) {
-      await new Promise((r2) => setTimeout(r2, 100));
-      const info = await findDaemon(project2);
-      if (info) return info;
-    }
-  } finally {
-    if (mine) fs4.rmSync(lock, { force: true });
-  }
-  throw new Error(`engine did not start; see ${path2.join(dir, "daemon.log")}`);
-}
-function spawnDaemon(dir) {
-  const here = path2.dirname(fileURLToPath(import.meta.url));
-  const cli = fs4.existsSync(path2.join(here, "cli.js")) ? path2.join(here, "cli.js") : path2.join(here, "cli.ts");
-  const out = fs4.openSync(path2.join(dir, "daemon.log"), "a");
-  const { AGE_PROJECT: _p, ...env } = process.env;
-  const child = spawn(process.execPath, [cli, "daemon"], { detached: true, stdio: ["ignore", out, out], env, cwd: dir });
-  child.unref();
-}
-async function api(info, p2, body2) {
-  const r2 = await fetch(`${info.url}${p2}`, {
-    method: body2 === void 0 ? "GET" : "POST",
-    headers: { "content-type": "application/json" },
-    body: body2 === void 0 ? void 0 : JSON.stringify(body2)
-  });
-  const text2 = await r2.text();
-  const data = r2.headers.get("content-type")?.includes("json") ? JSON.parse(text2) : text2;
-  if (!r2.ok) throw new Error(data?.error ?? `HTTP ${r2.status}`);
-  return data;
-}
-var init_paths = __esm({
-  "src/paths.ts"() {
-    "use strict";
   }
 });
 
@@ -36361,8 +36810,8 @@ var init_client = __esm({
         return `${this.url}/?project=${encodeURIComponent(this.project)}${hash2 ? `#${hash2}` : ""}`;
       }
       /** Any engine route (the MCP App's ui_api proxy). */
-      call(path9, body2) {
-        return api(this.info, path9, body2);
+      call(path10, body2) {
+        return api(this.info, path10, body2);
       }
       /** Engine state: this project's flows and work (work elsewhere is marked); `all` for everything. */
       state(all = false) {
@@ -36375,8 +36824,10 @@ var init_client = __esm({
       reload() {
         return this.call("/api/reload", {});
       }
-      start(flowId, variables = {}, title) {
-        return this.call("/api/start", { flowId, variables, title, project: this.project });
+      /** `host`: the app starting the run (an MCP clientInfo name such as "claude-code" or
+       *  "opencode"); its CLI runs the run's agent steps when nothing else is configured. */
+      start(flowId, variables = {}, title, host) {
+        return this.call("/api/start", { flowId, variables, title, project: this.project, host });
       }
       completeTask(key, variables = {}) {
         return this.call(`/api/user-tasks/${encodeURIComponent(key)}/complete`, { variables });
@@ -36408,10 +36859,10 @@ var init_client = __esm({
 });
 
 // src/summary.ts
-import path3 from "node:path";
+import path4 from "node:path";
 function summarize(state, project2) {
-  const here = project2 ? path3.resolve(project2) : state.project;
-  const where = (p2) => p2 && p2 !== here ? ` [${path3.basename(p2)}]` : "";
+  const here = project2 ? path4.resolve(project2) : state.project;
+  const where = (p2) => p2 && p2 !== here ? ` [${path4.basename(p2)}]` : "";
   const lines = [];
   lines.push(`project: ${here ?? "(all)"}`);
   const own2 = state.flows.filter((f2) => f2.scope !== "global").map((f2) => f2.id);
@@ -36444,52 +36895,11 @@ var init_summary = __esm({
 
 // src/index.ts
 import { AsyncLocalStorage } from "node:async_hooks";
-import { spawn as spawn2 } from "node:child_process";
-function jobProject() {
-  return jobContext.getStore()?.project;
-}
 function jobSignal() {
   return jobContext.getStore()?.signal;
 }
 function runInProject(project2, fn, signal) {
   return jobContext.run({ project: project2, signal }, fn);
-}
-async function claude(prompt, opts = {}) {
-  const cmd2 = process.env.AGE_CLAUDE_CMD ?? "claude";
-  const args = ["-p", "--output-format", "json", "--permission-mode", opts.permissionMode ?? "dontAsk"];
-  if (opts.allowedTools?.length) args.push("--allowedTools", opts.allowedTools.join(","));
-  if (opts.model) args.push("--model", opts.model);
-  if (opts.system) args.push("--append-system-prompt", opts.system);
-  if (opts.schema) args.push("--json-schema", JSON.stringify(opts.schema));
-  const out = await new Promise((resolve, reject) => {
-    const child = spawn2(cmd2, args, {
-      cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
-      env: process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-      timeout: opts.timeoutMs ?? 30 * 6e4,
-      signal: jobSignal()
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d2) => stdout += d2);
-    child.stderr.on("data", (d2) => stderr += d2);
-    child.on("error", reject);
-    child.on(
-      "close",
-      (code) => code === 0 ? resolve(stdout) : reject(new Error(`${cmd2} exited ${code}: ${(stderr || stdout).slice(-2e3)}`))
-    );
-    child.stdin.end(prompt);
-  });
-  const msg = JSON.parse(out);
-  if (msg.is_error) throw new Error(`claude: ${msg.subtype ?? "error"}: ${String(msg.result ?? "").slice(0, 2e3)}`);
-  let result = msg.structured_output ?? msg.result;
-  if (opts.schema && typeof result === "string") {
-    try {
-      result = JSON.parse(result);
-    } catch {
-    }
-  }
-  return { result, costUsd: msg.total_cost_usd, sessionId: msg.session_id, turns: msg.num_turns };
 }
 var jobContext;
 var init_src = __esm({
@@ -36499,13 +36909,1126 @@ var init_src = __esm({
   }
 });
 
+// node_modules/@nanobpm/agentic/dist/session/acp/protocol.js
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function optBool(record2, field) {
+  return record2[field] === true;
+}
+function readPromptCapabilities(value) {
+  if (!isRecord2(value)) {
+    return { image: false, audio: false, embeddedContext: false };
+  }
+  return {
+    image: optBool(value, "image"),
+    audio: optBool(value, "audio"),
+    embeddedContext: optBool(value, "embeddedContext")
+  };
+}
+function parseInitializeResult(value) {
+  if (!isRecord2(value)) {
+    throw new AcpProtocolError(`initialize result must be an object, got ${typeof value}`);
+  }
+  const protocolVersion = value.protocolVersion;
+  if (typeof protocolVersion !== "number" || !Number.isInteger(protocolVersion)) {
+    throw new AcpProtocolError(`initialize result "protocolVersion" must be an integer, got ${String(protocolVersion)}`);
+  }
+  const rawAgentCapabilities = value.agentCapabilities;
+  const caps = isRecord2(rawAgentCapabilities) ? rawAgentCapabilities : {};
+  return {
+    protocolVersion,
+    agentCapabilities: {
+      loadSession: optBool(caps, "loadSession"),
+      promptCapabilities: readPromptCapabilities(caps.promptCapabilities)
+    },
+    rawAgentCapabilities
+  };
+}
+function parseSessionId(value) {
+  if (!isRecord2(value)) {
+    throw new AcpProtocolError(`session result must be an object, got ${typeof value}`);
+  }
+  const sessionId = value.sessionId;
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    throw new AcpProtocolError(`session result "sessionId" must be a non-empty string`);
+  }
+  return sessionId;
+}
+function contentBlockText(value) {
+  if (typeof value === "string")
+    return value;
+  if (Array.isArray(value)) {
+    const parts = [];
+    for (const item of value) {
+      const text2 = contentBlockText(item);
+      if (text2 !== null)
+        parts.push(text2);
+    }
+    return parts.length > 0 ? parts.join("") : null;
+  }
+  if (!isRecord2(value))
+    return null;
+  const type = value.type;
+  if (type === "text") {
+    return typeof value.text === "string" ? value.text : null;
+  }
+  if (type === "resource") {
+    const resource = value.resource;
+    if (isRecord2(resource) && typeof resource.text === "string") {
+      return resource.text;
+    }
+    return null;
+  }
+  return null;
+}
+var ACP_PROTOCOL_VERSION, ACP_METHOD, ACP_CLIENT_METHOD, AcpProtocolError;
+var init_protocol = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/protocol.js"() {
+    ACP_PROTOCOL_VERSION = 1;
+    ACP_METHOD = {
+      initialize: "initialize",
+      sessionNew: "session/new",
+      sessionLoad: "session/load",
+      sessionPrompt: "session/prompt",
+      /** A notification — no response is expected. */
+      sessionCancel: "session/cancel"
+    };
+    ACP_CLIENT_METHOD = {
+      /** Streamed session activity — a notification the agent pushes to the client. */
+      sessionUpdate: "session/update",
+      /** The agent asks the client to approve a tool call. */
+      requestPermission: "session/request_permission"
+    };
+    AcpProtocolError = class extends Error {
+      constructor(message) {
+        super(message);
+        this.name = "AcpProtocolError";
+      }
+    };
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/jsonrpc.js
+function toRpcError(error64) {
+  if (isRecord2(error64)) {
+    const code = typeof error64.code === "number" ? error64.code : INTERNAL_ERROR;
+    const message = typeof error64.message === "string" ? error64.message : "ACP request failed";
+    return new AcpRpcError(code, message, error64.data);
+  }
+  return new AcpRpcError(INTERNAL_ERROR, "ACP request failed with a non-object error");
+}
+function errorPayload(reason) {
+  if (reason instanceof AcpRpcError) {
+    return { code: reason.code, message: reason.message, data: reason.data };
+  }
+  if (reason instanceof Error) {
+    return { code: INTERNAL_ERROR, message: reason.message };
+  }
+  return { code: INTERNAL_ERROR, message: String(reason) };
+}
+var AcpRpcError, METHOD_NOT_FOUND, INTERNAL_ERROR, AcpConnection;
+var init_jsonrpc = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/jsonrpc.js"() {
+    init_protocol();
+    AcpRpcError = class extends Error {
+      code;
+      data;
+      constructor(code, message, data) {
+        super(message);
+        this.name = "AcpRpcError";
+        this.code = code;
+        this.data = data;
+      }
+    };
+    METHOD_NOT_FOUND = -32601;
+    INTERNAL_ERROR = -32603;
+    AcpConnection = class {
+      #transport;
+      #pending = /* @__PURE__ */ new Map();
+      #notificationHandlers = /* @__PURE__ */ new Map();
+      #requestHandlers = /* @__PURE__ */ new Map();
+      #nextId = 1;
+      #closed = false;
+      constructor(transport) {
+        this.#transport = transport;
+        transport.onMessage((message) => this.#dispatch(message));
+        transport.onError((error64) => this.#failAll(error64));
+      }
+      /** Send a request and resolve with its `result` (or reject with its `error`). */
+      request(method, params) {
+        if (this.#closed) {
+          return Promise.reject(new Error(`ACP connection is closed; cannot call ${method}`));
+        }
+        const id = this.#nextId++;
+        return new Promise((resolve, reject) => {
+          this.#pending.set(id, { resolve, reject });
+          this.#transport.send({ jsonrpc: "2.0", id, method, params });
+        });
+      }
+      /** Send a fire-and-forget notification (no id, no response). */
+      notify(method, params) {
+        if (this.#closed)
+          return;
+        this.#transport.send({ jsonrpc: "2.0", method, params });
+      }
+      /** Register the handler for an inbound notification `method` (last wins). */
+      onNotification(method, handler) {
+        this.#notificationHandlers.set(method, handler);
+      }
+      /** Register the handler for an inbound request `method` (last wins). */
+      onRequest(method, handler) {
+        this.#requestHandlers.set(method, handler);
+      }
+      /** Close the connection, rejecting every in-flight request. */
+      close() {
+        if (this.#closed)
+          return;
+        this.#failAll(new Error("ACP connection closed"));
+        this.#closed = true;
+        this.#transport.close();
+      }
+      #dispatch(message) {
+        if (!isRecord2(message))
+          return;
+        const hasId = "id" in message && (typeof message.id === "number" || typeof message.id === "string");
+        const isResponse = hasId && ("result" in message || "error" in message);
+        if (isResponse) {
+          this.#handleResponse(message);
+          return;
+        }
+        if (typeof message.method === "string") {
+          if (hasId) {
+            this.#handleInboundRequest(message.method, message.id, message.params);
+          } else {
+            this.#handleInboundNotification(message.method, message.params);
+          }
+        }
+      }
+      #handleResponse(message) {
+        const id = message.id;
+        if (typeof id !== "number")
+          return;
+        const pending = this.#pending.get(id);
+        if (pending === void 0)
+          return;
+        this.#pending.delete(id);
+        if ("error" in message && message.error !== void 0 && message.error !== null) {
+          pending.reject(toRpcError(message.error));
+          return;
+        }
+        pending.resolve("result" in message ? message.result : void 0);
+      }
+      #handleInboundNotification(method, params) {
+        const handler = this.#notificationHandlers.get(method);
+        if (handler !== void 0)
+          handler(params);
+      }
+      #handleInboundRequest(method, id, params) {
+        const handler = this.#requestHandlers.get(method);
+        if (handler === void 0) {
+          this.#transport.send({
+            jsonrpc: "2.0",
+            id,
+            error: { code: METHOD_NOT_FOUND, message: `method not found: ${method}` }
+          });
+          return;
+        }
+        Promise.resolve().then(() => handler(params)).then((result) => this.#transport.send({ jsonrpc: "2.0", id, result: result ?? null }), (reason) => this.#transport.send({ jsonrpc: "2.0", id, error: errorPayload(reason) }));
+      }
+      #failAll(error64) {
+        for (const pending of this.#pending.values())
+          pending.reject(error64);
+        this.#pending.clear();
+      }
+    };
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/normalize.js
+function ignored(sessionUpdate, reason) {
+  return { kind: "ignored", sessionUpdate, reason };
+}
+function optMessageId(update) {
+  const id = update.messageId;
+  return typeof id === "string" ? id : null;
+}
+function classifyChunk(update, sessionUpdate) {
+  const role = CHUNK_ROLE[sessionUpdate];
+  const text2 = contentBlockText(update.content);
+  if (text2 === null) {
+    return ignored(sessionUpdate, `${role} chunk had no textual content`);
+  }
+  return { kind: "message", role, messageId: optMessageId(update), text: text2 };
+}
+function classifyToolCall(update) {
+  const callId = update.toolCallId;
+  if (typeof callId !== "string" || callId.length === 0) {
+    return ignored("tool_call", `tool_call missing a string "toolCallId"`);
+  }
+  const title = update.title;
+  const name2 = typeof title === "string" && title.length > 0 ? title : callId;
+  const args = "rawInput" in update && update.rawInput !== void 0 ? update.rawInput : null;
+  return { kind: "tool-call", callId, name: name2, args };
+}
+function classifyToolCallUpdate(update) {
+  const callId = update.toolCallId;
+  if (typeof callId !== "string" || callId.length === 0) {
+    return ignored("tool_call_update", `tool_call_update missing a string "toolCallId"`);
+  }
+  const status = update.status;
+  if (status !== "completed" && status !== "failed") {
+    return ignored("tool_call_update", `tool_call_update status "${String(status)}" is not terminal`);
+  }
+  const result = "rawOutput" in update ? update.rawOutput : update.content ?? null;
+  return { kind: "tool-result", callId, ok: status === "completed", result };
+}
+function classifyUpdate(value) {
+  if (!isRecord2(value)) {
+    return ignored("<none>", `update must be an object, got ${typeof value}`);
+  }
+  const sessionUpdate = value.sessionUpdate;
+  if (typeof sessionUpdate !== "string") {
+    return ignored("<none>", `update "sessionUpdate" must be a string, got ${typeof sessionUpdate}`);
+  }
+  if (sessionUpdate in CHUNK_ROLE) {
+    return classifyChunk(value, sessionUpdate);
+  }
+  if (sessionUpdate === "tool_call") {
+    return classifyToolCall(value);
+  }
+  if (sessionUpdate === "tool_call_update") {
+    return classifyToolCallUpdate(value);
+  }
+  return ignored(sessionUpdate, `${sessionUpdate} is not a canonical mind event`);
+}
+var CHUNK_ROLE;
+var init_normalize = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/normalize.js"() {
+    init_protocol();
+    CHUNK_ROLE = Object.assign(/* @__PURE__ */ Object.create(null), {
+      agent_message_chunk: "assistant",
+      agent_thought_chunk: "reasoning",
+      user_message_chunk: "user"
+    });
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/client.js
+import { randomUUID } from "node:crypto";
+function sameMessage(a, b) {
+  if (a === null && b === null)
+    return true;
+  return a === b;
+}
+function readStopReason(result) {
+  if (isRecord2(result) && typeof result.stopReason === "string")
+    return result.stopReason;
+  return null;
+}
+function defaultPermissionResponse(params) {
+  if (isRecord2(params) && Array.isArray(params.options)) {
+    for (const option of params.options) {
+      if (!isRecord2(option))
+        continue;
+      const kind = option.kind;
+      if (typeof kind === "string" && kind.startsWith("allow") && typeof option.optionId === "string") {
+        return { outcome: { outcome: "selected", optionId: option.optionId } };
+      }
+    }
+  }
+  return { outcome: { outcome: "cancelled" } };
+}
+function openAcpSession(transport, sink, options = {}) {
+  return new AcpSessionClient(new AcpConnection(transport), sink, options);
+}
+var AcpSessionClient;
+var init_client2 = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/client.js"() {
+    init_jsonrpc();
+    init_normalize();
+    init_protocol();
+    AcpSessionClient = class {
+      #connection;
+      #sink;
+      #newEventId;
+      #clientInfo;
+      #lastId = null;
+      #buffer;
+      #collector = null;
+      #sessionId;
+      constructor(connection, sink, options = {}) {
+        this.#connection = connection;
+        this.#sink = sink;
+        this.#newEventId = options.newEventId ?? randomUUID;
+        this.#clientInfo = options.clientInfo ?? { name: "nano-agentic", version: "0" };
+        const permit = options.onPermissionRequest ?? defaultPermissionResponse;
+        connection.onNotification(ACP_CLIENT_METHOD.sessionUpdate, (params) => this.#ingest(params));
+        connection.onRequest(ACP_CLIENT_METHOD.requestPermission, (params) => permit(params));
+      }
+      /** The active session id (after `newSession`/`restore`), or `undefined`. */
+      get sessionId() {
+        return this.#sessionId;
+      }
+      /**
+       * Perform the `initialize` handshake and return the durable-resume capability
+       * probe. Must be called before any `session/*` method.
+       */
+      async initialize() {
+        const result = await this.#connection.request(ACP_METHOD.initialize, {
+          protocolVersion: ACP_PROTOCOL_VERSION,
+          clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+          clientInfo: this.#clientInfo
+        });
+        const parsed = parseInitializeResult(result);
+        return {
+          protocolVersion: parsed.protocolVersion,
+          loadSession: parsed.agentCapabilities.loadSession,
+          durableResume: parsed.agentCapabilities.loadSession,
+          promptCapabilities: parsed.agentCapabilities.promptCapabilities,
+          agentCapabilities: parsed.rawAgentCapabilities
+        };
+      }
+      /** Open a fresh session (`session/new`); stores and returns its id. */
+      async newSession(params) {
+        const result = await this.#connection.request(ACP_METHOD.sessionNew, {
+          cwd: params.cwd,
+          mcpServers: params.mcpServers ?? []
+        });
+        this.#sessionId = parseSessionId(result);
+        return this.#sessionId;
+      }
+      /**
+       * **restore** — load an existing session (`session/load`). The agent replays its
+       * prior history as `session/update` notifications, which this client ingests
+       * into the sink; when the load resolves, the pending message is flushed. Returns
+       * the canonical events reconstructed from the replayed history, in order.
+       *
+       * Only valid against an agent whose probe reported `durableResume: true`.
+       */
+      async restore(sessionId, params) {
+        const collected = await this.#collecting(() => this.#connection.request(ACP_METHOD.sessionLoad, {
+          sessionId,
+          cwd: params.cwd,
+          mcpServers: params.mcpServers ?? []
+        }));
+        this.#sessionId = sessionId;
+        return collected.events;
+      }
+      /**
+       * **drive** — send a prompt (`session/prompt`) and resolve when the turn ends.
+       * All assistant output arrives as `session/update` notifications and is emitted
+       * to the sink during the call; the final buffered message is flushed on
+       * completion.
+       */
+      async prompt(input2) {
+        if (this.#sessionId === void 0) {
+          throw new Error("prompt requires an active session \u2014 call newSession() or restore() first");
+        }
+        const prompt = typeof input2 === "string" ? [{ type: "text", text: input2 }] : input2;
+        const collected = await this.#collecting(() => this.#connection.request(ACP_METHOD.sessionPrompt, { sessionId: this.#sessionId, prompt }));
+        return { stopReason: readStopReason(collected.result), events: collected.events };
+      }
+      /** **steer** — request cancellation of the running turn (`session/cancel`, a notification). */
+      cancel() {
+        if (this.#sessionId === void 0)
+          return;
+        this.#connection.notify(ACP_METHOD.sessionCancel, { sessionId: this.#sessionId });
+      }
+      /** Close the underlying connection and flush any pending buffered message. */
+      close() {
+        this.#flushMessage();
+        this.#connection.close();
+      }
+      async #collecting(op) {
+        const events = [];
+        const previous = this.#collector;
+        this.#collector = events;
+        try {
+          const result = await op();
+          this.#flushMessage();
+          return { result, events };
+        } finally {
+          this.#collector = previous;
+        }
+      }
+      #ingest(params) {
+        if (!isRecord2(params))
+          return;
+        const sessionId = params.sessionId;
+        if (this.#sessionId !== void 0 && typeof sessionId === "string" && sessionId !== this.#sessionId) {
+          return;
+        }
+        const update = classifyUpdate(params.update);
+        switch (update.kind) {
+          case "message":
+            this.#appendMessage(update);
+            return;
+          case "tool-call": {
+            this.#flushMessage();
+            const { id, parentId } = this.#nextIdentity();
+            this.#push({ type: "tool-call", id, parentId, callId: update.callId, name: update.name, args: update.args });
+            return;
+          }
+          case "tool-result": {
+            this.#flushMessage();
+            const { id, parentId } = this.#nextIdentity();
+            this.#push({ type: "tool-result", id, parentId, callId: update.callId, ok: update.ok, result: update.result });
+            return;
+          }
+          case "ignored":
+            return;
+        }
+      }
+      #appendMessage(update) {
+        const buffer = this.#buffer;
+        if (buffer !== void 0 && buffer.role === update.role && sameMessage(buffer.messageId, update.messageId)) {
+          this.#buffer = { role: buffer.role, messageId: buffer.messageId, text: buffer.text + update.text };
+          return;
+        }
+        this.#flushMessage();
+        this.#buffer = { role: update.role, messageId: update.messageId, text: update.text };
+      }
+      #flushMessage() {
+        const buffer = this.#buffer;
+        if (buffer === void 0)
+          return;
+        this.#buffer = void 0;
+        const { id, parentId } = this.#nextIdentity();
+        switch (buffer.role) {
+          case "assistant":
+            this.#push({ type: "assistant", id, parentId, text: buffer.text });
+            return;
+          case "reasoning":
+            this.#push({ type: "reasoning", id, parentId, text: buffer.text });
+            return;
+          case "user":
+            this.#push({ type: "user", id, parentId, text: buffer.text });
+            return;
+        }
+      }
+      #nextIdentity() {
+        const id = this.#newEventId();
+        const parentId = this.#lastId;
+        this.#lastId = id;
+        return { id, parentId };
+      }
+      #push(event) {
+        this.#sink.emit(event);
+        this.#collector?.push(event);
+      }
+    };
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/transcript/events.js
+function str(body2, key) {
+  const v2 = body2[key];
+  return typeof v2 === "string" ? v2 : void 0;
+}
+function num(body2, key) {
+  const v2 = body2[key];
+  return typeof v2 === "number" && Number.isFinite(v2) ? v2 : void 0;
+}
+function bool(body2, key) {
+  const v2 = body2[key];
+  return typeof v2 === "boolean" ? v2 : void 0;
+}
+function toRole(value) {
+  return ROLES.find((role) => role === value) ?? "assistant";
+}
+function isRecord3(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function decodePermissionOptions(value) {
+  if (!Array.isArray(value) || value.length === 0)
+    return void 0;
+  const options = [];
+  for (const raw of value) {
+    if (!isRecord3(raw))
+      return void 0;
+    const optionId = str(raw, "optionId");
+    const name2 = str(raw, "name");
+    const kindRaw = str(raw, "kind");
+    const kind = PERMISSION_OPTION_KINDS.find((k2) => k2 === kindRaw);
+    if (optionId === void 0 || name2 === void 0 || kind === void 0)
+      return void 0;
+    options.push({ optionId, name: name2, kind });
+  }
+  return options;
+}
+var ROLES, PERMISSION_OPTION_KINDS, CORE_TRANSCRIPT_VOCAB, CORE_TRANSCRIPT_EVENT_KINDS;
+var init_events = __esm({
+  "node_modules/@nanobpm/agentic/dist/transcript/events.js"() {
+    ROLES = ["assistant", "user", "system", "tool"];
+    PERMISSION_OPTION_KINDS = [
+      "allow-once",
+      "allow-always",
+      "reject-once",
+      "reject-always"
+    ];
+    CORE_TRANSCRIPT_VOCAB = Object.freeze(Object.assign(/* @__PURE__ */ Object.create(null), {
+      message: (body2, offset) => {
+        const text2 = str(body2, "text");
+        if (text2 === void 0)
+          return void 0;
+        const roleRaw = str(body2, "role");
+        const messageId = str(body2, "messageId");
+        if (body2.messageId !== void 0 && messageId === void 0)
+          return void 0;
+        let mode;
+        if (body2.mode !== void 0) {
+          const modeRaw = str(body2, "mode");
+          if (modeRaw !== "delta" && modeRaw !== "snapshot")
+            return void 0;
+          mode = modeRaw;
+        }
+        const start = bool(body2, "start");
+        if (body2.start !== void 0 && start === void 0)
+          return void 0;
+        const final = bool(body2, "final");
+        if (body2.final !== void 0 && final === void 0)
+          return void 0;
+        return {
+          kind: "message",
+          offset,
+          role: toRole(roleRaw),
+          text: text2,
+          ...messageId !== void 0 ? { messageId } : {},
+          ...mode !== void 0 ? { mode } : {},
+          ...start !== void 0 ? { start } : {},
+          ...final !== void 0 ? { final } : {}
+        };
+      },
+      "tool-call": (body2, offset) => {
+        const name2 = str(body2, "name");
+        if (name2 === void 0)
+          return void 0;
+        const event = { kind: "tool-call", offset, name: name2 };
+        const callId = str(body2, "callId");
+        return {
+          ...event,
+          ...callId !== void 0 ? { callId } : {},
+          ..."args" in body2 ? { args: body2.args } : {}
+        };
+      },
+      "tool-result": (body2, offset) => {
+        const ok = typeof body2.ok === "boolean" ? body2.ok : true;
+        const event = { kind: "tool-result", offset, ok };
+        const callId = str(body2, "callId");
+        const content = str(body2, "content");
+        return {
+          ...event,
+          ...callId !== void 0 ? { callId } : {},
+          ...content !== void 0 ? { content } : {}
+        };
+      },
+      turn: (body2, offset) => {
+        const index = num(body2, "index");
+        return index !== void 0 ? { kind: "turn", offset, index } : { kind: "turn", offset };
+      },
+      step: (body2, offset) => {
+        const label = str(body2, "label");
+        return label !== void 0 ? { kind: "step", offset, label } : { kind: "step", offset };
+      },
+      lifecycle: (body2, offset) => {
+        const phase = str(body2, "phase");
+        if (phase !== "open" && phase !== "completed" && phase !== "exited")
+          return void 0;
+        return { kind: "lifecycle", offset, phase };
+      },
+      // A single `permission` decoder handles BOTH shapes (never a parser fork), branching on `phase`.
+      // Malformed envelopes return `undefined` and fall back to `stream-chunk`, like the other decoders.
+      permission: (body2, offset) => {
+        const callId = str(body2, "callId");
+        if (callId === void 0)
+          return void 0;
+        const phase = str(body2, "phase");
+        if (phase === "request") {
+          const policy = str(body2, "policy");
+          if (policy !== "escalate" && policy !== "yolo")
+            return void 0;
+          const options = decodePermissionOptions(body2.options);
+          if (options === void 0)
+            return void 0;
+          const toolName = str(body2, "toolName");
+          const title = str(body2, "title");
+          const reason = str(body2, "reason");
+          if (body2.toolName !== void 0 && toolName === void 0)
+            return void 0;
+          if (body2.title !== void 0 && title === void 0)
+            return void 0;
+          if (body2.reason !== void 0 && reason === void 0)
+            return void 0;
+          const event = { kind: "permission", phase: "request", offset, callId, policy, options };
+          return {
+            ...event,
+            ...toolName !== void 0 ? { toolName } : {},
+            ...title !== void 0 ? { title } : {},
+            ...reason !== void 0 ? { reason } : {}
+          };
+        }
+        if (phase === "resolution") {
+          const optionId = str(body2, "optionId");
+          if (optionId === void 0)
+            return void 0;
+          if (typeof body2.allowed !== "boolean")
+            return void 0;
+          const by = str(body2, "by");
+          if (body2.by !== void 0 && by === void 0)
+            return void 0;
+          if (by !== void 0 && by !== "operator" && by !== "auto")
+            return void 0;
+          const event = {
+            kind: "permission",
+            phase: "resolution",
+            offset,
+            callId,
+            optionId,
+            allowed: body2.allowed
+          };
+          return { ...event, ...by !== void 0 ? { by } : {} };
+        }
+        return void 0;
+      }
+    }));
+    CORE_TRANSCRIPT_EVENT_KINDS = Object.freeze([
+      "message",
+      "tool-call",
+      "tool-result",
+      "turn",
+      "step",
+      "lifecycle",
+      "permission"
+    ]);
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/transcript-bridge.js
+var ACP_ROLE_TO_TRANSCRIPT;
+var init_transcript_bridge = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/transcript-bridge.js"() {
+    init_events();
+    init_normalize();
+    ACP_ROLE_TO_TRANSCRIPT = Object.freeze({
+      assistant: "assistant",
+      reasoning: "assistant",
+      user: "user"
+    });
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/transport.js
+function encodeMessageLine(message) {
+  const json5 = JSON.stringify(message);
+  if (json5 === void 0) {
+    throw new Error("ACP transport cannot encode a non-JSON-serialisable message");
+  }
+  return `${json5}
+`;
+}
+var NewlineJsonDecoder;
+var init_transport = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/transport.js"() {
+    NewlineJsonDecoder = class {
+      #buffer = "";
+      #onMessage;
+      #onError;
+      constructor(onMessage, onError) {
+        this.#onMessage = onMessage;
+        this.#onError = onError;
+      }
+      /** Feed a decoded string chunk; emits every complete line it now contains. */
+      push(chunk) {
+        this.#buffer += chunk;
+        let newlineIndex = this.#buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const line = this.#buffer.slice(0, newlineIndex).trim();
+          this.#buffer = this.#buffer.slice(newlineIndex + 1);
+          if (line.length > 0)
+            this.#deliver(line);
+          newlineIndex = this.#buffer.indexOf("\n");
+        }
+      }
+      /**
+       * Deliver any final buffered line at stream end (EOF without a trailing
+       * newline). A compliant peer newline-terminates every message, but on abrupt
+       * process/pipe EOF a complete final message can sit unterminated in the buffer;
+       * flushing it surfaces the message (or a parse error) instead of silently
+       * dropping it. Idempotent: it clears the buffer, so a second call is a no-op.
+       */
+      flush() {
+        const line = this.#buffer.trim();
+        this.#buffer = "";
+        if (line.length > 0)
+          this.#deliver(line);
+      }
+      #deliver(line) {
+        let parsed;
+        try {
+          parsed = JSON.parse(line);
+        } catch (cause) {
+          this.#onError(new Error(`ACP transport received a non-JSON line: ${line.slice(0, 200)}`, { cause }));
+          return;
+        }
+        this.#onMessage(parsed);
+      }
+    };
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/spawn.js
+import { spawn as spawn2 } from "node:child_process";
+function spawnAcpTransport(options) {
+  const child = spawn2(options.command, [...options.args ?? []], {
+    cwd: options.cwd,
+    env: { ...process.env, ...options.env }
+  });
+  child.stdout.setEncoding("utf8");
+  let messageHandler;
+  let errorHandler;
+  let closed = false;
+  const decoder = new NewlineJsonDecoder((message) => messageHandler?.(message), (error64) => errorHandler?.(error64));
+  child.stdout.on("data", (chunk) => decoder.push(chunk));
+  child.stdout.on("end", () => decoder.flush());
+  child.on("error", (error64) => errorHandler?.(error64));
+  child.on("exit", (code, signal) => {
+    if (closed)
+      return;
+    errorHandler?.(new Error(`ACP harness exited (code=${String(code)}, signal=${String(signal)})`));
+  });
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => options.onStderr?.(chunk));
+  return {
+    child,
+    send(message) {
+      if (closed)
+        return;
+      child.stdin.write(encodeMessageLine(message));
+    },
+    onMessage(handler) {
+      messageHandler = handler;
+    },
+    onError(handler) {
+      errorHandler = handler;
+    },
+    close() {
+      if (closed)
+        return;
+      closed = true;
+      child.stdin.end();
+      child.kill();
+    }
+  };
+}
+var init_spawn = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/spawn.js"() {
+    init_transport();
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/session/acp/index.js
+var init_acp = __esm({
+  "node_modules/@nanobpm/agentic/dist/session/acp/index.js"() {
+    init_client2();
+    init_normalize();
+    init_transcript_bridge();
+    init_jsonrpc();
+    init_transport();
+    init_spawn();
+    init_protocol();
+  }
+});
+
+// src/agent-run.ts
+import { spawn as spawn3 } from "node:child_process";
+function runAgentCli(r2) {
+  return r2.profile.protocol === "claude" ? runClaude(r2) : runAcp(r2);
+}
+function schemaNote(schema) {
+  return schema ? `
+
+Finish with only a JSON object matching this JSON schema (no prose around it):
+\`\`\`json
+${JSON.stringify(schema)}
+\`\`\`
+` : "";
+}
+async function runAcp(r2) {
+  const { command, args, env } = launch(r2.name, r2.profile, r2.model);
+  let stderr = "";
+  const t = spawnAcpTransport({
+    command,
+    args,
+    cwd: r2.cwd,
+    env: { ...process.env, ...env },
+    onStderr: (c) => stderr = (stderr + c).slice(-4e3)
+  });
+  const exited = new Promise((_2, reject) => {
+    t.child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
+    t.child.on("exit", (code, sig) => reject(new Error(`${command} exited (${sig ?? code}) before finishing: ${stderr.trim().slice(-1500)}`)));
+  });
+  exited.catch(() => {
+  });
+  let pending;
+  let last = Date.now();
+  const flush = () => {
+    if (pending) r2.onTurn(pending);
+    pending = void 0;
+  };
+  let finalText = "";
+  const session = openAcpSession(
+    t,
+    {
+      emit: (e) => {
+        const now = Date.now();
+        if (e.type === "assistant") {
+          if (pending?.role !== "ASSISTANT" || pending.toolCalls) {
+            flush();
+            pending = { role: "ASSISTANT", text: "", metrics: { durationMs: now - last } };
+            finalText = "";
+          }
+          pending.text += e.text;
+          finalText += e.text;
+        } else if (e.type === "tool-call") {
+          if (pending?.role !== "ASSISTANT") {
+            flush();
+            pending = { role: "ASSISTANT", metrics: { durationMs: now - last } };
+          }
+          (pending.toolCalls ??= []).push({ id: e.callId, name: e.name, args: e.args });
+        } else if (e.type === "tool-result") {
+          flush();
+          r2.onTurn({ role: "TOOL_RESULT", toolCallId: e.callId, result: e.result, ok: e.ok });
+        } else if (e.type === "usage") {
+          if (pending) pending.metrics = { ...pending.metrics, inputTokens: e.inputTokens, outputTokens: e.outputTokens };
+        } else return;
+        last = now;
+      }
+    },
+    { clientInfo: { name: "agent-graph-engine", version: "1" } }
+  );
+  const stop = () => {
+    session.cancel();
+    t.child.kill();
+  };
+  r2.signal?.addEventListener("abort", stop, { once: true });
+  try {
+    await Promise.race([session.initialize(), exited]);
+    await Promise.race([session.newSession({ cwd: r2.cwd }), exited]);
+    const text2 = `${r2.system ? `${r2.system}
+
+` : ""}${r2.prompt}${schemaNote(r2.schema)}`;
+    r2.onTurn({ role: "USER", text: text2 });
+    const res = await Promise.race([session.prompt(text2), exited]);
+    flush();
+    if (res.stopReason && !/end_turn|max_tokens/.test(res.stopReason)) throw new Error(`${r2.name} stopped: ${res.stopReason}`);
+    return { result: r2.schema ? parseJson(finalText) ?? finalText : finalText, model: r2.model ?? r2.profile.model };
+  } finally {
+    flush();
+    r2.signal?.removeEventListener("abort", stop);
+    session.close();
+    t.child.kill();
+  }
+}
+async function runClaude(r2) {
+  const { command, env } = launch(r2.name, r2.profile);
+  const args = ["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", r2.permissionMode ?? "dontAsk", ...r2.profile.args ?? []];
+  if (r2.allowedTools?.length) args.push("--allowedTools", r2.allowedTools.join(","));
+  const model = r2.model ?? r2.profile.model;
+  if (model) args.push(r2.profile.modelArg ?? "--model", model);
+  if (r2.system) args.push("--append-system-prompt", r2.system);
+  if (r2.schema) args.push("--json-schema", JSON.stringify(r2.schema));
+  r2.onTurn({ role: "USER", text: r2.prompt });
+  return new Promise((resolve, reject) => {
+    const child = spawn3(command, args, { cwd: r2.cwd, env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"], signal: r2.signal });
+    let buf = "";
+    let stderr = "";
+    let final;
+    let usedModel;
+    let last = Date.now();
+    const line = (l) => {
+      if (!l.trim()) return;
+      let m2;
+      try {
+        m2 = JSON.parse(l);
+      } catch {
+        return;
+      }
+      if (m2.type === "system" && m2.model) usedModel = m2.model;
+      else if (m2.type === "assistant") {
+        const content = m2.message?.content ?? [];
+        const text2 = content.filter((c) => c.type === "text").map((c) => c.text).join("");
+        const calls = content.filter((c) => c.type === "tool_use").map((c) => ({ id: c.id, name: c.name, args: c.input }));
+        const u2 = m2.message?.usage;
+        const now = Date.now();
+        if (text2 || calls.length)
+          r2.onTurn({
+            role: "ASSISTANT",
+            text: text2 || void 0,
+            toolCalls: calls.length ? calls : void 0,
+            model: m2.message?.model,
+            metrics: { inputTokens: u2?.input_tokens, outputTokens: u2?.output_tokens, cacheReadTokenCount: u2?.cache_read_input_tokens, cacheCreationTokenCount: u2?.cache_creation_input_tokens, durationMs: now - last }
+          });
+        last = now;
+      } else if (m2.type === "user") {
+        for (const c of m2.message?.content ?? [])
+          if (c.type === "tool_result") r2.onTurn({ role: "TOOL_RESULT", toolCallId: c.tool_use_id, result: c.content, ok: !c.is_error });
+        last = Date.now();
+      } else if (m2.type === "result") final = m2;
+    };
+    child.stdout.on("data", (d2) => {
+      buf += d2;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        line(buf.slice(0, i));
+        buf = buf.slice(i + 1);
+      }
+    });
+    child.stderr.on("data", (d2) => stderr = (stderr + d2).slice(-4e3));
+    child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
+    child.on("close", (code) => {
+      line(buf);
+      if (!final) return reject(new Error(`${command} exited ${code}: ${stderr.slice(-2e3)}`));
+      if (final.is_error) return reject(new Error(`claude: ${final.subtype ?? "error"}: ${String(final.result ?? "").slice(0, 2e3)}`));
+      let result = final.structured_output ?? final.result;
+      if (r2.schema && typeof result === "string") result = parseJson(result) ?? result;
+      resolve({ result, costUsd: final.total_cost_usd, model: usedModel ?? model });
+    });
+    child.stdin.end(r2.prompt);
+  });
+}
+function parseJson(text2) {
+  const tryParse = (s) => {
+    try {
+      const v2 = JSON.parse(s);
+      return v2 && typeof v2 === "object" && !Array.isArray(v2) ? v2 : void 0;
+    } catch {
+      return void 0;
+    }
+  };
+  const fenced = text2.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (fenced) return tryParse(fenced[1]);
+  const start = text2.indexOf("{");
+  if (start < 0) return void 0;
+  for (let end = text2.lastIndexOf("}"); end > start; end = text2.lastIndexOf("}", end - 1)) {
+    const v2 = tryParse(text2.slice(start, end + 1));
+    if (v2) return v2;
+  }
+  return void 0;
+}
+var init_agent_run = __esm({
+  "src/agent-run.ts"() {
+    "use strict";
+    init_acp();
+    init_agents();
+  }
+});
+
+// src/agent-record.ts
+function clip(s) {
+  return s.length > MAX_TEXT ? `${s.slice(0, MAX_TEXT)}
+\u2026 (${s.length - MAX_TEXT} more characters)` : s;
+}
+function contentFor(v2) {
+  if (typeof v2 === "string") return { contentType: "TEXT", text: clip(v2) };
+  if (Array.isArray(v2) && v2.every((b) => b && typeof b === "object" && "text" in b)) return { contentType: "TEXT", text: clip(v2.map((b) => b.text).join("\n")) };
+  const json5 = JSON.stringify(v2 ?? null);
+  return json5.length > MAX_TEXT ? { contentType: "TEXT", text: clip(json5) } : { contentType: "OBJECT", object: v2 ?? null };
+}
+var MAX_TEXT, AgentRecorder;
+var init_agent_record = __esm({
+  "src/agent-record.ts"() {
+    "use strict";
+    MAX_TEXT = 2e4;
+    AgentRecorder = class {
+      engine;
+      job;
+      config;
+      onError;
+      onChange;
+      agentInstanceKey;
+      n = 0;
+      failed = false;
+      constructor(engine, job, config2, onError, onChange) {
+        this.engine = engine;
+        this.job = job;
+        this.config = config2;
+        this.onError = onError;
+        this.onChange = onChange;
+      }
+      item(role, extra) {
+        return { historyItemId: `${this.job.key}-${++this.n}`, loopIteration: 1, producedAt: (/* @__PURE__ */ new Date()).toISOString(), role, content: [], ...extra };
+      }
+      attribution() {
+        return { elementInstanceKey: this.job.elementInstanceKey, jobKey: this.job.key, jobLeaseToken: this.job.jobLeaseToken };
+      }
+      /** Create (or, on a retry of the same step, adopt) the AgentInstance. */
+      ensure() {
+        if (this.failed) return false;
+        if (this.agentInstanceKey) return true;
+        const configuration = this.item("CONFIGURATION", {
+          model: this.config.model,
+          provider: this.config.provider,
+          systemPrompt: [{ contentType: "TEXT", text: clip(this.config.systemPrompt) || "(none)" }]
+        });
+        try {
+          const r2 = JSON.parse(this.engine.createAgentInstance(JSON.stringify({ ...this.attribution(), history: [configuration] })));
+          this.agentInstanceKey = String(r2.agentInstanceKey);
+        } catch (e) {
+          const adopt = /associated with agent instance (\d+)/.exec(String(e?.message ?? e));
+          if (adopt) {
+            this.agentInstanceKey = adopt[1];
+            this.update({ history: [configuration] });
+          } else return this.fail(e);
+        }
+        this.onChange();
+        return !this.failed;
+      }
+      update(body2) {
+        try {
+          this.engine.updateAgentInstance(this.agentInstanceKey, JSON.stringify({ ...this.attribution(), ...body2 }));
+          this.onChange();
+        } catch (e) {
+          this.fail(e);
+        }
+      }
+      fail(e) {
+        this.failed = true;
+        this.onError(`agent transcript not recorded: ${String(e?.message ?? e).slice(0, 300)}`);
+        return false;
+      }
+      start() {
+        this.ensure();
+      }
+      /** The agent answered. COMPLETED is the engine's to set (when the run ends); until
+       *  then an agent that has finished its turn is IDLE. */
+      done() {
+        if (this.agentInstanceKey && !this.failed) this.update({ status: "IDLE", history: [] });
+      }
+      turn(t) {
+        if (!this.ensure()) return;
+        const content = [];
+        if (t.role === "TOOL_RESULT") content.push(contentFor(t.result));
+        else if (t.text) content.push({ contentType: "TEXT", text: clip(t.text) });
+        const extra = { content };
+        if (t.toolCalls?.length)
+          extra.toolCalls = t.toolCalls.map((c) => ({ toolCallId: c.id, toolName: c.name, elementId: null, arguments: c.args && typeof c.args === "object" ? c.args : { value: c.args } }));
+        if (t.toolCallId) extra.toolCallId = t.toolCallId;
+        if (t.metrics) extra.metrics = Object.fromEntries(Object.entries(t.metrics).filter(([, v2]) => typeof v2 === "number"));
+        const status = t.role === "ASSISTANT" ? t.toolCalls?.length ? "TOOL_CALLING" : "THINKING" : "THINKING";
+        this.update({ status, history: [this.item(t.role, extra)] });
+      }
+    };
+  }
+});
+
 // src/explorer-html.ts
-import fs5 from "node:fs";
+import fs6 from "node:fs";
 function explorerHtml() {
   if (cached2) return cached2;
   for (const rel of ["./explorer.html", "../dist/explorer.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs5.existsSync(u2)) return cached2 = fs5.readFileSync(u2, "utf8");
+    if (fs6.existsSync(u2)) return cached2 = fs6.readFileSync(u2, "utf8");
   }
   return "<!doctype html><title>Agent Graph Engine</title><p>Explorer not built \u2014 run <code>npm run build</code>. API: <a href=/api/state>/api/state</a>";
 }
@@ -36513,7 +38036,7 @@ function appHtml() {
   if (cachedApp) return cachedApp;
   for (const rel of ["./explorer-app.html", "../dist/explorer-app.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs5.existsSync(u2)) return cachedApp = fs5.readFileSync(u2, "utf8");
+    if (fs6.existsSync(u2)) return cachedApp = fs6.readFileSync(u2, "utf8");
   }
   return "<!doctype html><p>Explorer not built \u2014 run <code>npm run build</code>.";
 }
@@ -36525,13 +38048,13 @@ var init_explorer_html = __esm({
 });
 
 // src/explorer-api.ts
-import path4 from "node:path";
+import path5 from "node:path";
 function instanceFacts(events) {
   const out = /* @__PURE__ */ new Map();
   const jobs = /* @__PURE__ */ new Map();
   const elementByKey = /* @__PURE__ */ new Map();
   for (const e of events) {
-    const ik = str(e.instance_key);
+    const ik = str2(e.instance_key);
     if (!ik) continue;
     if (e.type === "ProcessInstanceCreated") {
       out.set(ik, {
@@ -36540,9 +38063,9 @@ function instanceFacts(events) {
         startedAt: e.created_at ?? e.now,
         endedAt: null,
         outcome: "active",
-        parentKey: str(e.parent_process_instance_key),
-        parentElementKey: str(e.parent_element_instance_key),
-        businessId: str(e.business_id),
+        parentKey: str2(e.parent_process_instance_key),
+        parentElementKey: str2(e.parent_element_instance_key),
+        businessId: str2(e.business_id),
         elements: /* @__PURE__ */ new Map(),
         incidents: /* @__PURE__ */ new Map(),
         path: []
@@ -36618,7 +38141,7 @@ function instanceFacts(events) {
         break;
       }
       case "IncidentRaised": {
-        const elementKey = str(e.element_instance_key) ?? "";
+        const elementKey = str2(e.element_instance_key) ?? "";
         f2.incidents.set(String(e.incident_key), {
           elementId: e.element_id ?? "",
           elementInstanceKey: elementKey,
@@ -36670,7 +38193,7 @@ function instanceView(host, f2, live, incidentOpen) {
     has_incident: incidentOpen,
     business_id: f2.businessId ?? meta3?.title ?? null,
     suspendedDate: null,
-    tags: [path4.basename(project2), ...meta3?.title ? [meta3.title] : []],
+    tags: [path5.basename(project2), ...meta3?.title ? [meta3.title] : []],
     parent_process_instance_key: f2.parentKey,
     parent_element_instance_key: f2.parentElementKey
   };
@@ -36687,7 +38210,7 @@ function listInstances(host, q) {
   const page = Math.max(0, Number(q.page ?? 0) || 0);
   const pageSize = Math.min(200, Math.max(1, Number(q.pageSize ?? 50)));
   const all = [...facts.values()].map((f2) => instanceView(host, f2, live.get(f2.key), openIncidents.has(f2.key))).filter(
-    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path4.resolve(q.project))
+    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path5.resolve(q.project))
   ).sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
   return { items: all.slice(page * pageSize, (page + 1) * pageSize), total: all.length, page, pageSize };
 }
@@ -36760,20 +38283,20 @@ function getTrace(host, key) {
     path: f2.path
   };
 }
-var str;
+var str2;
 var init_explorer_api = __esm({
   "src/explorer-api.ts"() {
     "use strict";
-    str = (v2) => v2 == null ? null : String(v2);
+    str2 = (v2) => v2 == null ? null : String(v2);
   }
 });
 
 // src/step-pool.ts
-import fs6 from "node:fs";
+import fs7 from "node:fs";
 import { Worker as Thread } from "node:worker_threads";
 function threadUrl() {
   const js = new URL("./step-thread.js", import.meta.url);
-  return fs6.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
+  return fs7.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
 }
 var GRACE_MS, StepPool;
 var init_step_pool = __esm({
@@ -36963,24 +38486,15 @@ __export(daemon_exports, {
   Host: () => Host,
   serve: () => serve
 });
-import fs7 from "node:fs";
+import fs8 from "node:fs";
 import http from "node:http";
-import path5 from "node:path";
+import path6 from "node:path";
 import crypto3 from "node:crypto";
 function agentMode() {
   const m2 = process.env.AGE_AGENT_MODE ?? "auto";
   if (m2 === "cli" || m2 === "session") return m2;
   if (process.env.AGE_CLAUDE_CMD) return "cli";
-  const home = process.env.HOME ?? "";
-  const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, "/opt/homebrew/bin", "/usr/local/bin"];
-  for (const d2 of dirs) {
-    const f2 = path5.join(d2, "claude");
-    if (d2 && fs7.existsSync(f2)) {
-      process.env.AGE_CLAUDE_CMD = f2;
-      return "cli";
-    }
-  }
-  return "session";
+  return anyAgentInstalled() ? "cli" : "session";
 }
 function decodeValue(v2) {
   if (v2 === "Null") return null;
@@ -37020,11 +38534,11 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const watch = () => {
     for (const root of [host.home, ...host.projects]) {
       const dir = flowsDir(root);
-      if (watched.has(dir) || !fs7.existsSync(dir)) continue;
+      if (watched.has(dir) || !fs8.existsSync(dir)) continue;
       try {
         watched.set(
           dir,
-          fs7.watch(dir, { recursive: true }, () => {
+          fs8.watch(dir, { recursive: true }, () => {
             clearTimeout(reloadTimer);
             reloadTimer = setTimeout(() => host.reload().catch(() => {
             }), 300);
@@ -37073,18 +38587,22 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         const t = getTrace(host, mm[1]);
         return t ? send(res, 200, t) : send(res, 404, { error: "no trace" });
       }
+      if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/instances\/([^/]+)\/agents$/)))
+        return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ processInstanceKey: mm[1] }))).items);
+      if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/agents\/([^/]+)\/history$/)))
+        return send(res, 200, JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items);
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
       if (p2 === "/api/reload") return send(res, 200, await host.reload());
       if (p2 === "/api/projects") {
-        if (typeof b.path !== "string" || !path5.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
+        if (typeof b.path !== "string" || !path6.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
         if (host.addProject(b.path)) {
           await host.reload();
           watch();
         }
         return send(res, 200, { ok: true, projects: host.projects });
       }
-      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project) });
+      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host) });
       if (mm = m2(/^\/api\/user-tasks\/([^/]+)\/complete$/)) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
       if (p2 === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if (mm = m2(/^\/api\/jobs\/([^/]+)\/complete$/)) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
@@ -37104,12 +38622,12 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       return send(res, 400, { error: String(e?.message ?? e) });
     }
   });
-  const infoFile = path5.join(host.dir, "daemon.json");
+  const infoFile = path6.join(host.dir, "daemon.json");
   function shutdown() {
     host.stop();
     try {
-      const cur = JSON.parse(fs7.readFileSync(infoFile, "utf8"));
-      if (cur.pid === process.pid) fs7.unlinkSync(infoFile);
+      const cur = JSON.parse(fs8.readFileSync(infoFile, "utf8"));
+      if (cur.pid === process.pid) fs8.unlinkSync(infoFile);
     } catch {
     }
     server.close();
@@ -37128,7 +38646,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   v6.listen(addr.port, "::1");
   server.on("close", () => v6.close());
   const info = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  fs7.writeFileSync(infoFile, JSON.stringify(info, null, 2));
+  fs8.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
 var WORKER, TICK_MS, MAX_CONCURRENT, STEP_THREADS, MIN, jobTimeoutMs, Host;
@@ -37137,6 +38655,9 @@ var init_daemon = __esm({
     "use strict";
     init_compile2();
     init_src();
+    init_agents();
+    init_agent_run();
+    init_agent_record();
     init_wasm();
     init_paths();
     init_explorer_html();
@@ -37152,7 +38673,7 @@ var init_daemon = __esm({
     Host = class {
       /** The global flow library (~/AgentGraph): its flows are offered in every project.
        *  Claude Desktop, which has no project, works there. */
-      home = path5.resolve(defaultHome());
+      home = path6.resolve(defaultHome());
       dir;
       /** Projects whose flows/ this engine loads (registered by clients as they connect). */
       projects = [];
@@ -37172,16 +38693,26 @@ var init_daemon = __esm({
       agentMode = agentMode();
       dirty = false;
       timer;
+      /** Lease tokens of agent jobs this engine activated (job key → token). Agent jobs are
+       *  activated with a lease so their AgentInstance writes are fenced to the activation;
+       *  completing or failing them needs the token, so it survives a restart. */
+      leases = {};
       /** Threads that run flow code (`run` steps and custom workers). */
       steps = STEP_THREADS ? new StepPool(MAX_CONCURRENT, (m2) => this.log({ kind: "daemon", message: m2 })) : void 0;
       constructor(dir = engineDir()) {
         this.dir = dir;
-        fs7.mkdirSync(path5.join(this.dir, "compiled"), { recursive: true });
+        fs8.mkdirSync(path6.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
         this.worker = new Worker(
           {
-            complete: (key, vars) => this.engine.completeJob(key, JSON.stringify(vars)),
-            fail: (key, retries, msg) => this.engine.failJob(key, retries, msg)
+            complete: (key, vars) => {
+              this.engine.completeJob(key, JSON.stringify(vars), this.leases[key] ?? null);
+              delete this.leases[key];
+            },
+            fail: (key, retries, msg) => {
+              this.engine.failJob(key, retries, msg, this.leases[key] ?? null);
+              delete this.leases[key];
+            }
           },
           {
             maxConcurrent: MAX_CONCURRENT,
@@ -37193,29 +38724,30 @@ var init_daemon = __esm({
             onError: (job, err) => this.agentUnavailable(job, err)
           }
         );
-        const journal = path5.join(this.dir, "journal.json");
-        if (fs7.existsSync(journal)) {
-          this.engine.replayEvents(fs7.readFileSync(journal, "utf8"));
+        const journal = path6.join(this.dir, "journal.json");
+        if (fs8.existsSync(journal)) {
+          this.engine.replayEvents(fs8.readFileSync(journal, "utf8"));
           this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
         }
         this.deployed = this.readJson("deployed.json", {});
-        this.projects = this.readJson("projects.json", []).filter((p2) => fs7.existsSync(p2));
+        this.projects = this.readJson("projects.json", []).filter((p2) => fs8.existsSync(p2));
         this.instanceMeta = this.readJson("instances.json", {});
         this.activity = this.readJson("activity.json", []);
+        this.leases = this.readJson("leases.json", {});
         this.engine.tickNow(Date.now());
         this.releaseOrphanedJobs();
       }
       readJson(name2, dflt) {
         try {
-          return JSON.parse(fs7.readFileSync(path5.join(this.dir, name2), "utf8"));
+          return JSON.parse(fs8.readFileSync(path6.join(this.dir, name2), "utf8"));
         } catch {
           return dflt;
         }
       }
       writeAtomic(name2, data) {
-        const p2 = path5.join(this.dir, name2);
-        fs7.writeFileSync(`${p2}.tmp`, data);
-        fs7.renameSync(`${p2}.tmp`, p2);
+        const p2 = path6.join(this.dir, name2);
+        fs8.writeFileSync(`${p2}.tmp`, data);
+        fs8.renameSync(`${p2}.tmp`, p2);
       }
       /** Write the event log and side tables. The journal is the source of truth. */
       persist() {
@@ -37226,6 +38758,7 @@ var init_daemon = __esm({
         this.writeAtomic("instances.json", JSON.stringify(this.instanceMeta));
         this.writeAtomic("projects.json", JSON.stringify(this.projects));
         this.writeAtomic("activity.json", JSON.stringify(this.activity.slice(-500)));
+        this.writeAtomic("leases.json", JSON.stringify(this.leases));
       }
       /** Mark state changed; persisted at the end of the current tick / request. */
       touch() {
@@ -37244,7 +38777,8 @@ var init_daemon = __esm({
         for (const j2 of this.snapshot().jobs ?? []) {
           if (j2.state === "Activated" && j2.jobType !== "session" && !(this.agentMode === "session" && j2.jobType === "claude")) {
             try {
-              this.engine.failJob(j2.key, j2.retries, "daemon restarted while the job ran; retrying");
+              this.engine.failJob(j2.key, j2.retries, "daemon restarted while the job ran; retrying", this.leases[String(j2.key)] ?? null);
+              delete this.leases[String(j2.key)];
               this.touch();
             } catch {
             }
@@ -37254,7 +38788,7 @@ var init_daemon = __esm({
       /** Add a project (its flows/ are loaded and watched). Idempotent. The library itself
        *  is not a project: its flows are global. Returns whether it was new. */
       addProject(dir) {
-        const p2 = path5.resolve(dir);
+        const p2 = path6.resolve(dir);
         if (p2 === this.home || this.projects.includes(p2)) return false;
         this.projects.push(p2);
         this.touch();
@@ -37264,7 +38798,7 @@ var init_daemon = __esm({
       /** "~/…" for paths under the home dir, for display. */
       tilde(p2) {
         const h2 = process.env.HOME;
-        return h2 && (p2 === h2 || p2.startsWith(h2 + path5.sep)) ? `~${p2.slice(h2.length)}` : p2;
+        return h2 && (p2 === h2 || p2.startsWith(h2 + path6.sep)) ? `~${p2.slice(h2.length)}` : p2;
       }
       /** Compile every project's flows/ and the library's, and deploy every flow whose BPMN
        *  changed. Project flows deploy as "<projectSlug>.<id>", global ones as "<id>". */
@@ -37284,7 +38818,7 @@ var init_daemon = __esm({
           for (const f2 of r2.flows) {
             if (flows.has(f2.key)) continue;
             flows.set(f2.key, f2);
-            fs7.writeFileSync(path5.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
+            fs8.writeFileSync(path6.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
             const hash2 = crypto3.createHash("sha256").update(f2.xml).digest("hex");
             if (this.deployed[f2.key] !== hash2) {
               this.engine.deploy(f2.xml);
@@ -37304,19 +38838,19 @@ var init_daemon = __esm({
       /** The flow a name means in a project: the project's own, else the global one with
        *  that id. An exact key (e.g. "nanobpmn-1a2b.release") also works. */
       resolveFlow(ref, project2) {
-        if (project2 && path5.resolve(project2) !== this.home) {
+        if (project2 && path6.resolve(project2) !== this.home) {
           const own2 = this.flows.get(`${projectSlug(project2)}.${ref}`);
           if (own2) return own2;
         }
         const g = this.flows.get(ref);
-        return g && (g.scope === "global" || !project2 || path5.resolve(g.projectDir) === path5.resolve(project2)) ? g : void 0;
+        return g && (g.scope === "global" || !project2 || path6.resolve(g.projectDir) === path6.resolve(project2)) ? g : void 0;
       }
       /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
       flowsFor(project2) {
         const all = [...this.flows.values()];
         if (!project2) return all;
-        const p2 = path5.resolve(project2);
-        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path5.resolve(f2.projectDir) === p2);
+        const p2 = path6.resolve(project2);
+        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path6.resolve(f2.projectDir) === p2);
         const ids = new Set(own2.map((f2) => f2.id));
         return [...own2, ...all.filter((f2) => f2.scope === "global" && !ids.has(f2.id))];
       }
@@ -37329,15 +38863,15 @@ var init_daemon = __esm({
       }
       /** Start a flow in a project (default: the library home). Global flows run in the
        *  project they were started from. */
-      start(flowRef, variables = {}, title, project2) {
-        const where = path5.resolve(project2 ?? this.home);
+      start(flowRef, variables = {}, title, project2, host) {
+        const where = path6.resolve(project2 ?? this.home);
         if (where !== this.home) this.addProject(where);
         const flow = this.resolveFlow(flowRef, where);
         if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
         const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
         const key = String(s.created);
-        this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title };
-        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path5.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
+        this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title, host };
+        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path6.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
         this.persist();
         return key;
       }
@@ -37366,11 +38900,13 @@ var init_daemon = __esm({
             const now = Date.now();
             const waiting = (after.jobs ?? []).some((j2) => j2.jobType === type && j2.state === "Created" && !this.worker.backingOff(String(j2.key), now));
             if (!waiting) continue;
-            const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(type) + 5 * MIN, WORKER));
+            const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(type) + 5 * MIN, WORKER, type === "claude"));
+            for (const job of jobs) if (job.jobLeaseToken) this.leases[String(job.key)] = job.jobLeaseToken;
             if (jobs.length) this.touch();
             for (const job of jobs) {
               if (this.worker.backingOff(String(job.key), now)) {
-                this.engine.failJob(job.key, job.retries, "backing off");
+                this.engine.failJob(job.key, job.retries, "backing off", this.leases[String(job.key)] ?? null);
+                delete this.leases[String(job.key)];
                 continue;
               }
               const j2 = { ...job, key: String(job.key), instanceKey: String(job.instanceKey) };
@@ -37402,22 +38938,28 @@ var init_daemon = __esm({
         if (job.type !== "claude" || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
         this.agentMode = "session";
         try {
-          this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant");
+          this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant", this.leases[job.key] ?? null);
+          delete this.leases[job.key];
         } catch {
         }
         this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
         return true;
       }
-      /** Built-in "claude" worker: prompt file + variables → headless Claude Code. */
+      /** Built-in agent worker: prompt file + variables → the step's agent CLI (a profile:
+       *  claude -p, or any ACP harness), recorded as an AgentInstance. */
       async runAgent(job) {
         const flow = this.flows.get(job.bpmnProcessId);
         const task = flow?.tasks.find((t) => t.name === job.elementId);
         if (!flow || !task?.prompt) throw new Error(`no prompt bound to ${job.bpmnProcessId}/${job.elementId}`);
-        const promptFile = path5.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
+        const promptFile = path6.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
+        const instanceKey = String(job.instanceKey);
+        const agent = resolveAgent({ use: opts.use, flowDefault: flow.defaultAgent, host: this.instanceMeta[instanceKey]?.host, flowProfiles: flow.agentProfiles });
+        if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
-        const prompt = `${fs7.readFileSync(promptFile, "utf8").trim()}
+        const instructions = fs8.readFileSync(promptFile, "utf8").trim();
+        const prompt = `${instructions}
 
 ## Context (process variables)
 
@@ -37427,18 +38969,34 @@ ${JSON.stringify(ctx, null, 2)}
 ` + (vars.appendPrompt ? `
 ${vars.appendPrompt}
 ` : "");
-        const { context: _c, ...claudeOpts } = opts;
-        const r2 = await claude(prompt, { ...claudeOpts, cwd: this.projectOf(String(job.instanceKey)) });
+        const model = opts.model ?? agent.profile.model;
+        const lease = this.leases[String(job.key)];
+        const rec = lease ? new AgentRecorder(
+          this.engine,
+          { key: String(job.key), elementInstanceKey: String(job.elementInstanceKey), jobLeaseToken: lease },
+          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `flows/prompts/${task.prompt.resourceId}:
+${instructions}`].filter(Boolean).join("\n\n") },
+          (message) => this.log({ kind: "error", instanceKey, elementId: job.elementId, message }),
+          () => this.touch()
+        ) : void 0;
+        rec?.start();
+        this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} \u2014 ${agent.reason}` });
+        const r2 = await runAgentCli({
+          name: agent.name,
+          profile: agent.profile,
+          prompt,
+          system: opts.system,
+          model,
+          cwd: this.projectOf(instanceKey),
+          schema: opts.schema,
+          allowedTools: opts.allowedTools,
+          permissionMode: opts.permissionMode,
+          signal: jobSignal(),
+          onTurn: (t) => rec?.turn(t)
+        });
+        rec?.done();
         let out = r2.result;
-        if (typeof out === "string") {
-          const m2 = out.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ?? out.match(/^\s*(\{[\s\S]*\})\s*$/);
-          if (m2) {
-            try {
-              out = JSON.parse(m2[1]);
-            } catch {
-            }
-          }
-        }
+        if (typeof out === "string") out = parseJson(out) ?? out;
         const result = out && typeof out === "object" && !Array.isArray(out) ? out : { [`${task.name}Result`]: out };
         return { vars: result, costUsd: r2.costUsd };
       }
@@ -37483,10 +39041,10 @@ ${vars.appendPrompt}
           activeElements: (i.activeElements ?? []).map((a) => a.elementId)
         }));
         return {
-          project: project2 ? path5.resolve(project2) : void 0,
+          project: project2 ? path6.resolve(project2) : void 0,
           home: this.home,
           globalDir: this.home,
-          projects: this.projects.map((p2) => ({ path: p2, name: path5.basename(p2), slug: projectSlug(p2) })),
+          projects: this.projects.map((p2) => ({ path: p2, name: path6.basename(p2), slug: projectSlug(p2) })),
           now: snap.now,
           eventCount: snap.eventCount,
           flows: this.flowsFor(project2).map((f2) => ({
@@ -37494,12 +39052,12 @@ ${vars.appendPrompt}
             key: f2.key,
             scope: f2.scope,
             project: f2.scope === "project" ? f2.projectDir : void 0,
-            file: f2.scope === "project" ? path5.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
+            file: f2.scope === "project" ? path6.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
             description: f2.description,
             humans: f2.humans,
             tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent }))
           })),
-          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path5.resolve(project2)) : this.problems,
+          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path6.resolve(project2)) : this.problems,
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
           agentMode: this.agentMode,
@@ -37559,7 +39117,7 @@ ${vars.appendPrompt}
        *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
       claimJobs(type, max = 1, project2) {
         const types2 = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
-        const where = project2 ? path5.resolve(project2) : void 0;
+        const where = project2 ? path6.resolve(project2) : void 0;
         const open2 = (this.snapshot().jobs ?? []).filter((j2) => j2.state === "Created");
         const jobs = [];
         for (const t of types2) {
@@ -37576,7 +39134,7 @@ ${vars.appendPrompt}
         return jobs.map((j2) => {
           const flow = this.flows.get(j2.bpmnProcessId);
           const task = flow?.tasks.find((t) => t.name === j2.elementId);
-          const promptFile = task?.prompt ? path5.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
+          const promptFile = task?.prompt ? path6.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
           return {
             key: j2.key,
             flowId: flow?.id ?? j2.bpmnProcessId,
@@ -37584,7 +39142,7 @@ ${vars.appendPrompt}
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
-            prompt: promptFile && fs7.existsSync(promptFile) ? fs7.readFileSync(promptFile, "utf8") : void 0,
+            prompt: promptFile && fs8.existsSync(promptFile) ? fs8.readFileSync(promptFile, "utf8") : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
@@ -38063,8 +39621,8 @@ var init_parseUtil = __esm({
     init_errors3();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path9, errorMaps, issueData } = params;
-      const fullPath = [...path9, ...issueData.path || []];
+      const { data, path: path10, errorMaps, issueData } = params;
+      const fullPath = [...path10, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -38348,11 +39906,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path9, key) {
+      constructor(parent, value, path10, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path9;
+        this._path = path10;
         this._key = key;
       }
       get path() {
@@ -41808,11 +43366,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path9) {
-  if (path9.length === 0) {
+function getDotPath(path10) {
+  if (path10.length === 0) {
     return "object root";
   }
-  return path9.reduce((acc, seg, index) => {
+  return path10.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -45095,7 +46653,7 @@ function mergeCapabilities(base, additional) {
   return result;
 }
 var DEFAULT_REQUEST_TIMEOUT_MSEC, Protocol;
-var init_protocol = __esm({
+var init_protocol2 = __esm({
   "node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js"() {
     init_zod_compat();
     init_types2();
@@ -46128,7 +47686,7 @@ var require_code = __commonJS({
     }
     exports._ = _2;
     var plus = new _Code("+");
-    function str2(strs, ...args) {
+    function str3(strs, ...args) {
       const expr = [safeStringify(strs[0])];
       let i = 0;
       while (i < args.length) {
@@ -46139,7 +47697,7 @@ var require_code = __commonJS({
       optimize(expr);
       return new _Code(expr);
     }
-    exports.str = str2;
+    exports.str = str3;
     function addCodeArg(code, arg2) {
       if (arg2 instanceof _Code)
         code.push(...arg2._items);
@@ -46182,7 +47740,7 @@ var require_code = __commonJS({
       return;
     }
     function strConcat(c1, c2) {
-      return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str2`${c1}${c2}`;
+      return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str3`${c1}${c2}`;
     }
     exports.strConcat = strConcat;
     function interpolate(x) {
@@ -47144,22 +48702,22 @@ var require_util = __commonJS({
       return (0, codegen_1._)`${topSchemaRef}${schemaPath}${(0, codegen_1.getProperty)(keyword)}`;
     }
     exports.schemaRefOrVal = schemaRefOrVal;
-    function unescapeFragment(str2) {
-      return unescapeJsonPointer(decodeURIComponent(str2));
+    function unescapeFragment(str3) {
+      return unescapeJsonPointer(decodeURIComponent(str3));
     }
     exports.unescapeFragment = unescapeFragment;
-    function escapeFragment(str2) {
-      return encodeURIComponent(escapeJsonPointer(str2));
+    function escapeFragment(str3) {
+      return encodeURIComponent(escapeJsonPointer(str3));
     }
     exports.escapeFragment = escapeFragment;
-    function escapeJsonPointer(str2) {
-      if (typeof str2 == "number")
-        return `${str2}`;
-      return str2.replace(/~/g, "~0").replace(/\//g, "~1");
+    function escapeJsonPointer(str3) {
+      if (typeof str3 == "number")
+        return `${str3}`;
+      return str3.replace(/~/g, "~0").replace(/\//g, "~1");
     }
     exports.escapeJsonPointer = escapeJsonPointer;
-    function unescapeJsonPointer(str2) {
-      return str2.replace(/~1/g, "/").replace(/~0/g, "~");
+    function unescapeJsonPointer(str3) {
+      return str3.replace(/~1/g, "/").replace(/~0/g, "~");
     }
     exports.unescapeJsonPointer = unescapeJsonPointer;
     function eachItem(xs, f2) {
@@ -48184,8 +49742,8 @@ var require_json_schema_traverse = __commonJS({
         post(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
       }
     }
-    function escapeJsonPtr(str2) {
-      return str2.replace(/~/g, "~0").replace(/\//g, "~1");
+    function escapeJsonPtr(str3) {
+      return str3.replace(/~/g, "~0").replace(/\//g, "~1");
     }
   }
 });
@@ -49282,15 +50840,15 @@ var require_utils = __commonJS({
         isIPV6: true
       };
     }
-    function findToken(str2, token) {
+    function findToken(str3, token) {
       let ind = 0;
-      for (let i = 0; i < str2.length; i++) {
-        if (str2[i] === token) ind++;
+      for (let i = 0; i < str3.length; i++) {
+        if (str3[i] === token) ind++;
       }
       return ind;
     }
-    function removeDotSegments(path9) {
-      let input2 = path9;
+    function removeDotSegments(path10) {
+      let input2 = path10;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -49364,11 +50922,11 @@ var require_utils = __commonJS({
       }
       return output2.join("");
     }
-    function removeDotSegmentsRelative(path9) {
-      if (path9 === "" || path9[0] === "/") {
-        return removeDotSegments(path9);
+    function removeDotSegmentsRelative(path10) {
+      if (path10 === "" || path10[0] === "/") {
+        return removeDotSegments(path10);
       }
-      const segments = path9.split("/");
+      const segments = path10.split("/");
       const last = segments.length - 1;
       const output2 = [];
       let trailingDirectory = false;
@@ -49731,8 +51289,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
+        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -50355,7 +51913,7 @@ var require_core = __commonJS({
     var util_1 = require_util();
     var $dataRefSchema = require_data();
     var uri_1 = require_uri();
-    var defaultRegExp = (str2, flags) => new RegExp(str2, flags);
+    var defaultRegExp = (str3, flags) => new RegExp(str3, flags);
     defaultRegExp.code = "new RegExp";
     var META_IGNORE_OPTIONS = ["removeAdditional", "useDefaults", "coerceTypes"];
     var EXT_SCOPE_NAMES = /* @__PURE__ */ new Set([
@@ -51150,16 +52708,16 @@ var require_ucs2length = __commonJS({
   "node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    function ucs2length(str2) {
-      const len = str2.length;
+    function ucs2length(str3) {
+      const len = str3.length;
       let length = 0;
       let pos = 0;
       let value;
       while (pos < len) {
         length++;
-        value = str2.charCodeAt(pos++);
+        value = str3.charCodeAt(pos++);
         if (value >= 55296 && value <= 56319 && pos < len) {
-          value = str2.charCodeAt(pos);
+          value = str3.charCodeAt(pos);
           if ((value & 64512) === 56320)
             pos++;
         }
@@ -53042,8 +54600,8 @@ var require_formats = __commonJS({
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    function date5(str2) {
-      const matches = DATE.exec(str2);
+    function date5(str3) {
+      const matches = DATE.exec(str3);
       if (!matches)
         return false;
       const year = +matches[1];
@@ -53062,8 +54620,8 @@ var require_formats = __commonJS({
     }
     var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
     function getTime(strictTimeZone) {
-      return function time3(str2) {
-        const matches = TIME.exec(str2);
+      return function time3(str3) {
+        const matches = TIME.exec(str3);
         if (!matches)
           return false;
         const hr = +matches[1];
@@ -53109,8 +54667,8 @@ var require_formats = __commonJS({
     var DATE_TIME_SEPARATOR = /t|\s/i;
     function getDateTime(strictTimeZone) {
       const time3 = getTime(strictTimeZone);
-      return function date_time(str2) {
-        const dateTime = str2.split(DATE_TIME_SEPARATOR);
+      return function date_time(str3) {
+        const dateTime = str3.split(DATE_TIME_SEPARATOR);
         return dateTime.length === 2 && date5(dateTime[0]) && time3(dateTime[1]);
       };
     }
@@ -53135,13 +54693,13 @@ var require_formats = __commonJS({
     }
     var NOT_URI_FRAGMENT = /\/|:/;
     var URI = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
-    function uri2(str2) {
-      return NOT_URI_FRAGMENT.test(str2) && URI.test(str2);
+    function uri2(str3) {
+      return NOT_URI_FRAGMENT.test(str3) && URI.test(str3);
     }
     var BYTE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/gm;
-    function byte(str2) {
+    function byte(str3) {
       BYTE.lastIndex = 0;
-      return BYTE.test(str2);
+      return BYTE.test(str3);
     }
     var MIN_INT32 = -(2 ** 31);
     var MAX_INT32 = 2 ** 31 - 1;
@@ -53155,11 +54713,11 @@ var require_formats = __commonJS({
       return true;
     }
     var Z_ANCHOR = /[^\\]\\Z/;
-    function regex(str2) {
-      if (Z_ANCHOR.test(str2))
+    function regex(str3) {
+      if (Z_ANCHOR.test(str3))
         return false;
       try {
-        new RegExp(str2);
+        new RegExp(str3);
         return true;
       } catch (e) {
         return false;
@@ -53269,12 +54827,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name2}"`);
       return f2;
     };
-    function addFormats(ajv, list, fs10, exportName) {
+    function addFormats(ajv, list, fs11, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f2 of list)
-        ajv.addFormat(f2, fs10[f2]);
+        ajv.addFormat(f2, fs11[f2]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -53617,7 +55175,7 @@ var init_helpers = __esm({
 var Server;
 var init_server2 = __esm({
   "node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js"() {
-    init_protocol();
+    init_protocol2();
     init_types2();
     init_ajv_provider();
     init_zod_compat();
@@ -54970,9 +56528,9 @@ function N3(Z, $, J, X, V) {
 var r, v, K, QQ, ZQ, $Q, I, P, w, JQ, Y, j, XQ, H, _, A, f, u, E, VQ, O, DQ, d, h, LQ, WQ, BQ, R, m, GQ, dQ, KQ, NQ, YQ, U, T, k, jQ, FQ, M, C, p;
 var init_server3 = __esm({
   "node_modules/@modelcontextprotocol/ext-apps/dist/src/server/index.js"() {
-    init_protocol();
+    init_protocol2();
     init_types2();
-    init_protocol();
+    init_protocol2();
     init_types2();
     init_v4();
     init_types2();
@@ -56490,14 +58048,14 @@ var require_content_type = __commonJS({
       return header;
     }
     function qstring(val) {
-      var str2 = String(val);
-      if (TOKEN_REGEXP.test(str2)) {
-        return str2;
+      var str3 = String(val);
+      if (TOKEN_REGEXP.test(str3)) {
+        return str3;
       }
-      if (str2.length > 0 && !TEXT_REGEXP.test(str2)) {
+      if (str3.length > 0 && !TEXT_REGEXP.test(str3)) {
         throw new TypeError("invalid parameter value");
       }
-      return '"' + str2.replace(QUOTE_REGEXP, "\\$1") + '"';
+      return '"' + str3.replace(QUOTE_REGEXP, "\\$1") + '"';
     }
     function ContentType(type) {
       this.parameters = /* @__PURE__ */ Object.create(null);
@@ -57472,16 +59030,16 @@ __export(mcp_exports, {
   runMcp: () => runMcp,
   runMcpHttp: () => runMcpHttp
 });
-import fs8 from "node:fs";
-import path6 from "node:path";
+import fs9 from "node:fs";
+import path7 from "node:path";
 function ensureModuleType(dir) {
-  const f2 = path6.join(dir, "package.json");
-  if (!fs8.existsSync(f2)) fs8.writeFileSync(f2, '{ "type": "module" }\n');
+  const f2 = path7.join(dir, "package.json");
+  if (!fs9.existsSync(f2)) fs9.writeFileSync(f2, '{ "type": "module" }\n');
 }
 function guideText() {
   for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs8.existsSync(u2)) return fs8.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
+    if (fs9.existsSync(u2)) return fs9.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
   }
   return "guide not found";
 }
@@ -57504,7 +59062,7 @@ function createServer2(project2) {
     },
     guard(async () => {
       const r2 = await checkProject(project2);
-      if (!r2.length) return text(`No flows yet. Create ${path6.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
+      if (!r2.length) return text(`No flows yet. Create ${path7.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
       const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
@@ -57543,11 +59101,11 @@ ${guideText()}`))
     },
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
-      fs8.mkdirSync(path6.join(dir, "prompts"), { recursive: true });
+      fs9.mkdirSync(path7.join(dir, "prompts"), { recursive: true });
       ensureModuleType(dir);
-      for (const [f2, body2] of Object.entries(prompts ?? {})) fs8.writeFileSync(path6.join(dir, "prompts", f2), body2);
-      const file2 = path6.join(dir, `${name2}.flow.ts`);
-      fs8.writeFileSync(file2, source);
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs9.writeFileSync(path7.join(dir, "prompts", f2), body2);
+      const file2 = path7.join(dir, `${name2}.flow.ts`);
+      fs9.writeFileSync(file2, source);
       const r2 = await checkFile(file2);
       const bad = r2.problems.some((p2) => p2.severity === "error");
       let tail = "";
@@ -57558,7 +59116,7 @@ ${guideText()}`))
 Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r2])}
-written ${path6.relative(project2, file2)}${tail}`, bad);
+written ${path7.relative(project2, file2)}${tail}`, bad);
     })
   );
   server.registerTool(
@@ -57570,7 +59128,7 @@ written ${path6.relative(project2, file2)}${tail}`, bad);
     },
     guard(async () => {
       const home = defaultHome();
-      const places = [[project2, "this project"], ...path6.resolve(home) !== path6.resolve(project2) ? [[home, "global (library)"]] : []];
+      const places = [[project2, "this project"], ...path7.resolve(home) !== path7.resolve(project2) ? [[home, "global (library)"]] : []];
       const out = [];
       for (const [dir, label] of places) {
         out.push(`## ${label} (${flowsDir(dir)})`);
@@ -57578,7 +59136,7 @@ written ${path6.relative(project2, file2)}${tail}`, bad);
         if (!files.length) out.push("(none)");
         for (const f2 of files) {
           const r2 = await checkFile(f2);
-          const name2 = path6.basename(f2).replace(/\.flow\.\w+$/, "");
+          const name2 = path7.basename(f2).replace(/\.flow\.\w+$/, "");
           const errs = r2.problems.filter((p2) => p2.severity === "error").length;
           for (const fl of r2.flows) {
             const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h2) => `${h2.name}(human)`), ...Object.keys(fl.handlers).map((h2) => h2.split(":").pop())];
@@ -57600,24 +59158,24 @@ written ${path6.relative(project2, file2)}${tail}`, bad);
     },
     guard(async ({ name: name2, overwrite }) => {
       const home = defaultHome();
-      if (path6.resolve(home) === path6.resolve(project2)) return text("This project is the library already.", true);
-      const src = listFlowFiles(home).find((f2) => path6.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
+      if (path7.resolve(home) === path7.resolve(project2)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f2) => path7.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
       if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
-      const dst = path6.join(flowsDir(project2), path6.basename(src));
-      if (fs8.existsSync(dst) && !overwrite) return text(`${path6.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
-      fs8.mkdirSync(path6.join(flowsDir(project2), "prompts"), { recursive: true });
+      const dst = path7.join(flowsDir(project2), path7.basename(src));
+      if (fs9.existsSync(dst) && !overwrite) return text(`${path7.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs9.mkdirSync(path7.join(flowsDir(project2), "prompts"), { recursive: true });
       ensureModuleType(flowsDir(project2));
-      fs8.copyFileSync(src, dst);
-      const copied = [path6.relative(project2, dst)];
+      fs9.copyFileSync(src, dst);
+      const copied = [path7.relative(project2, dst)];
       const r0 = await checkFile(src);
       for (const fl of r0.flows)
         for (const t of fl.tasks)
           if (t.prompt) {
-            const p2 = path6.join(flowsDir(home), "prompts", t.prompt.resourceId);
-            const q = path6.join(flowsDir(project2), "prompts", t.prompt.resourceId);
-            if (fs8.existsSync(p2) && (overwrite || !fs8.existsSync(q))) {
-              fs8.copyFileSync(p2, q);
-              copied.push(path6.relative(project2, q));
+            const p2 = path7.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path7.join(flowsDir(project2), "prompts", t.prompt.resourceId);
+            if (fs9.existsSync(p2) && (overwrite || !fs9.existsSync(q))) {
+              fs9.copyFileSync(p2, q);
+              copied.push(path7.relative(project2, q));
             }
           }
       const r2 = await checkFile(dst);
@@ -57637,13 +59195,13 @@ Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
     },
     guard(async ({ name: name2 }) => {
       const files = listFlowFiles(project2);
-      if (!name2) return text(files.length ? files.map((f3) => path6.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
-      const f2 = files.find((x) => path6.basename(x).replace(/\.flow\.\w+$/, "") === name2);
+      if (!name2) return text(files.length ? files.map((f3) => path7.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
+      const f2 = files.find((x) => path7.basename(x).replace(/\.flow\.\w+$/, "") === name2);
       if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
-      const pdir = path6.join(flowsDir(project2), "prompts");
-      const prompts = fs8.existsSync(pdir) ? fs8.readdirSync(pdir).map((p2) => `--- prompts/${p2}
-${fs8.readFileSync(path6.join(pdir, p2), "utf8")}`) : [];
-      return text([`--- ${path6.basename(f2)}`, fs8.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+      const pdir = path7.join(flowsDir(project2), "prompts");
+      const prompts = fs9.existsSync(pdir) ? fs9.readdirSync(pdir).map((p2) => `--- prompts/${p2}
+${fs9.readFileSync(path7.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path7.basename(f2)}`, fs9.readFileSync(f2, "utf8"), ...prompts].join("\n"));
     })
   );
   K3(
@@ -57719,7 +59277,7 @@ explorer: ${c.explorerUrl()}`);
     },
     guard(async ({ flowId, variables, title }) => {
       const c = await engine();
-      const r2 = await c.start(flowId, variables ?? {}, title);
+      const r2 = await c.start(flowId, variables ?? {}, title, server.server.getClientVersion()?.name);
       return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${c.explorerUrl(`instance=${r2.instanceKey}`)}`);
     })
   );
@@ -57922,8 +59480,8 @@ function watchFlowPrompts(server, project2) {
   });
   let t;
   try {
-    fs8.mkdirSync(flowsDir(project2), { recursive: true });
-    fs8.watch(flowsDir(project2), () => {
+    fs9.mkdirSync(flowsDir(project2), { recursive: true });
+    fs9.watch(flowsDir(project2), () => {
       clearTimeout(t);
       t = setTimeout(sync, 300);
     }).unref();
@@ -57989,8 +59547,8 @@ var hooks_exports = {};
 __export(hooks_exports, {
   runHook: () => runHook
 });
-import fs9 from "node:fs";
-import path7 from "node:path";
+import fs10 from "node:fs";
+import path8 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
   let s = "";
@@ -58007,7 +59565,7 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   const c = await EngineClient.find(project2);
   if (!c) return;
   const s = await c.state();
-  const here = (x) => !x.project || x.project === path7.resolve(project2);
+  const here = (x) => !x.project || x.project === path8.resolve(project2);
   const tasks = s.userTasks.filter(here);
   const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created" && here(j2));
   const incidents = s.incidents.filter(here);
@@ -58019,21 +59577,21 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
     ...event === "SessionStart" ? elsewhere.map((x) => `e${x.key}`) : []
   ].sort();
   if (!keys.length) return;
-  const seenFile = path7.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
+  const seenFile = path8.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
-      seen = JSON.parse(fs9.readFileSync(seenFile, "utf8"));
+      seen = JSON.parse(fs10.readFileSync(seenFile, "utf8"));
     } catch {
     }
     if (keys.every((k2) => seen.includes(k2))) return;
   }
-  fs9.writeFileSync(seenFile, JSON.stringify(keys));
+  fs10.writeFileSync(seenFile, JSON.stringify(keys));
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);
   if (elsewhere.length) {
-    const names = [...new Set(elsewhere.map((x) => path7.basename(x.project)))];
+    const names = [...new Set(elsewhere.map((x) => path8.basename(x.project)))];
     lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) \u2014 flow_status lists them`);
   }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
@@ -58056,8 +59614,8 @@ init_compile2();
 init_paths();
 init_client();
 init_summary();
-import { spawn as spawn3 } from "node:child_process";
-import path8 from "node:path";
+import { spawn as spawn4 } from "node:child_process";
+import path9 from "node:path";
 var HELP = `age \u2014 Agent Graph Engine
 
   age check                     compile + lint flows/*.flow.ts (writes nothing)
@@ -58069,6 +59627,8 @@ var HELP = `age \u2014 Agent Graph Engine
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
                                 or a route like /instances); prints the URL
+  age agent [list]              agent profiles (which CLI runs agent steps) and the default
+  age agent default <name>      set the default profile (~/.agent-graph/agents.json)
   age daemon                    run the engine in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
@@ -58084,7 +59644,7 @@ function arg(name2) {
   return v2;
 }
 var projectOpt = arg("--project");
-var project = projectOpt ? path8.resolve(projectOpt) : resolveProject();
+var project = projectOpt ? path9.resolve(projectOpt) : resolveProject();
 var [cmd, ...rest] = process.argv.slice(2);
 function parseVars(s) {
   if (!s) return {};
@@ -58098,10 +59658,30 @@ async function main() {
   switch (cmd) {
     case "check": {
       const r2 = await checkProject(project);
-      if (!r2.length) console.log(`no flows in ${path8.join(project, "flows")}`);
+      if (!r2.length) console.log(`no flows in ${path9.join(project, "flows")}`);
       else console.log(formatProblems(r2));
       process.exitCode = r2.some((x) => x.problems.some((p2) => p2.severity === "error")) ? 1 : 0;
       return;
+    }
+    case "agent": {
+      const { allProfiles: allProfiles2, readAgentsFile: readAgentsFile2, writeAgentsFile: writeAgentsFile2, agentsFile: agentsFile2, commandOf: commandOf2, which: which2, resolveAgent: resolveAgent2 } = await Promise.resolve().then(() => (init_agents(), agents_exports));
+      if (rest[0] === "default") {
+        const all = allProfiles2();
+        if (!rest[1] || !all[rest[1]]) throw new Error(`usage: age agent default <${Object.keys(all).join("|")}>`);
+        writeAgentsFile2({ ...readAgentsFile2(), default: rest[1] });
+        console.log(`default agent: ${rest[1]} (${agentsFile2()})`);
+        break;
+      }
+      const dflt = resolveAgent2({});
+      for (const [name2, p2] of Object.entries(allProfiles2())) {
+        const cmd2 = commandOf2(name2, p2);
+        const found2 = which2(cmd2);
+        console.log(`${name2 === dflt?.name ? "*" : " "} ${name2.padEnd(14)} ${p2.protocol.padEnd(6)} ${[cmd2, ...p2.args ?? []].join(" ")}${p2.model ? `  model=${p2.model}` : ""}  [${p2.source}${found2 ? "" : ", not installed"}]`);
+      }
+      console.log(`
+* default (${dflt?.reason ?? "none installed"}). Add profiles or set "default" in ${agentsFile2()};`);
+      console.log(`  a run started from a host (Claude Code, OpenCode) uses that host's CLI unless a default is set.`);
+      break;
     }
     case "daemon": {
       const { serve: serve2 } = await Promise.resolve().then(() => (init_daemon(), daemon_exports));
@@ -58171,7 +59751,7 @@ main().catch((e) => {
 function openBrowser(url2) {
   if (process.env.AGE_NO_BROWSER) return;
   const [command, args] = process.platform === "darwin" ? ["open", [url2]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url2]] : ["xdg-open", [url2]];
-  const child = spawn3(command, args, { stdio: "ignore", detached: true });
+  const child = spawn4(command, args, { stdio: "ignore", detached: true });
   child.on("error", () => {
   });
   child.unref();

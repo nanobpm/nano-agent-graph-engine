@@ -59,6 +59,16 @@ export function defineForms<T extends Record<string, FormDef>>(forms: T): T {
 export interface AgentOptions extends Omit<ClaudeOptions, "cwd" | "timeoutMs"> {
   /** Variables to pass as context (default: all instance variables). */
   context?: string[];
+  /** Agent profile that runs this step: "claude", "opencode", "nano-coder", "gemini", or
+   *  one from `agentProfiles` / ~/.agent-graph/agents.json. Default: the flow's
+   *  `defaultAgent`, else agents.json "default", else the CLI of the host that started the run. */
+  use?: string;
+}
+
+export type { AgentProfile } from "./agents.ts";
+/** Agent profiles this flow file offers (~/.agent-graph/agents.json wins on a name clash). */
+export function defineAgentProfiles<T extends Record<string, import("./agents.ts").AgentProfile>>(profiles: T): T {
+  return profiles;
 }
 export function defineAgents<T extends Record<string, AgentOptions>>(agents: T): T {
   return agents;
