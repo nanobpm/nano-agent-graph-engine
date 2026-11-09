@@ -1,6 +1,6 @@
 // The Agent Graph Engine daemon: one per user, serving every project. Hosts the WASM engine, keeps its
 // event log on disk (replayed on start), runs job workers, ticks timers, and serves
-// the HTTP API + web explorer on 127.0.0.1.
+// the HTTP API + web explorer on localhost. Jobs run through the Worker (src/worker.ts).
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -11,10 +11,15 @@ import { newEngine, type TestEngine } from "./wasm.ts";
 import { defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
+import { parseLimits, Worker, type ActivatedJob, type JobResult } from "./worker.ts";
 
 const WORKER = "age-daemon";
 const TICK_MS = 500;
 const MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
+const MIN = 60_000;
+/** How long a step may run: agent steps 55 min, others 25 min (AGE_JOB_TIMEOUT_MS overrides both).
+ *  The engine's lock is 5 minutes longer, so a step times out before the engine hands it out again. */
+const jobTimeoutMs = (type: string) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (type === "claude" ? 55 : 25) * MIN);
 
 interface Activity {
   at: string;
@@ -35,8 +40,11 @@ export class Host {
   engine: TestEngine;
   flows = new Map<string, CompiledFlow>();
   problems: { file: string; project?: string; problems: Problem[] }[] = [];
-  running = new Map<string, { type: string; elementId: string; instanceKey: string; since: number }>();
-  backoff = new Map<string, number>();
+  /** Runs activated jobs: timeouts, concurrency limits, failures → retries/incidents. */
+  readonly worker: Worker;
+  get running() {
+    return this.worker.running;
+  }
   activity: Activity[] = [];
   instanceMeta: Record<string, { flowId: string; flowKey?: string; project?: string; startedAt: string; title?: string }> = {};
   deployed: Record<string, string> = {};
@@ -50,6 +58,21 @@ export class Host {
     this.dir = dir;
     fs.mkdirSync(path.join(this.dir, "compiled"), { recursive: true });
     this.engine = newEngine();
+    this.worker = new Worker(
+      {
+        complete: (key, vars) => this.engine.completeJob(key, JSON.stringify(vars)),
+        fail: (key, retries, msg) => this.engine.failJob(key, retries, msg),
+      },
+      {
+        maxConcurrent: MAX_CONCURRENT,
+        perType: parseLimits(process.env.AGE_CONCURRENCY),
+        timeoutMs: jobTimeoutMs,
+        backoffMs: Number(process.env.AGE_BACKOFF_MS ?? 5_000),
+        log: (e) => this.log(e),
+        settled: () => this.persist(),
+        onError: (job, err) => this.agentUnavailable(job, err),
+      },
+    )
     const journal = path.join(this.dir, "journal.json");
     if (fs.existsSync(journal)) {
       this.engine.replayEvents(fs.readFileSync(journal, "utf8"));
@@ -237,22 +260,20 @@ export class Host {
       const after = this.snapshot();
       if (after.eventCount !== before.eventCount) this.touch();
       for (const type of this.servedTypes()) {
-        const free = MAX_CONCURRENT - this.running.size;
-        if (free <= 0) break;
+        const free = this.worker.free(type);
+        if (free <= 0) continue;
         const now = Date.now();
-        const waiting = (after.jobs ?? []).some(
-          (j: any) => j.jobType === type && j.state === "Created" && (this.backoff.get(j.key) ?? 0) <= now,
-        );
+        const waiting = (after.jobs ?? []).some((j: any) => j.jobType === type && j.state === "Created" && !this.worker.backingOff(String(j.key), now));
         if (!waiting) continue;
-        const lockMs = type === "claude" ? 60 * 60_000 : 30 * 60_000;
-        const jobs = JSON.parse(this.engine.activateJobs(type, free, lockMs, WORKER));
+        const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(type) + 5 * MIN, WORKER));
         if (jobs.length) this.touch();
         for (const job of jobs) {
-          if ((this.backoff.get(job.key) ?? 0) > now) {
+          if (this.worker.backingOff(String(job.key), now)) {
             this.engine.failJob(job.key, job.retries, "backing off");
             continue;
           }
-          this.runJob(job);
+          const j: ActivatedJob = { ...job, key: String(job.key), instanceKey: String(job.instanceKey) };
+          void this.worker.run(j, (aj, signal) => this.handle(aj, signal));
         }
       }
     } catch (e: any) {
@@ -261,63 +282,32 @@ export class Host {
     this.persist();
   }
 
-  private async runJob(job: any) {
-    const key = String(job.key);
-    this.running.set(key, { type: job.type, elementId: job.elementId, instanceKey: job.instanceKey, since: Date.now() });
-    this.log({ kind: "job", instanceKey: job.instanceKey, elementId: job.elementId, message: `running ${job.elementId} (${job.type})` });
-    const vjob = {
-      jobKey: key,
-      processInstanceKey: String(job.instanceKey),
-      elementId: job.elementId,
-      type: job.type,
-      variables: job.variables ?? {},
-    };
-    try {
-      let vars: Record<string, unknown> = {};
-      let costUsd: number | undefined;
-      if (job.type === "claude") {
-        const r = await this.runAgent(job);
-        vars = r.vars;
-        costUsd = r.costUsd;
-      } else {
-        const h = this.handlerFor(job.type, job.bpmnProcessId);
-        if (!h) throw new Error(`no handler for ${job.type}`);
-        const out = await runInProject(this.projectOf(String(job.instanceKey)), () => h(vjob));
-        if (out && typeof out === "object") vars = out as Record<string, unknown>;
-      }
-      this.engine.completeJob(key, JSON.stringify(vars));
-      this.log({ kind: "done", instanceKey: job.instanceKey, elementId: job.elementId, message: `completed ${job.elementId}`, costUsd });
-    } catch (e: any) {
-      const msg = String(e?.message ?? e).slice(0, 4000);
-      if (job.type === "claude" && process.env.AGE_AGENT_MODE !== "cli" && /401|authenticat|not logged in|ENOENT/i.test(msg)) {
-        // The Claude Code CLI can't run here (missing or logged out): hand agent steps to
-        // the chat/session assistant instead of burning retries.
-        this.agentMode = "session";
-        try {
-          this.engine.failJob(key, job.retries ?? 3, "handed to the session assistant");
-        } catch {
-          /* gone */
-        }
-        this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
-        return;
-      }
-      const retries = Math.max(0, (job.retries ?? 1) - 1);
-      try {
-        this.engine.failJob(key, retries, msg);
-        if (retries > 0) this.backoff.set(key, Date.now() + Number(process.env.AGE_BACKOFF_MS ?? 5_000) * 2 ** (3 - Math.min(3, retries)));
-      } catch {
-        /* job vanished (instance cancelled) */
-      }
-      this.log({
-        kind: retries ? "retry" : "incident",
-        instanceKey: job.instanceKey,
-        elementId: job.elementId,
-        message: `${job.elementId} failed${retries ? `, ${retries} retries left` : " — incident raised"}: ${msg.slice(0, 500)}`,
-      });
-    } finally {
-      this.running.delete(key);
-      this.persist();
+  /** Which code runs a job: the built-in agent step, or the flow's handler, in its project. */
+  private async handle(job: ActivatedJob, signal: AbortSignal): Promise<JobResult> {
+    if (job.type === "claude") {
+      const r = await runInProject(this.projectOf(job.instanceKey), () => this.runAgent(job), signal);
+      return { variables: r.vars, costUsd: r.costUsd };
     }
+    const h = this.handlerFor(job.type, job.bpmnProcessId);
+    if (!h) throw new Error(`no handler for ${job.type}`);
+    const vjob = { jobKey: job.key, processInstanceKey: job.instanceKey, elementId: job.elementId, type: job.type, variables: job.variables ?? {} };
+    const out = await runInProject(this.projectOf(job.instanceKey), () => h(vjob), signal);
+    return { variables: out && typeof out === "object" ? (out as Record<string, unknown>) : {} };
+  }
+
+  /** The Claude Code CLI can't run here (missing or logged out): hand agent steps to the
+   *  chat/session assistant instead of burning retries. */
+  private agentUnavailable(job: ActivatedJob, err: Error): boolean {
+    const msg = err.message;
+    if (job.type !== "claude" || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
+    this.agentMode = "session";
+    try {
+      this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant");
+    } catch {
+      /* gone */
+    }
+    this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
+    return true;
   }
 
   /** Built-in "claude" worker: prompt file + variables → headless Claude Code. */
@@ -416,7 +406,7 @@ export class Host {
         .filter((j: any) => j.jobType === "session" || (this.agentMode === "session" && j.jobType === "claude"))
         .map((j: any) => ({ ...j, project: pj(j.instanceKey) })),
       jobs: snap.jobs ?? [],
-      running: [...this.running.entries()].map(([key, r]) => ({ key, ...r, project: pj(r.instanceKey) })),
+      running: [...this.running.entries()].map(([key, { abort: _a, ...r }]) => ({ key, ...r, project: pj(r.instanceKey) })),
       incidents: (snap.incidents ?? []).map((i: any) => ({ ...i, project: pj(i.instanceKey) })),
       timers: snap.timers ?? [],
       messageSubscriptions: snap.messageSubscriptions ?? [],
@@ -528,7 +518,7 @@ export class Host {
     const jobKey = raised?.job_key ?? (snap.jobs ?? []).find((j: any) => j.instanceKey === inc.instanceKey && j.elementId === inc.elementId)?.key;
     if (jobKey != null) {
       this.engine.updateRetries(String(jobKey), retries);
-      this.backoff.delete(String(jobKey));
+      this.worker.backoff.delete(String(jobKey));
     }
     this.engine.resolveIncident(key);
     this.log({ kind: "resolve", instanceKey: inc.instanceKey, elementId: inc.elementId, message: `incident at ${inc.elementId} resolved — retrying` });
@@ -559,6 +549,7 @@ export class Host {
 
   stop() {
     if (this.timer) clearInterval(this.timer);
+    this.worker.stop();
     this.dirty = true;
     this.persist();
   }
@@ -729,6 +720,10 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   }
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+  // A flow handler's stray promise or callback must not take every project's runs down
+  // with it: log it and keep serving (the event log is the source of truth).
+  process.on("unhandledRejection", (e: any) => host.log({ kind: "error", message: `unhandled rejection (a flow handler?): ${e?.stack ?? e}`.slice(0, 2000) }));
+  process.on("uncaughtException", (e: any) => host.log({ kind: "error", message: `uncaught exception (a flow handler?): ${e?.stack ?? e}`.slice(0, 2000) }));
 
   await new Promise<void>((r) => server.listen(port, "127.0.0.1", r));
   const addr = server.address() as { port: number };

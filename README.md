@@ -227,7 +227,7 @@ all are done, or when `completionCondition` holds.
 
 How the branches run depends on who does the work:
 
-- **`run` steps and headless agents** (`claude -p`) run concurrently inside the daemon, up to `AGE_MAX_CONCURRENT` at a time (default 4). Each agent step is its own `claude -p` process: a durable subagent with its own context, tools and cost line. Measured with six 2-second agent steps plus a two-branch `parallel`: they ran in three waves of 4 + 2 + 2, so about 7 s instead of 16 s.
+- **`run` steps and headless agents** (`claude -p`) run concurrently inside the daemon, up to `AGE_MAX_CONCURRENT` at a time (default 4). `AGE_CONCURRENCY="claude=2"` sets a lower limit for a step type. Each agent step is its own `claude -p` process: a durable subagent with its own context, tools and cost line. Measured with six 2-second agent steps plus a two-branch `parallel`: they ran in three waves of 4 + 2 + 2, so about 7 s instead of 16 s.
 - **Steps handed to the chat agent** (`session` jobs, and agent steps when there's no CLI) are queued. `session_job_next` hands them out one at a time, or as a batch with `max`. An agent that has subagents (Claude Code's Task tool, OpenCode's `task`) can then do the batch in parallel and complete each job by key. Without subagents, the agent works through them one by one.
 
 Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflow`):
@@ -245,12 +245,17 @@ Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflo
   - On start, `replayEvents()` restores it.
   - Jobs that were mid-run when the daemon died are handed back out.
   - Tested by the e2e test: it stops the daemon in the middle of a flow.
+- **Code layout**: three parts with narrow seams between them.
+  - **Control** (`src/client.ts`): `EngineClient`, the one typed client the MCP server, CLI and hooks use. It finds or starts the engine, scopes calls to a project and builds explorer links. The mod runs sandboxed and keeps a few direct calls to the same routes.
+  - **Engine** (`src/daemon.ts`): the WASM engine, event log, timers and HTTP API.
+  - **Worker** (`src/worker.ts`): runs activated jobs. It meets the engine only through complete/fail, so it's tested with a fake engine (`test/worker.spec.ts`).
 - **Workers**:
   - `run` handlers are imported from the flow file. A failed job gets 3 retries with backoff, then an incident.
+  - A step can't take the engine down. A handler that throws, rejects or hangs fails its job. Steps time out after 25 minutes, agent steps after 55 (`AGE_JOB_TIMEOUT_MS` overrides both); on timeout the step's `sh()`/`claude()` process is killed, and handlers can pass `jobSignal()` to `fetch()` and other long calls. A stray rejection or exception from flow code is logged, not fatal. Handler code still runs in the engine process, so a synchronous infinite loop would block it.
   - The `claude` worker spawns `claude -p --output-format json --permission-mode dontAsk` with optional `--json-schema`, `--allowedTools` and `--model`. Options come from `export const agents`. The cost is logged.
   - `AGE_CLAUDE_CMD` swaps the binary (the tests use a fake).
 - **One engine per user**:
-  - Its info is in `~/.agent-graph/daemon.json`, and it listens on `127.0.0.1`.
+  - Its info is in `~/.agent-graph/daemon.json`, and it listens on `localhost` (`127.0.0.1` and `::1`).
   - The MCP server, CLI and hooks are thin HTTP clients. MCP/CLI start the engine detached on first use (one client starts it; the others wait) and register their project with it (`projects.json`).
   - A project's flows deploy as `<folder>-<hash>.<id>`, so two repos can both have a `release` flow; global flows keep their id. Runs record their project; handlers run inside an async context that `sh()`, `claude()` and `projectPath()` read.
   - Before 0.5 each project had its own engine in `<project>/.agent-graph/`. Those aren't migrated: stop one with the old version's `age down` once its runs are done (its history stays in that folder).

@@ -1019,11 +1019,14 @@ var jobContext = globalThis[/* @__PURE__ */ Symbol.for("agent-graph.job")] ??= n
 function jobProject() {
   return jobContext.getStore()?.project;
 }
+function jobSignal() {
+  return jobContext.getStore()?.signal;
+}
 function projectPath(...parts) {
   return path.resolve(jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(), ...parts);
 }
-function runInProject(project, fn) {
-  return jobContext.run({ project }, fn);
+function runInProject(project, fn, signal) {
+  return jobContext.run({ project, signal }, fn);
 }
 function defineForms(forms) {
   return forms;
@@ -1037,7 +1040,8 @@ function sh(command, opts = {}) {
       cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: { ...process.env, ...opts.env },
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: opts.timeoutMs
+      timeout: opts.timeoutMs,
+      signal: jobSignal()
     });
     let stdout = "";
     let stderr = "";
@@ -1066,7 +1070,8 @@ async function claude(prompt, opts = {}) {
       cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: opts.timeoutMs ?? 30 * 6e4
+      timeout: opts.timeoutMs ?? 30 * 6e4,
+      signal: jobSignal()
     });
     let stdout = "";
     let stderr = "";
@@ -1097,6 +1102,7 @@ export {
   defineForms,
   envelope,
   jobProject,
+  jobSignal,
   projectPath,
   runInProject,
   sh

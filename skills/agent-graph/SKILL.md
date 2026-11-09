@@ -93,7 +93,9 @@ Step names are BPMN ids: letters, digits, `_`, `-`; don't start them with `Gw_`,
 Variables are JSON; keep them small (paths and ids, not file contents). Code runs in the
 engine, which serves every project: `sh()` and agent steps run in the run's project, but
 plain `fs` calls don't — use `projectPath("file")` (from `agent-graph-engine`) or absolute
-paths. Put reusable logic in normal modules and import them.
+paths. Put reusable logic in normal modules and import them. Steps time out (25 min,
+agent steps 55): `sh()` and `claude()` stop then; pass `jobSignal()` to `fetch()` and other
+long calls in a handler.
 
 ## Workflow
 

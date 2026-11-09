@@ -4,7 +4,8 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { checkProject, formatProblems } from "./compile.ts";
-import { api, ensureDaemon, findDaemon, resolveProject } from "./paths.ts";
+import { resolveProject } from "./paths.ts";
+import { EngineClient } from "./client.ts";
 import { summarize } from "./summary.ts";
 
 const HELP = `age — Agent Graph Engine
@@ -63,44 +64,40 @@ async function main() {
       return;
     }
     case "up": {
-      const info = await ensureDaemon(project);
-      console.log(info.url);
+      console.log((await EngineClient.connect(project)).url);
       return;
     }
     case "open": {
-      const info = await ensureDaemon(project);
-      const view = (rest[0] ?? "").replace(/^#/, "");
-      const target = `${info.url}/?project=${encodeURIComponent(project)}${view ? `#${view}` : ""}`;
+      const c = await EngineClient.connect(project);
+      const target = c.explorerUrl((rest[0] ?? "").replace(/^#/, ""));
       console.log(target);
       openBrowser(target);
       return;
     }
     case "down": {
-      const info = await findDaemon(project);
-      if (!info) return console.log("not running");
-      await api(info, "/api/shutdown", {});
+      const c = await EngineClient.find(project);
+      if (!c) return console.log("not running");
+      await c.shutdown();
       return console.log("stopped");
     }
     case "status": {
-      const info = await ensureDaemon(project);
-      console.log(summarize(await api(info, `/api/state?project=${encodeURIComponent(project)}`), project));
+      const c = await EngineClient.connect(project);
+      console.log(`${summarize(await c.state(), project)}\nexplorer: ${c.explorerUrl()}`);
       return;
     }
     case "start": {
-      const info = await ensureDaemon(project);
-      const r = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]), project });
-      console.log(`started instance ${r.instanceKey} — ${info.url}/?project=${encodeURIComponent(project)}#instance=${r.instanceKey}`);
+      const c = await EngineClient.connect(project);
+      const r = await c.start(rest[0], parseVars(rest[1]));
+      console.log(`started instance ${r.instanceKey} — ${c.explorerUrl(`instance=${r.instanceKey}`)}`);
       return;
     }
     case "tasks": {
-      const info = await ensureDaemon(project);
-      const s = await api(info, "/api/state");
+      const s = await (await EngineClient.connect(project)).state(true);
       console.log(JSON.stringify(s.userTasks.map(({ variables, ...t }: any) => t), null, 2));
       return;
     }
     case "complete": {
-      const info = await ensureDaemon(project);
-      await api(info, `/api/user-tasks/${rest[0]}/complete`, { variables: parseVars(rest[1]) });
+      await (await EngineClient.connect(project)).completeTask(rest[0], parseVars(rest[1]));
       console.log("completed");
       return;
     }

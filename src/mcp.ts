@@ -10,7 +10,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { checkFile, checkProject, flowsDir, formatProblems, listFlowFiles } from "./compile.ts";
 import { appHtml } from "./explorer-html.ts";
-import { api, defaultHome, ensureDaemon } from "./paths.ts";
+import { defaultHome } from "./paths.ts";
+import { EngineClient } from "./client.ts";
 import { summarize } from "./summary.ts";
 
 type Result = { content: { type: "text"; text: string }[]; isError?: boolean };
@@ -39,11 +40,8 @@ function guideText(): string {
 
 export function createServer(project: string): McpServer {
   const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
-  const daemon = () => ensureDaemon(project);
-  // One engine serves every project: ask for the flows this one can start, and link the
-  // explorer filtered to it.
-  const stateUrl = `/api/state?project=${encodeURIComponent(project)}`;
-  const explorerUrl = (info: { url: string }, hash = "") => `${info.url}/?project=${encodeURIComponent(project)}${hash ? `#${hash}` : ""}`;
+  // One engine serves every project: the client scopes calls and explorer links to this one.
+  const engine = () => EngineClient.connect(project);
   const guard =
     <A,>(fn: (a: A) => Promise<Result>) =>
     async (a: A): Promise<Result> => {
@@ -68,12 +66,12 @@ export function createServer(project: string): McpServer {
       const bad = r.some((x) => x.problems.some((p) => p.severity === "error"));
       let reload = "";
       if (!bad) {
-        const info = await daemon();
-        const d = await api(info, "/api/reload", {});
-        const st = await api(info, stateUrl);
+        const c = await engine();
+        const d = await c.reload();
+        const st = await c.state();
         reload =
           `\n\nlive: ${st.flows.map((f: any) => f.id).join(", ")}${d.deployed.length ? ` (new version: ${d.deployed.join(", ")})` : ""}` +
-          `\nBPMN: ~/.agent-graph/compiled/<flow>.bpmn — explorer ${explorerUrl(info)}`;
+          `\nBPMN: ~/.agent-graph/compiled/<flow>.bpmn — explorer ${c.explorerUrl()}`;
       }
       return text(formatProblems(r) + reload, bad);
     }),
@@ -112,8 +110,7 @@ export function createServer(project: string): McpServer {
       const bad = r.problems.some((p) => p.severity === "error");
       let tail = "";
       if (!bad) {
-        const info = await daemon();
-        await api(info, "/api/reload", {});
+        await (await engine()).reload();
         tail = `\n\nDeployed: ${r.flows.map((f) => f.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r])}\nwritten ${path.relative(project, file)}${tail}`, bad);
@@ -182,7 +179,7 @@ export function createServer(project: string): McpServer {
           }
       const r = await checkFile(dst);
       const bad = r.problems.some((p) => p.severity === "error");
-      if (!bad) await api(await daemon(), "/api/reload", {});
+      if (!bad) await (await engine()).reload();
       return text(`copied ${copied.join(", ")}\n${formatProblems([r])}${bad ? "" : `\nDeployed here: ${r.flows.map((f) => f.id).join(", ")}`}`, bad);
     }),
   );
@@ -220,10 +217,10 @@ export function createServer(project: string): McpServer {
       _meta: { ui: { resourceUri: UI_URI } },
     },
     guard(async ({ flowId, instanceKey, taskKey }: { flowId?: string; instanceKey?: string; taskKey?: string }) => {
-      const info = await daemon();
+      const c = await engine();
       const hash = taskKey ? `task=${taskKey}` : instanceKey ? `instance=${instanceKey}` : flowId ? `flow=${flowId}` : "";
-      const r: any = text(`${summarize(await api(info, stateUrl), project)}\n\nShowing the explorer${hash ? ` (${hash})` : ""}. Also in a browser: ${explorerUrl(info, hash)}`);
-      r.structuredContent = { hash, url: info.url, project };
+      const r: any = text(`${summarize(await c.state(), project)}\n\nShowing the explorer${hash ? ` (${hash})` : ""}. Also in a browser: ${c.explorerUrl(hash)}`);
+      r.structuredContent = { hash, url: c.url, project };
       return r;
     }),
   );
@@ -240,7 +237,7 @@ export function createServer(project: string): McpServer {
     async ({ path: p, body }: { path: string; body?: unknown }) => {
       try {
         if (!/^\/api\/[\w/.-]*(\?[\w=&.%-]*)?$/.test(p) || p === "/api/shutdown") throw new Error("not allowed");
-        const data = await api(await daemon(), p, body);
+        const data = await (await engine()).call(p, body);
         return { content: [{ type: "text" as const, text: "ok" }], structuredContent: { data } };
       } catch (e: any) {
         return { content: [{ type: "text" as const, text: String(e?.message ?? e) }], structuredContent: { error: String(e?.message ?? e) }, isError: true };
@@ -261,9 +258,9 @@ export function createServer(project: string): McpServer {
       inputSchema: { instanceKey: z.string().optional() },
     },
     guard(async ({ instanceKey }) => {
-      const info = await daemon();
-      if (instanceKey) return json(await api(info, `/api/instances/${instanceKey}`));
-      return text(`${summarize(await api(info, stateUrl), project)}\n\nexplorer: ${explorerUrl(info)}`);
+      const c = await engine();
+      if (instanceKey) return json(await c.instance(instanceKey));
+      return text(`${summarize(await c.state(), project)}\n\nexplorer: ${c.explorerUrl()}`);
     }),
   );
 
@@ -280,9 +277,9 @@ export function createServer(project: string): McpServer {
       },
     },
     guard(async ({ flowId, variables, title }) => {
-      const info = await daemon();
-      const r = await api(info, "/api/start", { flowId, variables: variables ?? {}, title, project });
-      return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${explorerUrl(info, `instance=${r.instanceKey}`)}`);
+      const c = await engine();
+      const r = await c.start(flowId, variables ?? {}, title);
+      return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${c.explorerUrl(`instance=${r.instanceKey}`)}`);
     }),
   );
 
@@ -294,7 +291,7 @@ export function createServer(project: string): McpServer {
       inputSchema: {},
     },
     guard(async () => {
-      const s = await api(await daemon(), stateUrl);
+      const s = await (await engine()).state();
       if (!s.userTasks.length) return text("No user tasks waiting.");
       return json(s.userTasks.map((t: any) => ({ ...t, variables: undefined })));
     }),
@@ -309,15 +306,15 @@ export function createServer(project: string): McpServer {
       inputSchema: { taskKey: z.string() },
     },
     guard(async ({ taskKey }) => {
-      const info = await daemon();
-      const s = await api(info, stateUrl);
+      const c = await engine();
+      const s = await c.state();
       const t = s.userTasks.find((u: any) => u.key === taskKey);
       if (!t) return text(`No open user task ${taskKey}`, true);
       const form = t.form ?? { title: `${t.flowId}: ${t.elementId}`, fields: { response: { type: "string", title: "Your answer" } }, required: ["response"] };
       const message = [form.title, form.description].filter(Boolean).join("\n\n") + (t.title ? `\n\n(${t.flowId} — ${t.title})` : "");
       if (!server.server.getClientCapabilities()?.elicitation) {
         return text(
-          `This client can't show a form dialog. Ask the user, then call task_complete with taskKey ${taskKey}.\n\n${message}\n\nFields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `\nRequired: ${form.required.join(", ")}` : ""}\n\nOr answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`,
+          `This client can't show a form dialog. Ask the user, then call task_complete with taskKey ${taskKey}.\n\n${message}\n\nFields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `\nRequired: ${form.required.join(", ")}` : ""}\n\nOr answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`,
         );
       }
       const r = await server.server.elicitInput({
@@ -326,7 +323,7 @@ export function createServer(project: string): McpServer {
         requestedSchema: { type: "object", properties: form.fields, required: form.required },
       } as any);
       if (r.action !== "accept") return text(`The user ${r.action === "decline" ? "declined" : "dismissed"} the form; task ${taskKey} is still open.`);
-      await api(info, `/api/user-tasks/${taskKey}/complete`, { variables: r.content ?? {} });
+      await c.completeTask(taskKey, r.content ?? {});
       return text(`Task ${taskKey} completed with ${JSON.stringify(r.content)}. The flow continues.`);
     }),
   );
@@ -339,7 +336,7 @@ export function createServer(project: string): McpServer {
       inputSchema: { taskKey: z.string(), variables: z.record(z.string(), z.any()) },
     },
     guard(async ({ taskKey, variables }) => {
-      await api(await daemon(), `/api/user-tasks/${taskKey}/complete`, { variables });
+      await (await engine()).completeTask(taskKey, variables);
       return text(`Task ${taskKey} completed.`);
     }),
   );
@@ -357,7 +354,7 @@ export function createServer(project: string): McpServer {
     },
     guard(async ({ jobType, max }) => {
       // Only this project's runs: the work happens in this session's folder.
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType, max: max ?? 1, project });
+      const jobs = await (await engine()).claimJobs(jobType, max ?? 1);
       if (!jobs.length) return text("No session jobs waiting.");
       return json(max && max > 1 ? jobs : jobs[0]);
     }),
@@ -371,7 +368,7 @@ export function createServer(project: string): McpServer {
       inputSchema: { jobKey: z.string(), variables: z.record(z.string(), z.any()) },
     },
     guard(async ({ jobKey, variables }) => {
-      await api(await daemon(), `/api/jobs/${jobKey}/complete`, { variables });
+      await (await engine()).completeJob(jobKey, variables);
       return text(`Job ${jobKey} completed.`);
     }),
   );
@@ -384,7 +381,7 @@ export function createServer(project: string): McpServer {
       inputSchema: { jobKey: z.string(), message: z.string(), retries: z.number().int().min(0).optional() },
     },
     guard(async ({ jobKey, message, retries }) => {
-      await api(await daemon(), `/api/jobs/${jobKey}/fail`, { message, retries });
+      await (await engine()).failJob(jobKey, message, retries);
       return text(`Job ${jobKey} failed: ${message}`);
     }),
   );
@@ -405,19 +402,19 @@ export function createServer(project: string): McpServer {
       },
     },
     guard(async (a) => {
-      const info = await daemon();
+      const c = await engine();
       if (a.action === "retry") {
         if (!a.incidentKey) return text("incidentKey required", true);
-        await api(info, `/api/incidents/${a.incidentKey}/resolve`, {});
+        await c.resolveIncident(a.incidentKey);
         return text(`Incident ${a.incidentKey} resolved; the job is retried.`);
       }
       if (a.action === "cancel") {
         if (!a.instanceKey) return text("instanceKey required", true);
-        await api(info, `/api/instances/${a.instanceKey}/cancel`, {});
+        await c.cancel(a.instanceKey);
         return text(`Instance ${a.instanceKey} cancelled.`);
       }
       if (!a.name) return text("name required", true);
-      await api(info, "/api/messages", { name: a.name, correlationKey: a.correlationKey ?? "", variables: a.variables ?? {} });
+      await c.message(a.name, a.correlationKey ?? "", a.variables ?? {});
       return text(`Message ${a.name} sent.`);
     }),
   );

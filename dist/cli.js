@@ -36321,6 +36321,82 @@ var init_paths = __esm({
   }
 });
 
+// src/client.ts
+var EngineClient;
+var init_client = __esm({
+  "src/client.ts"() {
+    "use strict";
+    init_paths();
+    EngineClient = class _EngineClient {
+      project;
+      info;
+      constructor(project2, info) {
+        this.project = project2;
+        this.info = info;
+      }
+      /** Find the engine or start it, and register the project with it. */
+      static async connect(project2) {
+        return new _EngineClient(project2, await ensureDaemon(project2));
+      }
+      /** The running engine, or undefined (never starts one). */
+      static async find(project2) {
+        const info = await findDaemon(project2);
+        return info && new _EngineClient(project2, info);
+      }
+      get url() {
+        return this.info.url.replace("//127.0.0.1:", "//localhost:");
+      }
+      /** The web explorer, filtered to this project; `hash` like "instance=7" or "task=9". */
+      explorerUrl(hash2 = "") {
+        return `${this.url}/?project=${encodeURIComponent(this.project)}${hash2 ? `#${hash2}` : ""}`;
+      }
+      /** Any engine route (the MCP App's ui_api proxy). */
+      call(path9, body2) {
+        return api(this.info, path9, body2);
+      }
+      /** Engine state: this project's flows and work (work elsewhere is marked); `all` for everything. */
+      state(all = false) {
+        return this.call(all ? "/api/state" : `/api/state?project=${encodeURIComponent(this.project)}`);
+      }
+      instance(key) {
+        return this.call(`/api/instances/${encodeURIComponent(key)}`);
+      }
+      /** Recompile and redeploy flows from every registered project. */
+      reload() {
+        return this.call("/api/reload", {});
+      }
+      start(flowId, variables = {}, title) {
+        return this.call("/api/start", { flowId, variables, title, project: this.project });
+      }
+      completeTask(key, variables = {}) {
+        return this.call(`/api/user-tasks/${encodeURIComponent(key)}/complete`, { variables });
+      }
+      /** Take agent steps for this session (only this project's runs). */
+      claimJobs(type, max = 1) {
+        return this.call("/api/jobs/claim", { type, max, project: this.project });
+      }
+      completeJob(key, variables = {}) {
+        return this.call(`/api/jobs/${encodeURIComponent(key)}/complete`, { variables });
+      }
+      failJob(key, message, retries) {
+        return this.call(`/api/jobs/${encodeURIComponent(key)}/fail`, { message, retries });
+      }
+      resolveIncident(key) {
+        return this.call(`/api/incidents/${encodeURIComponent(key)}/resolve`, {});
+      }
+      cancel(instanceKey) {
+        return this.call(`/api/instances/${encodeURIComponent(instanceKey)}/cancel`, {});
+      }
+      message(name2, correlationKey = "", variables = {}) {
+        return this.call("/api/messages", { name: name2, correlationKey, variables });
+      }
+      shutdown() {
+        return this.call("/api/shutdown", {});
+      }
+    };
+  }
+});
+
 // src/summary.ts
 import path3 from "node:path";
 function summarize(state, project2) {
@@ -36362,8 +36438,11 @@ import { spawn as spawn2 } from "node:child_process";
 function jobProject() {
   return jobContext.getStore()?.project;
 }
-function runInProject(project2, fn) {
-  return jobContext.run({ project: project2 }, fn);
+function jobSignal() {
+  return jobContext.getStore()?.signal;
+}
+function runInProject(project2, fn, signal) {
+  return jobContext.run({ project: project2, signal }, fn);
 }
 async function claude(prompt, opts = {}) {
   const cmd2 = process.env.AGE_CLAUDE_CMD ?? "claude";
@@ -36377,7 +36456,8 @@ async function claude(prompt, opts = {}) {
       cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: opts.timeoutMs ?? 30 * 6e4
+      timeout: opts.timeoutMs ?? 30 * 6e4,
+      signal: jobSignal()
     });
     let stdout = "";
     let stderr = "";
@@ -36678,6 +36758,102 @@ var init_explorer_api = __esm({
   }
 });
 
+// src/worker.ts
+function parseLimits(spec = "") {
+  const out = {};
+  for (const part of spec.split(",")) {
+    const m2 = part.trim().match(/^([\w.:-]+)=(\d+)$/);
+    if (m2) out[m2[1]] = Number(m2[2]);
+  }
+  return out;
+}
+function fmtMs(ms) {
+  return ms >= 6e4 ? `${Math.round(ms / 6e4)} min` : `${Math.round(ms / 1e3)} s`;
+}
+var TimeoutError, Worker;
+var init_worker = __esm({
+  "src/worker.ts"() {
+    "use strict";
+    TimeoutError = class extends Error {
+    };
+    Worker = class {
+      running = /* @__PURE__ */ new Map();
+      /** Job key → earliest time it may run again. */
+      backoff = /* @__PURE__ */ new Map();
+      port;
+      opts;
+      stopping = false;
+      constructor(port, opts) {
+        this.port = port;
+        this.opts = opts;
+      }
+      /** How many more jobs of `type` may start now. */
+      free(type) {
+        const all = this.opts.maxConcurrent - this.running.size;
+        const cap = this.opts.perType?.[type];
+        if (cap === void 0) return Math.max(0, all);
+        let ofType = 0;
+        for (const r2 of this.running.values()) if (r2.type === type) ofType++;
+        return Math.max(0, Math.min(all, cap - ofType));
+      }
+      backingOff(key, now = Date.now()) {
+        return (this.backoff.get(key) ?? 0) > now;
+      }
+      /** Run a job to the end. Never rejects. */
+      async run(job, handler) {
+        const key = String(job.key);
+        const abort = new AbortController();
+        this.running.set(key, { type: job.type, elementId: job.elementId, instanceKey: job.instanceKey, since: Date.now(), abort });
+        this.opts.log?.({ kind: "job", instanceKey: job.instanceKey, elementId: job.elementId, message: `running ${job.elementId} (${job.type})` });
+        const limit = this.opts.timeoutMs(job.type);
+        let timer;
+        try {
+          const out = await Promise.race([
+            Promise.resolve().then(() => handler(job, abort.signal)),
+            new Promise((_2, reject) => {
+              timer = setTimeout(() => {
+                abort.abort();
+                reject(new TimeoutError(`timed out after ${fmtMs(limit)}`));
+              }, limit);
+              timer.unref?.();
+            })
+          ]);
+          const r2 = out && typeof out === "object" ? out : {};
+          this.port.complete(key, r2.variables ?? {});
+          this.backoff.delete(key);
+          this.opts.log?.({ kind: "done", instanceKey: job.instanceKey, elementId: job.elementId, message: `completed ${job.elementId}`, costUsd: r2.costUsd });
+        } catch (e) {
+          if (this.stopping) return;
+          const err = e instanceof Error ? e : new Error(String(e));
+          if (this.opts.onError?.(job, err)) return;
+          const msg = String(err.message).slice(0, 4e3);
+          const retries = Math.max(0, (job.retries ?? 1) - 1);
+          try {
+            this.port.fail(key, retries, msg);
+            if (retries > 0) this.backoff.set(key, Date.now() + (this.opts.backoffMs ?? 5e3) * 2 ** (3 - Math.min(3, retries)));
+          } catch {
+          }
+          this.opts.log?.({
+            kind: retries ? "retry" : "incident",
+            instanceKey: job.instanceKey,
+            elementId: job.elementId,
+            message: `${job.elementId} failed${retries ? `, ${retries} retries left` : " \u2014 incident raised"}: ${msg.slice(0, 500)}`
+          });
+        } finally {
+          clearTimeout(timer);
+          this.running.delete(key);
+          this.opts.settled?.();
+        }
+      }
+      /** Abort every running job (shutdown). */
+      stop() {
+        this.stopping = true;
+        for (const r2 of this.running.values()) r2.abort.abort();
+      }
+    };
+  }
+});
+
 // src/daemon.ts
 var daemon_exports = {};
 __export(daemon_exports, {
@@ -36838,6 +37014,8 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   }
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+  process.on("unhandledRejection", (e) => host.log({ kind: "error", message: `unhandled rejection (a flow handler?): ${e?.stack ?? e}`.slice(0, 2e3) }));
+  process.on("uncaughtException", (e) => host.log({ kind: "error", message: `uncaught exception (a flow handler?): ${e?.stack ?? e}`.slice(0, 2e3) }));
   await new Promise((r2) => server.listen(port, "127.0.0.1", r2));
   const addr = server.address();
   const v6 = http.createServer();
@@ -36850,7 +37028,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   fs5.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
-var WORKER, TICK_MS, MAX_CONCURRENT, Host;
+var WORKER, TICK_MS, MAX_CONCURRENT, MIN, jobTimeoutMs, Host;
 var init_daemon = __esm({
   "src/daemon.ts"() {
     "use strict";
@@ -36860,9 +37038,12 @@ var init_daemon = __esm({
     init_paths();
     init_explorer_html();
     init_explorer_api();
+    init_worker();
     WORKER = "age-daemon";
     TICK_MS = 500;
     MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
+    MIN = 6e4;
+    jobTimeoutMs = (type) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (type === "claude" ? 55 : 25) * MIN);
     Host = class {
       /** The global flow library (~/AgentGraph): its flows are offered in every project.
        *  Claude Desktop, which has no project, works there. */
@@ -36873,8 +37054,11 @@ var init_daemon = __esm({
       engine;
       flows = /* @__PURE__ */ new Map();
       problems = [];
-      running = /* @__PURE__ */ new Map();
-      backoff = /* @__PURE__ */ new Map();
+      /** Runs activated jobs: timeouts, concurrency limits, failures → retries/incidents. */
+      worker;
+      get running() {
+        return this.worker.running;
+      }
       activity = [];
       instanceMeta = {};
       deployed = {};
@@ -36887,6 +37071,21 @@ var init_daemon = __esm({
         this.dir = dir;
         fs5.mkdirSync(path5.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
+        this.worker = new Worker(
+          {
+            complete: (key, vars) => this.engine.completeJob(key, JSON.stringify(vars)),
+            fail: (key, retries, msg) => this.engine.failJob(key, retries, msg)
+          },
+          {
+            maxConcurrent: MAX_CONCURRENT,
+            perType: parseLimits(process.env.AGE_CONCURRENCY),
+            timeoutMs: jobTimeoutMs,
+            backoffMs: Number(process.env.AGE_BACKOFF_MS ?? 5e3),
+            log: (e) => this.log(e),
+            settled: () => this.persist(),
+            onError: (job, err) => this.agentUnavailable(job, err)
+          }
+        );
         const journal = path5.join(this.dir, "journal.json");
         if (fs5.existsSync(journal)) {
           this.engine.replayEvents(fs5.readFileSync(journal, "utf8"));
@@ -37053,22 +37252,20 @@ var init_daemon = __esm({
           const after = this.snapshot();
           if (after.eventCount !== before.eventCount) this.touch();
           for (const type of this.servedTypes()) {
-            const free = MAX_CONCURRENT - this.running.size;
-            if (free <= 0) break;
+            const free = this.worker.free(type);
+            if (free <= 0) continue;
             const now = Date.now();
-            const waiting = (after.jobs ?? []).some(
-              (j2) => j2.jobType === type && j2.state === "Created" && (this.backoff.get(j2.key) ?? 0) <= now
-            );
+            const waiting = (after.jobs ?? []).some((j2) => j2.jobType === type && j2.state === "Created" && !this.worker.backingOff(String(j2.key), now));
             if (!waiting) continue;
-            const lockMs = type === "claude" ? 60 * 6e4 : 30 * 6e4;
-            const jobs = JSON.parse(this.engine.activateJobs(type, free, lockMs, WORKER));
+            const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(type) + 5 * MIN, WORKER));
             if (jobs.length) this.touch();
             for (const job of jobs) {
-              if ((this.backoff.get(job.key) ?? 0) > now) {
+              if (this.worker.backingOff(String(job.key), now)) {
                 this.engine.failJob(job.key, job.retries, "backing off");
                 continue;
               }
-              this.runJob(job);
+              const j2 = { ...job, key: String(job.key), instanceKey: String(job.instanceKey) };
+              void this.worker.run(j2, (aj, signal) => this.handle(aj, signal));
             }
           }
         } catch (e) {
@@ -37076,59 +37273,30 @@ var init_daemon = __esm({
         }
         this.persist();
       }
-      async runJob(job) {
-        const key = String(job.key);
-        this.running.set(key, { type: job.type, elementId: job.elementId, instanceKey: job.instanceKey, since: Date.now() });
-        this.log({ kind: "job", instanceKey: job.instanceKey, elementId: job.elementId, message: `running ${job.elementId} (${job.type})` });
-        const vjob = {
-          jobKey: key,
-          processInstanceKey: String(job.instanceKey),
-          elementId: job.elementId,
-          type: job.type,
-          variables: job.variables ?? {}
-        };
-        try {
-          let vars = {};
-          let costUsd;
-          if (job.type === "claude") {
-            const r2 = await this.runAgent(job);
-            vars = r2.vars;
-            costUsd = r2.costUsd;
-          } else {
-            const h2 = this.handlerFor(job.type, job.bpmnProcessId);
-            if (!h2) throw new Error(`no handler for ${job.type}`);
-            const out = await runInProject(this.projectOf(String(job.instanceKey)), () => h2(vjob));
-            if (out && typeof out === "object") vars = out;
-          }
-          this.engine.completeJob(key, JSON.stringify(vars));
-          this.log({ kind: "done", instanceKey: job.instanceKey, elementId: job.elementId, message: `completed ${job.elementId}`, costUsd });
-        } catch (e) {
-          const msg = String(e?.message ?? e).slice(0, 4e3);
-          if (job.type === "claude" && process.env.AGE_AGENT_MODE !== "cli" && /401|authenticat|not logged in|ENOENT/i.test(msg)) {
-            this.agentMode = "session";
-            try {
-              this.engine.failJob(key, job.retries ?? 3, "handed to the session assistant");
-            } catch {
-            }
-            this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
-            return;
-          }
-          const retries = Math.max(0, (job.retries ?? 1) - 1);
-          try {
-            this.engine.failJob(key, retries, msg);
-            if (retries > 0) this.backoff.set(key, Date.now() + Number(process.env.AGE_BACKOFF_MS ?? 5e3) * 2 ** (3 - Math.min(3, retries)));
-          } catch {
-          }
-          this.log({
-            kind: retries ? "retry" : "incident",
-            instanceKey: job.instanceKey,
-            elementId: job.elementId,
-            message: `${job.elementId} failed${retries ? `, ${retries} retries left` : " \u2014 incident raised"}: ${msg.slice(0, 500)}`
-          });
-        } finally {
-          this.running.delete(key);
-          this.persist();
+      /** Which code runs a job: the built-in agent step, or the flow's handler, in its project. */
+      async handle(job, signal) {
+        if (job.type === "claude") {
+          const r2 = await runInProject(this.projectOf(job.instanceKey), () => this.runAgent(job), signal);
+          return { variables: r2.vars, costUsd: r2.costUsd };
         }
+        const h2 = this.handlerFor(job.type, job.bpmnProcessId);
+        if (!h2) throw new Error(`no handler for ${job.type}`);
+        const vjob = { jobKey: job.key, processInstanceKey: job.instanceKey, elementId: job.elementId, type: job.type, variables: job.variables ?? {} };
+        const out = await runInProject(this.projectOf(job.instanceKey), () => h2(vjob), signal);
+        return { variables: out && typeof out === "object" ? out : {} };
+      }
+      /** The Claude Code CLI can't run here (missing or logged out): hand agent steps to the
+       *  chat/session assistant instead of burning retries. */
+      agentUnavailable(job, err) {
+        const msg = err.message;
+        if (job.type !== "claude" || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
+        this.agentMode = "session";
+        try {
+          this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant");
+        } catch {
+        }
+        this.log({ kind: "retry", instanceKey: job.instanceKey, elementId: job.elementId, message: `claude CLI unavailable (${msg.slice(0, 160)}); agent steps now go to the chat assistant (session_job_next)` });
+        return true;
       }
       /** Built-in "claude" worker: prompt file + variables → headless Claude Code. */
       async runAgent(job) {
@@ -37227,7 +37395,7 @@ ${vars.appendPrompt}
           agentMode: this.agentMode,
           sessionJobs: (snap.jobs ?? []).filter((j2) => j2.jobType === "session" || this.agentMode === "session" && j2.jobType === "claude").map((j2) => ({ ...j2, project: pj(j2.instanceKey) })),
           jobs: snap.jobs ?? [],
-          running: [...this.running.entries()].map(([key, r2]) => ({ key, ...r2, project: pj(r2.instanceKey) })),
+          running: [...this.running.entries()].map(([key, { abort: _a3, ...r2 }]) => ({ key, ...r2, project: pj(r2.instanceKey) })),
           incidents: (snap.incidents ?? []).map((i) => ({ ...i, project: pj(i.instanceKey) })),
           timers: snap.timers ?? [],
           messageSubscriptions: snap.messageSubscriptions ?? [],
@@ -37330,7 +37498,7 @@ ${vars.appendPrompt}
         const jobKey = raised?.job_key ?? (snap.jobs ?? []).find((j2) => j2.instanceKey === inc.instanceKey && j2.elementId === inc.elementId)?.key;
         if (jobKey != null) {
           this.engine.updateRetries(String(jobKey), retries);
-          this.backoff.delete(String(jobKey));
+          this.worker.backoff.delete(String(jobKey));
         }
         this.engine.resolveIncident(key);
         this.log({ kind: "resolve", instanceKey: inc.instanceKey, elementId: inc.elementId, message: `incident at ${inc.elementId} resolved \u2014 retrying` });
@@ -37356,6 +37524,7 @@ ${vars.appendPrompt}
       }
       stop() {
         if (this.timer) clearInterval(this.timer);
+        this.worker.stop();
         this.dirty = true;
         this.persist();
       }
@@ -57207,9 +57376,7 @@ function guideText() {
 }
 function createServer2(project2) {
   const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
-  const daemon = () => ensureDaemon(project2);
-  const stateUrl = `/api/state?project=${encodeURIComponent(project2)}`;
-  const explorerUrl = (info, hash2 = "") => `${info.url}/?project=${encodeURIComponent(project2)}${hash2 ? `#${hash2}` : ""}`;
+  const engine = () => EngineClient.connect(project2);
   const guard = (fn) => async (a) => {
     try {
       return await fn(a);
@@ -57230,13 +57397,13 @@ function createServer2(project2) {
       const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
-        const info = await daemon();
-        const d2 = await api(info, "/api/reload", {});
-        const st = await api(info, stateUrl);
+        const c = await engine();
+        const d2 = await c.reload();
+        const st = await c.state();
         reload = `
 
 live: ${st.flows.map((f2) => f2.id).join(", ")}${d2.deployed.length ? ` (new version: ${d2.deployed.join(", ")})` : ""}
-BPMN: ~/.agent-graph/compiled/<flow>.bpmn \u2014 explorer ${explorerUrl(info)}`;
+BPMN: ~/.agent-graph/compiled/<flow>.bpmn \u2014 explorer ${c.explorerUrl()}`;
       }
       return text(formatProblems(r2) + reload, bad);
     })
@@ -57274,8 +57441,7 @@ ${guideText()}`))
       const bad = r2.problems.some((p2) => p2.severity === "error");
       let tail = "";
       if (!bad) {
-        const info = await daemon();
-        await api(info, "/api/reload", {});
+        await (await engine()).reload();
         tail = `
 
 Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
@@ -57345,7 +57511,7 @@ written ${path6.relative(project2, file2)}${tail}`, bad);
           }
       const r2 = await checkFile(dst);
       const bad = r2.problems.some((p2) => p2.severity === "error");
-      if (!bad) await api(await daemon(), "/api/reload", {});
+      if (!bad) await (await engine()).reload();
       return text(`copied ${copied.join(", ")}
 ${formatProblems([r2])}${bad ? "" : `
 Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
@@ -57383,12 +57549,12 @@ ${fs6.readFileSync(path6.join(pdir, p2), "utf8")}`) : [];
       _meta: { ui: { resourceUri: UI_URI } }
     },
     guard(async ({ flowId, instanceKey, taskKey }) => {
-      const info = await daemon();
+      const c = await engine();
       const hash2 = taskKey ? `task=${taskKey}` : instanceKey ? `instance=${instanceKey}` : flowId ? `flow=${flowId}` : "";
-      const r2 = text(`${summarize(await api(info, stateUrl), project2)}
+      const r2 = text(`${summarize(await c.state(), project2)}
 
-Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${explorerUrl(info, hash2)}`);
-      r2.structuredContent = { hash: hash2, url: info.url, project: project2 };
+Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${c.explorerUrl(hash2)}`);
+      r2.structuredContent = { hash: hash2, url: c.url, project: project2 };
       return r2;
     })
   );
@@ -57404,7 +57570,7 @@ Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${explorer
     async ({ path: p2, body: body2 }) => {
       try {
         if (!/^\/api\/[\w/.-]*(\?[\w=&.%-]*)?$/.test(p2) || p2 === "/api/shutdown") throw new Error("not allowed");
-        const data = await api(await daemon(), p2, body2);
+        const data = await (await engine()).call(p2, body2);
         return { content: [{ type: "text", text: "ok" }], structuredContent: { data } };
       } catch (e) {
         return { content: [{ type: "text", text: String(e?.message ?? e) }], structuredContent: { error: String(e?.message ?? e) }, isError: true };
@@ -57422,11 +57588,11 @@ Showing the explorer${hash2 ? ` (${hash2})` : ""}. Also in a browser: ${explorer
       inputSchema: { instanceKey: external_exports.string().optional() }
     },
     guard(async ({ instanceKey }) => {
-      const info = await daemon();
-      if (instanceKey) return json4(await api(info, `/api/instances/${instanceKey}`));
-      return text(`${summarize(await api(info, stateUrl), project2)}
+      const c = await engine();
+      if (instanceKey) return json4(await c.instance(instanceKey));
+      return text(`${summarize(await c.state(), project2)}
 
-explorer: ${explorerUrl(info)}`);
+explorer: ${c.explorerUrl()}`);
     })
   );
   server.registerTool(
@@ -57441,9 +57607,9 @@ explorer: ${explorerUrl(info)}`);
       }
     },
     guard(async ({ flowId, variables, title }) => {
-      const info = await daemon();
-      const r2 = await api(info, "/api/start", { flowId, variables: variables ?? {}, title, project: project2 });
-      return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${explorerUrl(info, `instance=${r2.instanceKey}`)}`);
+      const c = await engine();
+      const r2 = await c.start(flowId, variables ?? {}, title);
+      return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${c.explorerUrl(`instance=${r2.instanceKey}`)}`);
     })
   );
   server.registerTool(
@@ -57454,7 +57620,7 @@ explorer: ${explorerUrl(info)}`);
       inputSchema: {}
     },
     guard(async () => {
-      const s = await api(await daemon(), stateUrl);
+      const s = await (await engine()).state();
       if (!s.userTasks.length) return text("No user tasks waiting.");
       return json4(s.userTasks.map((t) => ({ ...t, variables: void 0 })));
     })
@@ -57467,8 +57633,8 @@ explorer: ${explorerUrl(info)}`);
       inputSchema: { taskKey: external_exports.string() }
     },
     guard(async ({ taskKey }) => {
-      const info = await daemon();
-      const s = await api(info, stateUrl);
+      const c = await engine();
+      const s = await c.state();
       const t = s.userTasks.find((u2) => u2.key === taskKey);
       if (!t) return text(`No open user task ${taskKey}`, true);
       const form = t.form ?? { title: `${t.flowId}: ${t.elementId}`, fields: { response: { type: "string", title: "Your answer" } }, required: ["response"] };
@@ -57484,7 +57650,7 @@ ${message}
 Fields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `
 Required: ${form.required.join(", ")}` : ""}
 
-Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
+Or answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`
         );
       }
       const r2 = await server.server.elicitInput({
@@ -57493,7 +57659,7 @@ Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
         requestedSchema: { type: "object", properties: form.fields, required: form.required }
       });
       if (r2.action !== "accept") return text(`The user ${r2.action === "decline" ? "declined" : "dismissed"} the form; task ${taskKey} is still open.`);
-      await api(info, `/api/user-tasks/${taskKey}/complete`, { variables: r2.content ?? {} });
+      await c.completeTask(taskKey, r2.content ?? {});
       return text(`Task ${taskKey} completed with ${JSON.stringify(r2.content)}. The flow continues.`);
     })
   );
@@ -57505,7 +57671,7 @@ Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
       inputSchema: { taskKey: external_exports.string(), variables: external_exports.record(external_exports.string(), external_exports.any()) }
     },
     guard(async ({ taskKey, variables }) => {
-      await api(await daemon(), `/api/user-tasks/${taskKey}/complete`, { variables });
+      await (await engine()).completeTask(taskKey, variables);
       return text(`Task ${taskKey} completed.`);
     })
   );
@@ -57520,7 +57686,7 @@ Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
       }
     },
     guard(async ({ jobType: jobType2, max }) => {
-      const jobs = await api(await daemon(), "/api/jobs/claim", { type: jobType2, max: max ?? 1, project: project2 });
+      const jobs = await (await engine()).claimJobs(jobType2, max ?? 1);
       if (!jobs.length) return text("No session jobs waiting.");
       return json4(max && max > 1 ? jobs : jobs[0]);
     })
@@ -57533,7 +57699,7 @@ Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
       inputSchema: { jobKey: external_exports.string(), variables: external_exports.record(external_exports.string(), external_exports.any()) }
     },
     guard(async ({ jobKey, variables }) => {
-      await api(await daemon(), `/api/jobs/${jobKey}/complete`, { variables });
+      await (await engine()).completeJob(jobKey, variables);
       return text(`Job ${jobKey} completed.`);
     })
   );
@@ -57545,7 +57711,7 @@ Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
       inputSchema: { jobKey: external_exports.string(), message: external_exports.string(), retries: external_exports.number().int().min(0).optional() }
     },
     guard(async ({ jobKey, message, retries }) => {
-      await api(await daemon(), `/api/jobs/${jobKey}/fail`, { message, retries });
+      await (await engine()).failJob(jobKey, message, retries);
       return text(`Job ${jobKey} failed: ${message}`);
     })
   );
@@ -57564,19 +57730,19 @@ Or answer in the explorer: ${explorerUrl(info, `task=${taskKey}`)}`
       }
     },
     guard(async (a) => {
-      const info = await daemon();
+      const c = await engine();
       if (a.action === "retry") {
         if (!a.incidentKey) return text("incidentKey required", true);
-        await api(info, `/api/incidents/${a.incidentKey}/resolve`, {});
+        await c.resolveIncident(a.incidentKey);
         return text(`Incident ${a.incidentKey} resolved; the job is retried.`);
       }
       if (a.action === "cancel") {
         if (!a.instanceKey) return text("instanceKey required", true);
-        await api(info, `/api/instances/${a.instanceKey}/cancel`, {});
+        await c.cancel(a.instanceKey);
         return text(`Instance ${a.instanceKey} cancelled.`);
       }
       if (!a.name) return text("name required", true);
-      await api(info, "/api/messages", { name: a.name, correlationKey: a.correlationKey ?? "", variables: a.variables ?? {} });
+      await c.message(a.name, a.correlationKey ?? "", a.variables ?? {});
       return text(`Message ${a.name} sent.`);
     })
   );
@@ -57696,6 +57862,7 @@ var init_mcp2 = __esm({
     init_compile2();
     init_explorer_html();
     init_paths();
+    init_client();
     init_summary();
     text = (t, isError = false) => ({ content: [{ type: "text", text: t }], ...isError ? { isError } : {} });
     json4 = (v2) => text(JSON.stringify(v2, null, 2));
@@ -57726,9 +57893,9 @@ async function readStdin() {
 async function runHook(projectArg, event = "UserPromptSubmit") {
   const input2 = await readStdin();
   const project2 = input2.cwd ? resolveProject(input2.cwd) : projectArg;
-  const info = await findDaemon(project2);
-  if (!info) return;
-  const s = await api(info, `/api/state?project=${encodeURIComponent(project2)}`);
+  const c = await EngineClient.find(project2);
+  if (!c) return;
+  const s = await c.state();
   const here = (x) => !x.project || x.project === path7.resolve(project2);
   const tasks = s.userTasks.filter(here);
   const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created" && here(j2));
@@ -57753,15 +57920,15 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   fs7.writeFileSync(seenFile, JSON.stringify(keys));
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
-    lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""}`);
+    lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);
   if (elsewhere.length) {
     const names = [...new Set(elsewhere.map((x) => path7.basename(x.project)))];
     lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) \u2014 flow_status lists them`);
   }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
-  for (const i of incidents) lines.push(`- incident ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${String(i.reason).slice(0, 200)}`);
+  for (const i of incidents) lines.push(`- incident ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${String(i.reason).slice(0, 200)} (${c.explorerUrl(`instance=${i.instanceKey}`)})`);
   lines.push(
-    `Mention these to the user when relevant. To answer a user task, call task_ask (it shows the form to the user) \u2014 never fill it in yourself. Explorer: ${info.url}`
+    `Mention these to the user when relevant. To answer a user task, call task_ask (it shows the form to the user) \u2014 never fill it in yourself. Explorer: ${c.explorerUrl()}`
   );
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: lines.join("\n") } }));
 }
@@ -57769,12 +57936,14 @@ var init_hooks = __esm({
   "src/hooks.ts"() {
     "use strict";
     init_paths();
+    init_client();
   }
 });
 
 // src/cli.ts
 init_compile2();
 init_paths();
+init_client();
 init_summary();
 import { spawn as spawn3 } from "node:child_process";
 import path8 from "node:path";
@@ -57830,44 +57999,41 @@ async function main() {
       return;
     }
     case "up": {
-      const info = await ensureDaemon(project);
-      console.log(info.url);
+      console.log((await EngineClient.connect(project)).url);
       return;
     }
     case "open": {
-      const info = await ensureDaemon(project);
-      const view = (rest[0] ?? "").replace(/^#/, "");
-      const target = `${info.url}/?project=${encodeURIComponent(project)}${view ? `#${view}` : ""}`;
+      const c = await EngineClient.connect(project);
+      const target = c.explorerUrl((rest[0] ?? "").replace(/^#/, ""));
       console.log(target);
       openBrowser(target);
       return;
     }
     case "down": {
-      const info = await findDaemon(project);
-      if (!info) return console.log("not running");
-      await api(info, "/api/shutdown", {});
+      const c = await EngineClient.find(project);
+      if (!c) return console.log("not running");
+      await c.shutdown();
       return console.log("stopped");
     }
     case "status": {
-      const info = await ensureDaemon(project);
-      console.log(summarize(await api(info, `/api/state?project=${encodeURIComponent(project)}`), project));
+      const c = await EngineClient.connect(project);
+      console.log(`${summarize(await c.state(), project)}
+explorer: ${c.explorerUrl()}`);
       return;
     }
     case "start": {
-      const info = await ensureDaemon(project);
-      const r2 = await api(info, "/api/start", { flowId: rest[0], variables: parseVars(rest[1]), project });
-      console.log(`started instance ${r2.instanceKey} \u2014 ${info.url}/?project=${encodeURIComponent(project)}#instance=${r2.instanceKey}`);
+      const c = await EngineClient.connect(project);
+      const r2 = await c.start(rest[0], parseVars(rest[1]));
+      console.log(`started instance ${r2.instanceKey} \u2014 ${c.explorerUrl(`instance=${r2.instanceKey}`)}`);
       return;
     }
     case "tasks": {
-      const info = await ensureDaemon(project);
-      const s = await api(info, "/api/state");
+      const s = await (await EngineClient.connect(project)).state(true);
       console.log(JSON.stringify(s.userTasks.map(({ variables, ...t }) => t), null, 2));
       return;
     }
     case "complete": {
-      const info = await ensureDaemon(project);
-      await api(info, `/api/user-tasks/${rest[0]}/complete`, { variables: parseVars(rest[1]) });
+      await (await EngineClient.connect(project)).completeTask(rest[0], parseVars(rest[1]));
       console.log("completed");
       return;
     }

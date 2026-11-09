@@ -24,11 +24,17 @@ export interface FormDef {
 
 /** The project the current job runs for (one engine serves every project). Kept on
  *  globalThis: the engine and flow files may load this module from different copies. */
-const jobContext: AsyncLocalStorage<{ project: string }> = ((globalThis as any)[Symbol.for("agent-graph.job")] ??= new AsyncLocalStorage());
+const jobContext: AsyncLocalStorage<{ project: string; signal?: AbortSignal }> = ((globalThis as any)[Symbol.for("agent-graph.job")] ??= new AsyncLocalStorage());
 
 /** The project folder of the run this job belongs to: sh() and claude() run there. */
 export function jobProject(): string | undefined {
   return jobContext.getStore()?.project;
+}
+
+/** Aborts when the current job times out or the engine stops. sh() and claude() stop
+ *  their process on it; pass it to fetch() and other long calls in a handler. */
+export function jobSignal(): AbortSignal | undefined {
+  return jobContext.getStore()?.signal;
 }
 
 /** A path in the project the current run belongs to. Use it for files a step reads or
@@ -38,8 +44,8 @@ export function projectPath(...parts: string[]): string {
 }
 
 /** Run fn as part of a job for `project` (the engine wraps every handler in this). */
-export function runInProject<T>(project: string, fn: () => T): T {
-  return jobContext.run({ project }, fn);
+export function runInProject<T>(project: string, fn: () => T, signal?: AbortSignal): T {
+  return jobContext.run({ project, signal }, fn);
 }
 
 /** Declare the forms the flow's `w.human(name, { form })` steps refer to. Export the
@@ -77,6 +83,7 @@ export function sh(
       env: { ...process.env, ...opts.env },
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs,
+      signal: jobSignal(),
     });
     let stdout = "";
     let stderr = "";
@@ -131,6 +138,7 @@ export async function claude<T = string>(prompt: string, opts: ClaudeOptions = {
       env: process.env,
       stdio: ["pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs ?? 30 * 60_000,
+      signal: jobSignal(),
     });
     let stdout = "";
     let stderr = "";

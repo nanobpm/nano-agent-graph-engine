@@ -3,7 +3,8 @@
 // without flows.
 import fs from "node:fs";
 import path from "node:path";
-import { api, engineDir, findDaemon, projectSlug, resolveProject } from "./paths.ts";
+import { engineDir, projectSlug, resolveProject } from "./paths.ts";
+import { EngineClient } from "./client.ts";
 
 async function readStdin(): Promise<any> {
   if (process.stdin.isTTY) return {};
@@ -19,9 +20,9 @@ async function readStdin(): Promise<any> {
 export async function runHook(projectArg: string, event = "UserPromptSubmit") {
   const input = await readStdin();
   const project = input.cwd ? resolveProject(input.cwd) : projectArg;
-  const info = await findDaemon(project);
-  if (!info) return;
-  const s = await api(info, `/api/state?project=${encodeURIComponent(project)}`);
+  const c = await EngineClient.find(project);
+  if (!c) return;
+  const s = await c.state();
   const here = (x: any) => !x.project || x.project === path.resolve(project);
   const tasks = (s.userTasks as any[]).filter(here);
   const sessionJobs = (s.sessionJobs as any[]).filter((j) => j.state === "Created" && here(j));
@@ -50,15 +51,15 @@ export async function runHook(projectArg: string, event = "UserPromptSubmit") {
 
   const lines = ["Agent Graph Engine — work waiting in this project's flows:"];
   for (const t of tasks)
-    lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` — ${t.form.title}` : ""}`);
+    lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` — ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);
   if (elsewhere.length) {
     const names = [...new Set(elsewhere.map((x) => path.basename(x.project)))];
     lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) — flow_status lists them`);
   }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
-  for (const i of incidents) lines.push(`- incident ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${String(i.reason).slice(0, 200)}`);
+  for (const i of incidents) lines.push(`- incident ${i.key} at ${i.elementId} (instance ${i.instanceKey}): ${String(i.reason).slice(0, 200)} (${c.explorerUrl(`instance=${i.instanceKey}`)})`);
   lines.push(
-    `Mention these to the user when relevant. To answer a user task, call task_ask (it shows the form to the user) — never fill it in yourself. Explorer: ${info.url}`,
+    `Mention these to the user when relevant. To answer a user task, call task_ask (it shows the form to the user) — never fill it in yourself. Explorer: ${c.explorerUrl()}`,
   );
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: lines.join("\n") } }));
 }
