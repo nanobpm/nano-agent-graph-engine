@@ -37169,7 +37169,7 @@ function classifyToolCall(update) {
   const title = update.title;
   const name2 = typeof title === "string" && title.length > 0 ? title : callId;
   const args = "rawInput" in update && update.rawInput !== void 0 ? update.rawInput : null;
-  return { kind: "tool-call", callId, name: name2, args };
+  return { kind: "tool-call", callId, name: name2, args, ...update.status === "pending" ? { pending: true } : {} };
 }
 function classifyToolCallUpdate(update) {
   const callId = update.toolCallId;
@@ -37177,11 +37177,15 @@ function classifyToolCallUpdate(update) {
     return ignored("tool_call_update", `tool_call_update missing a string "toolCallId"`);
   }
   const status = update.status;
+  const hasArgs = "rawInput" in update && update.rawInput !== void 0;
   if (status !== "completed" && status !== "failed") {
+    if (status === "in_progress" || hasArgs) {
+      return { kind: "tool-call-update", callId, running: status === "in_progress", ...hasArgs ? { args: update.rawInput } : {} };
+    }
     return ignored("tool_call_update", `tool_call_update status "${String(status)}" is not terminal`);
   }
   const result = "rawOutput" in update ? update.rawOutput : update.content ?? null;
-  return { kind: "tool-result", callId, ok: status === "completed", result };
+  return { kind: "tool-result", callId, ok: status === "completed", result, ...hasArgs ? { args: update.rawInput } : {} };
 }
 function classifyUpdate(value) {
   if (!isRecord2(value)) {
@@ -37200,9 +37204,34 @@ function classifyUpdate(value) {
   if (sessionUpdate === "tool_call_update") {
     return classifyToolCallUpdate(value);
   }
+  if (sessionUpdate === "usage_update") {
+    return classifyUsageUpdate(value);
+  }
   return ignored(sessionUpdate, `${sessionUpdate} is not a canonical mind event`);
 }
-var CHUNK_ROLE;
+function classifyUsageUpdate(update) {
+  const { used, size } = update;
+  if (!nonNegInt(used) || !nonNegInt(size)) {
+    return ignored("usage_update", `usage_update needs non-negative integer "used" and "size"`);
+  }
+  const cost = update.cost;
+  const validCost = isRecord2(cost) && typeof cost.amount === "number" && Number.isFinite(cost.amount) && typeof cost.currency === "string" ? { amount: cost.amount, currency: cost.currency } : void 0;
+  return { kind: "context-usage", used, size, ...validCost ? { cost: validCost } : {} };
+}
+function parsePromptUsage(result) {
+  if (!isRecord2(result) || !isRecord2(result.usage))
+    return void 0;
+  const u2 = result.usage;
+  if (!nonNegInt(u2.inputTokens) || !nonNegInt(u2.outputTokens))
+    return void 0;
+  const usage = { inputTokens: u2.inputTokens, outputTokens: u2.outputTokens };
+  for (const k2 of ["totalTokens", "thoughtTokens", "cachedReadTokens", "cachedWriteTokens"]) {
+    if (nonNegInt(u2[k2]))
+      usage[k2] = u2[k2];
+  }
+  return usage;
+}
+var CHUNK_ROLE, nonNegInt;
 var init_normalize = __esm({
   "node_modules/@nanobpm/agentic/dist/session/acp/normalize.js"() {
     init_protocol();
@@ -37211,6 +37240,7 @@ var init_normalize = __esm({
       agent_thought_chunk: "reasoning",
       user_message_chunk: "user"
     });
+    nonNegInt = (v2) => typeof v2 === "number" && Number.isSafeInteger(v2) && v2 >= 0;
   }
 });
 
@@ -37255,6 +37285,12 @@ var init_client2 = __esm({
       #clientInfo;
       #lastId = null;
       #buffer;
+      /** Tool calls announced at status `pending`, held until their arguments are final:
+       *  the call starts running (`in_progress`), its result arrives, or the turn ends.
+       *  Some agents (opencode) announce a call before its arguments are known. */
+      #heldCalls = /* @__PURE__ */ new Map();
+      /** Latest `usage_update` of the running prompt turn. */
+      #context;
       #collector = null;
       #sessionId;
       constructor(connection, sink, options = {}) {
@@ -37326,8 +37362,22 @@ var init_client2 = __esm({
           throw new Error("prompt requires an active session \u2014 call newSession() or restore() first");
         }
         const prompt = typeof input2 === "string" ? [{ type: "text", text: input2 }] : input2;
+        this.#context = void 0;
         const collected = await this.#collecting(() => this.#connection.request(ACP_METHOD.sessionPrompt, { sessionId: this.#sessionId, prompt }));
-        return { stopReason: readStopReason(collected.result), events: collected.events };
+        const usage = parsePromptUsage(collected.result);
+        if (usage !== void 0) {
+          const { id, parentId } = this.#nextIdentity();
+          const event = { type: "usage", id, parentId, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens };
+          this.#push(event);
+          collected.events.push(event);
+        }
+        const context = this.#context;
+        return {
+          stopReason: readStopReason(collected.result),
+          events: collected.events,
+          ...usage !== void 0 ? { usage } : {},
+          ...context !== void 0 ? { context } : {}
+        };
       }
       /** **steer** — request cancellation of the running turn (`session/cancel`, a notification). */
       cancel() {
@@ -37338,6 +37388,7 @@ var init_client2 = __esm({
       /** Close the underlying connection and flush any pending buffered message. */
       close() {
         this.#flushMessage();
+        this.#releaseHeldCalls();
         this.#connection.close();
       }
       async #collecting(op) {
@@ -37346,9 +37397,10 @@ var init_client2 = __esm({
         this.#collector = events;
         try {
           const result = await op();
-          this.#flushMessage();
           return { result, events };
         } finally {
+          this.#flushMessage();
+          this.#releaseHeldCalls();
           this.#collector = previous;
         }
       }
@@ -37366,19 +37418,58 @@ var init_client2 = __esm({
             return;
           case "tool-call": {
             this.#flushMessage();
-            const { id, parentId } = this.#nextIdentity();
-            this.#push({ type: "tool-call", id, parentId, callId: update.callId, name: update.name, args: update.args });
+            if (update.pending) {
+              this.#heldCalls.set(update.callId, { name: update.name, args: update.args });
+              return;
+            }
+            this.#emitToolCall(update.callId, update.name, update.args);
+            return;
+          }
+          case "tool-call-update": {
+            const held = this.#heldCalls.get(update.callId);
+            if (held === void 0)
+              return;
+            if ("args" in update)
+              held.args = update.args;
+            if (update.running) {
+              this.#flushMessage();
+              this.#releaseHeldCall(update.callId);
+            }
             return;
           }
           case "tool-result": {
             this.#flushMessage();
+            const held = this.#heldCalls.get(update.callId);
+            if (held !== void 0 && "args" in update)
+              held.args = update.args;
+            this.#releaseHeldCall(update.callId);
             const { id, parentId } = this.#nextIdentity();
             this.#push({ type: "tool-result", id, parentId, callId: update.callId, ok: update.ok, result: update.result });
+            return;
+          }
+          case "context-usage": {
+            const { kind: _kind, ...context } = update;
+            this.#context = context;
             return;
           }
           case "ignored":
             return;
         }
+      }
+      #emitToolCall(callId, name2, args) {
+        const { id, parentId } = this.#nextIdentity();
+        this.#push({ type: "tool-call", id, parentId, callId, name: name2, args });
+      }
+      #releaseHeldCall(callId) {
+        const held = this.#heldCalls.get(callId);
+        if (held === void 0)
+          return;
+        this.#heldCalls.delete(callId);
+        this.#emitToolCall(callId, held.name, held.args);
+      }
+      #releaseHeldCalls() {
+        for (const callId of [...this.#heldCalls.keys()])
+          this.#releaseHeldCall(callId);
       }
       #appendMessage(update) {
         const buffer = this.#buffer;
@@ -37820,9 +37911,19 @@ async function runAcp(r2) {
 ` : ""}${r2.prompt}${schemaNote(r2.schema)}`;
     r2.onTurn({ role: "USER", text: text2 });
     const res = await Promise.race([session.prompt(text2), exited]);
+    if (res.usage && pending?.metrics) {
+      if (res.usage.cachedReadTokens !== void 0) pending.metrics.cacheReadTokenCount = res.usage.cachedReadTokens;
+      if (res.usage.cachedWriteTokens !== void 0) pending.metrics.cacheCreationTokenCount = res.usage.cachedWriteTokens;
+    }
     flush();
+    const cost = res.context?.cost;
     if (res.stopReason && !/end_turn|max_tokens/.test(res.stopReason)) throw new Error(`${r2.name} stopped: ${res.stopReason}`);
-    return { result: r2.schema ? parseJson(finalText) ?? finalText : finalText, model: r2.model ?? r2.profile.model };
+    return {
+      result: r2.schema ? parseJson(finalText) ?? finalText : finalText,
+      model: r2.model ?? r2.profile.model,
+      // Cumulative for the session, which is this step's alone.
+      costUsd: cost?.currency === "USD" && cost.amount > 0 ? cost.amount : void 0
+    };
   } finally {
     flush();
     r2.signal?.removeEventListener("abort", stop);

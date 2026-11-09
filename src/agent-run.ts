@@ -114,9 +114,21 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     const text = `${r.system ? `${r.system}\n\n` : ""}${r.prompt}${schemaNote(r.schema)}`;
     r.onTurn({ role: "USER", text });
     const res = await Promise.race([session.prompt(text), exited]);
+    // The turn's token total (the usage event already set input/output on the last
+    // assistant turn); add the cache/reasoning detail.
+    if (res.usage && pending?.metrics) {
+      if (res.usage.cachedReadTokens !== undefined) pending.metrics.cacheReadTokenCount = res.usage.cachedReadTokens;
+      if (res.usage.cachedWriteTokens !== undefined) pending.metrics.cacheCreationTokenCount = res.usage.cachedWriteTokens;
+    }
     flush();
+    const cost = res.context?.cost;
     if (res.stopReason && !/end_turn|max_tokens/.test(res.stopReason)) throw new Error(`${r.name} stopped: ${res.stopReason}`);
-    return { result: r.schema ? parseJson(finalText) ?? finalText : finalText, model: r.model ?? r.profile.model };
+    return {
+      result: r.schema ? parseJson(finalText) ?? finalText : finalText,
+      model: r.model ?? r.profile.model,
+      // Cumulative for the session, which is this step's alone.
+      costUsd: cost?.currency === "USD" && cost.amount > 0 ? cost.amount : undefined,
+    };
   } finally {
     flush();
     r.signal?.removeEventListener("abort", stop);

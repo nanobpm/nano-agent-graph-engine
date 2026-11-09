@@ -25,6 +25,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
     // Streamed in two chunks, as real agents do.
     update(sid, { sessionUpdate: "agent_message_chunk", content: { type: "text", text: answer.slice(0, 10) } });
     update(sid, { sessionUpdate: "agent_message_chunk", content: { type: "text", text: answer.slice(10) } });
-    send({ id: m.id, result: { stopReason: "end_turn" } });
+    update(sid, { sessionUpdate: "usage_update", used: 900, size: 200000, cost: { amount: 0.0042, currency: "USD" } });
+    send({ id: m.id, result: { stopReason: "end_turn", usage: { inputTokens: 800, outputTokens: 60, totalTokens: 860, cachedReadTokens: 500 } } });
   } else if (m.id !== undefined && m.method) send({ id: m.id, error: { code: -32601, message: `no ${m.method}` } });
 }

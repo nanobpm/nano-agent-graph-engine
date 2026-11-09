@@ -37,6 +37,11 @@ test("ACP: streams turns (merged chunks, tool call + result) and returns the ans
   );
   assert.deepEqual(turns[1].toolCalls, [{ id: "c1", name: "bash", args: { command: "ls" } }]);
   assert.deepEqual(turns[2].result, { output: "a\nb" });
+  // usage from the prompt response lands on the final assistant turn; cost from usage_update
+  assert.equal(turns[3].metrics.inputTokens, 800);
+  assert.equal(turns[3].metrics.outputTokens, 60);
+  assert.equal(turns[3].metrics.cacheReadTokenCount, 500);
+  assert.equal(r.costUsd, 0.0042);
   const seen = JSON.parse(fs.readFileSync(log, "utf8").trim());
   assert.deepEqual(seen.argv.slice(-2), ["--model", "openrouter/x"]);
   assert.match(seen.prompt, /^be brief\n\ndo it/);
