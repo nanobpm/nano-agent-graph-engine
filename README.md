@@ -49,7 +49,10 @@ Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `
   - Otherwise the Claude you are chatting with does them (`session_job_next`/`session_job_complete`). If the CLI fails to authenticate, the engine switches to this automatically.
   - To force one mode: `AGE_AGENT_MODE=cli|session`.
 - **Seeing and answering.**
-  - `show_explorer` renders the explorer **inline in the chat** as an MCP App: diagram with live tokens, task inbox with forms, incidents.
+  - `show_explorer` renders the explorer **inline in the chat** as an MCP App, with three tabs:
+    - **Inbox:** task forms.
+    - **Flows:** diagrams with live token counts, and a start form.
+    - **Instances:** the nano console's Process Explorer: filters, diagram, variables (editable), jobs, incidents, cancel, and a step-by-step trace.
   - The view reaches the engine only through the server's app-only `ui_api` tool, so the iframe needs no network access.
   - The same explorer is also at the daemon URL in a browser.
 - **Background.** The engine daemon keeps running after the chat is closed, so timers and CLI agent steps continue. In chat, nothing can wake Claude by itself: the explorer shows "agent step waiting — say *continue the flow*".
@@ -80,7 +83,7 @@ in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS 
 
 - **Band above the prompt.** While something is going on, it shows
   `⚙ Agent Graph · 2 flows running · 1 task waiting for you · 1 incident`, with a
-  button that opens the pane.
+  buttons that open the pane and the web explorer.
 - **`/flows` pane**, with three tabs:
   - **Inbox:** user tasks drawn as forms that you answer right there, and incidents
     with **Retry**, **Ask Claude to fix** and **Cancel run**.
@@ -88,7 +91,10 @@ in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS 
     the run directly, with no model turn. Type plain words and Claude works out the
     variables.
   - **Runs:** what's active and where.
-  - There's also a link to the explorer.
+  - **Explorer ↗** (hotkey `o`) opens the web explorer in your browser, and **↗** on a
+    run opens that instance.
+- **`/explorer [instance key | flow id]`** opens the web explorer in your browser,
+  starting the engine if needed. Same as `age open [instance=K | flow=ID]` on the CLI.
 - **Wakes the agent.** When a flow hands agent steps to the session, the mod submits a
   prompt so the agent picks them up, using `session_job_next` with `max` for a fan-out.
   New user tasks show a toast.

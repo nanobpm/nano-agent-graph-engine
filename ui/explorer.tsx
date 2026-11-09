@@ -506,7 +506,7 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.2.0" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.3.0" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
     const h = r?.structuredContent?.hash;
     if (typeof h !== "string" || !h) return;

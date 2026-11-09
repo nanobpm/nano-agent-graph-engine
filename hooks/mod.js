@@ -1,6 +1,7 @@
 // Agent Graph mod for Claude Code: makes the flow engine part of the interface.
 //  - a band above the prompt: running flows, tasks waiting for you, incidents
 //  - /flows opens a pane: start a flow, answer user tasks, retry/cancel incidents
+//  - /explorer (and the pane's "Explorer" buttons) open the web explorer in the browser
 //  - wakes the agent when a flow hands agent steps to this session
 // The mod talks to the project's engine daemon over its local HTTP API; it reads the
 // daemon's address from <project>/.agent-graph/daemon.json and never starts a model turn
@@ -105,6 +106,29 @@ async function startEngine($) {
   await refresh($)
 }
 
+/** Opens the web explorer in the browser via `age open`, which starts the engine if
+ *  needed. `view` is an explorer route: instance=K, task=K, flow=ID, or empty. */
+async function openExplorer($, view) {
+  try {
+    const argv = ['node', $.plugin.root + '/dist/cli.js', 'open', ...(view ? [view] : []), '--project', project]
+    const r = await $.process.run(argv, { timeoutMs: 20000 })
+    if (r.exitCode !== 0) throw new Error((r.stderr || r.stdout || 'could not open the explorer').trim())
+    await $.ui.toast('Opened the Agent Graph explorer: ' + r.stdout.trim())
+  } catch (e) {
+    await $.ui.toast('Agent Graph: ' + String((e && e.message) || e))
+  }
+  await refresh($)
+}
+
+/** `/explorer` arguments → explorer route: a number is an instance, else a flow id. */
+function explorerView(arg) {
+  const a = (arg || '').trim()
+  if (!a) return ''
+  if (/^(instance|task|flow)=|^\//.test(a)) return a
+  if (/^\d+$/.test(a)) return 'instance=' + a
+  return 'flow=' + a
+}
+
 async function startFlow($, flowId, input) {
   const text = (input || '').trim()
   let variables
@@ -185,6 +209,12 @@ export function register(on) {
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     await $.command.register({ name: 'flows', description: 'Agent Graph: start flows, answer tasks, handle incidents', immediate: true })
+    await $.command.register({
+      name: 'explorer',
+      description: 'Agent Graph: open the web explorer (diagrams, instances, history) in the browser',
+      argumentHint: '[instance key | flow id]',
+      immediate: true,
+    })
     project = await findProject($, (r && r.cwd) || e.cwd || (await $.session.cwd()))
     await refresh($)
     $.clock.every(POLL_MS, () => refresh($))
@@ -198,6 +228,11 @@ export function register(on) {
     else if (arg === 'runs') tab = 'runs'
     else if (state && !state.userTasks.length && !state.incidents.length) tab = 'flows'
     await $.ui.open({ id: PANE, title: 'Agent Graph', focus: true, closeOnEscape: true })
+    return {}
+  })
+
+  on('command.run', { command: 'explorer' }, async ($, e) => {
+    await openExplorer($, explorerView(e.args))
     return {}
   })
 
@@ -226,6 +261,7 @@ export function register(on) {
             await $.ui.open({ id: PANE, title: 'Agent Graph', focus: true, closeOnEscape: true })
           },
         }),
+        Button({ key: 'band-explorer', label: 'Explorer', plain: true, onPress: () => openExplorer($, tasks ? 'task=' + state.userTasks[0].key : '') }),
       ],
     })
     const theirs = await next(e)
@@ -260,6 +296,7 @@ export function register(on) {
         tabButton('inbox', 'Inbox (' + (state.userTasks.length + state.incidents.length) + ')', '1'),
         tabButton('flows', 'Flows (' + state.flows.length + ')', '2'),
         tabButton('runs', 'Runs (' + state.instances.length + ')', '3'),
+        Button({ key: 'open-explorer', label: 'Explorer ↗', hotkey: 'o', plain: true, onPress: () => openExplorer($, tab === 'flows' ? '/flows' : tab === 'runs' ? '/instances' : '') }),
       ],
     })
 
@@ -361,6 +398,7 @@ export function register(on) {
             children: [
               Text({ bold: true, children: ['#' + i.key] }),
               Text({ children: [(i.title || i.flowId) + ' → ' + ((i.activeElements || []).join(', ') || i.state)] }),
+              Button({ key: 'open-run-' + i.key, label: '↗', plain: true, onPress: () => openExplorer($, 'instance=' + i.key) }),
               Button({ key: 'cancel-run-' + i.key, label: 'x', plain: true, onPress: () => cancelInstance($, i.key) }),
             ],
           }),

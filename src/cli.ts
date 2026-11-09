@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // age — Agent Graph Engine CLI. Also the entry the daemon, the MCP server and the
 // Claude Code hooks run through.
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { checkProject, formatProblems } from "./compile.ts";
 import { api, ensureDaemon, findDaemon, resolveProject } from "./paths.ts";
@@ -15,7 +16,8 @@ const HELP = `age — Agent Graph Engine
   age start <flow> [json]       start an instance with variables
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
-  age open                      print the explorer URL
+  age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
+                                or a route like /instances); prints the URL
   age daemon                    run the daemon in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
@@ -58,10 +60,17 @@ async function main() {
       console.log(`agent-graph daemon ${info.url} (pid ${info.pid}) for ${info.project}`);
       return;
     }
-    case "up":
-    case "open": {
+    case "up": {
       const info = await ensureDaemon(project);
       console.log(info.url);
+      return;
+    }
+    case "open": {
+      const info = await ensureDaemon(project);
+      const view = (rest[0] ?? "").replace(/^#/, "");
+      const target = `${info.url}/${view ? `#${view}` : ""}`;
+      console.log(target);
+      openBrowser(target);
       return;
     }
     case "down": {
@@ -114,3 +123,17 @@ main().catch((e) => {
   console.error(String(e?.message ?? e));
   process.exit(1);
 });
+
+/** Opens a URL in the default browser, detached (no-op with AGE_NO_BROWSER=1). */
+function openBrowser(url: string) {
+  if (process.env.AGE_NO_BROWSER) return;
+  const [command, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  const child = spawn(command, args, { stdio: "ignore", detached: true });
+  child.on("error", () => {});
+  child.unref();
+}

@@ -30,18 +30,24 @@ if (!app) {
   console.log("frames:", page.frames().map((f) => f.url().slice(0, 80)), errors);
   throw new Error("no app frame");
 }
-await app.waitForSelector(".djs-element, #flows li, nav", { timeout: 20000 });
+// The same React explorer as in the browser; here every engine call goes through ui_api.
+await app.getByRole("button", { name: "Inbox" }).waitFor({ timeout: 20000 });
 await page.waitForTimeout(2500);
-console.log("app text:", (await app.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 400));
+console.log("app text:", (await app.locator("body").innerText()).replace(/\s+/g, " ").slice(0, 300));
 await page.screenshot({ path: `${out}-1.png`, fullPage: true });
 
-// open a waiting task if any, else first flow
-const taskLink = app.locator("a[href^='#task=']").first();
-if (await taskLink.count()) {
-  await taskLink.click();
-  await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${out}-task.png`, fullPage: true });
+// answer the waiting review task if there is one; completing jumps to the instance
+const complete = app.getByRole("button", { name: "Complete" });
+if (await complete.count()) {
+  await app.locator("main select").first().selectOption("publish");
+  await complete.click();
+  await page.waitForTimeout(3500);
+} else {
+  await app.getByRole("button", { name: "Instances" }).click();
+  await page.waitForTimeout(2500);
 }
-console.log("shapes:", await app.locator(".djs-shape").count(), "active markers:", await app.locator(".m-active, .active").count());
+await page.screenshot({ path: `${out}-instance.png`, fullPage: true });
+console.log("instances view:", (await app.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 300));
+console.log("shapes:", await app.locator(".djs-shape").count(), "trace rows:", await app.getByText("PROCESS TRACE", { exact: false }).count());
 console.log(errors.length ? `ERRORS:\n${errors.join("\n")}` : "no errors");
 await browser.close();
