@@ -1,40 +1,82 @@
 {
-  "name": "agent-graph-engine",
-  "version": "0.14.0",
+  "name": "@nanobpm/nano-agent-graph-engine",
+  "version": "0.15.0",
   "description": "Durable BPMN process engine for Claude Code: code-first flows (defineFlow) that orchestrate scripts, Claude Code agents and people.",
-  "type": "module",
   "license": "Apache-2.0",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanobpm/nano-agent-graph-engine.git"
+  },
+  "homepage": "https://github.com/nanobpm/nano-agent-graph-engine#readme",
+  "bugs": "https://github.com/nanobpm/nano-agent-graph-engine/issues",
+  "keywords": [
+    "bpmn",
+    "workflow",
+    "orchestration",
+    "agents",
+    "mcp",
+    "claude-code",
+    "opencode",
+    "durable"
+  ],
+  "type": "module",
   "bin": {
+    "nage": "dist/cli.js",
+    "nano-agent-graph": "dist/cli.js",
     "age": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/typecheck/agent-graph-engine/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/typecheck/agent-graph-engine/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "hooks/hooks.json",
+    "hooks/mod.js",
+    ".claude-plugin",
+    ".mcp.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.15"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "node scripts/fetch-explorer.mjs && npm run typecheck && node scripts/build.mjs",
-    "test": "node --test test/*.spec.ts && claude plugin test .",
-    "typecheck": "tsc --noEmit && tsc -p ui/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc -p ui/tsconfig.json",
+    "test": "npm run test:engine && claude plugin test .",
+    "test:engine": "node --test test/*.spec.ts",
+    "pack:mcpb": "node scripts/package-mcpb.mjs",
+    "prepack": "node -e \"require('fs').accessSync('dist/cli.js')\""
   },
-  "dependencies": {
+  "devDependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@nanobpm/agentic": "^0.16.0",
     "@nanobpm/engine-wasm": "^0.11.0",
-    "@nanobpm/workflow": "^0.18.0",
-    "bpmn-auto-layout": "^2.0.0-alpha.2",
-    "bpmn-auto-layout-v1": "npm:bpmn-auto-layout@^1.3.0",
-    "zod": "^4.6.7"
-  },
-  "devDependencies": {
     "@nanobpm/nano-app-schema": "^0.11.0",
+    "@nanobpm/workflow": "^0.18.0",
     "@tailwindcss/cli": "^4.3.5",
     "@tanstack/react-query": "^5.107.1",
     "@types/node": "^26.6.6",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "bpmn-auto-layout": "^2.0.0-alpha.2",
+    "bpmn-auto-layout-v1": "npm:bpmn-auto-layout@^1.3.0",
     "bpmn-js": "^18.31.1",
     "esbuild": "^0.28.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^4.3.5",
-    "typescript": "5.9"
+    "typescript": "5.9",
+    "zod": "^4.6.7"
   }
 }

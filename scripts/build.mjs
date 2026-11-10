@@ -23,7 +23,7 @@ await build({
   target: "node22",
   banner,
   // cli.js loads flows that import "agent-graph-engine" → dist/index.js (resolve hook).
-  external: ["agent-graph-engine"],
+  external: ["@nanobpm/nano-agent-graph-engine", "nano-agent-graph-engine", "agent-graph-engine"],
   logLevel: "warning",
 });
 fs.chmodSync(path.join(dist, "cli.js"), 0o755);
@@ -74,7 +74,7 @@ for (const [isApp, out] of [[false, "explorer.html"], [true, "explorer-app.html"
 }
 fs.copyFileSync("skills/agent-graph-authoring/SKILL.md", path.join(dist, "guide.md"));
 
-// Type-check kit (dist/typecheck): `age check` / flow_check type-check flow files with
+// Type-check kit (dist/typecheck): `nage check` / flow_check type-check flow files with
 // it, so authoring mistakes TypeScript can see (a typo'd variable, a wrong form field
 // type, a missing start input) are reported without anything installed in the project.
 // TypeScript itself (minified), the ES libs, Node's types, and the declarations of

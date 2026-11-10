@@ -32,8 +32,8 @@ function engine(on: any, calls: any[]) {
   on('ui.render', () => ({ type: 'Text', props: {}, children: ['claude'] }))
 }
 
-const PANE = { plugin: 'agent-graph-engine', component: 'Pane', requestId: 'agent-graph', surface: 'terminal', viewport: { columns: 120, rows: 40 }, props: { title: 'Agent Graph', isFocused: true, bodyColumns: 60, placement: 'inline', scroll: { offset: 0, bodyRows: 30 }, view: {} } } as const
-const BAND = { plugin: 'agent-graph-engine', component: 'AbovePrompt', requestId: 'band', surface: 'terminal', viewport: { columns: 120, rows: 40 }, props: { hasSurvey: false, isWorking: false, maxRows: 5, bodyColumns: 100, scroll: { offset: 0, bodyRows: 5 }, view: {} } } as const
+const PANE = { plugin: 'nano-agent-graph-engine', component: 'Pane', requestId: 'agent-graph', surface: 'terminal', viewport: { columns: 120, rows: 40 }, props: { title: 'Agent Graph', isFocused: true, bodyColumns: 60, placement: 'inline', scroll: { offset: 0, bodyRows: 30 }, view: {} } } as const
+const BAND = { plugin: 'nano-agent-graph-engine', component: 'AbovePrompt', requestId: 'band', surface: 'terminal', viewport: { columns: 120, rows: 40 }, props: { hasSurvey: false, isWorking: false, maxRows: 5, bodyColumns: 100, scroll: { offset: 0, bodyRows: 5 }, view: {} } } as const
 
 test('band summarizes; session jobs wake the agent once', async ($, on) => {
   const calls: any[] = []

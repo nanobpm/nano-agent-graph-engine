@@ -1,6 +1,6 @@
-# Agent Graph Engine
+# Nano Agent Graph Engine
 
-A durable process engine for Claude Code. Write a flow in TypeScript with `defineFlow`.
+A durable process engine for coding agents (Claude Code, Claude Desktop, OpenCode, Codex, Cursor). Write a flow in TypeScript with `defineFlow`.
 It compiles to BPMN with a generated diagram and runs in a small local daemon. A flow can
 orchestrate:
 
@@ -21,26 +21,47 @@ real code, and can be inspected as a diagram.
 ```
 flows/*.flow.ts ──check──▶ BPMN + DI ──deploy──▶ engine (one per user, ~/.agent-graph/journal.json)
                                                    │  workers: run handlers · claude -p · timers
-Claude Code ──MCP (stdio)──▶ age mcp ──HTTP──▶─────┤
+Claude Code ──MCP (stdio)──▶ nage mcp ──HTTP──▶─────┤
    hooks (SessionStart/UserPromptSubmit) ──────────┤  "user task waiting…" → context
 browser ──────────────────────────────────────────▶┘  explorer: diagram, tokens, forms, incidents
 ```
 
-## Install in Claude Desktop (chat)
+## Install
 
-No server to run and no workers to configure. Add one entry to
-`~/Library/Application Support/Claude/claude_desktop_config.json` and restart Desktop (⌘Q):
+Node 22.15 or newer (24 recommended; flow files are `.ts` and run with Node's built-in type stripping).
+
+| Host | Install |
+|---|---|
+| Claude Code | `/plugin marketplace add nanobpm/nano-agent-graph-engine`, then `/plugin install nano-agent-graph-engine@nanobpm`. Brings the MCP server, skills, hooks and the `/flows` mod. |
+| Claude Desktop | Download `nano-agent-graph-engine-<version>.mcpb` from [Releases](https://github.com/nanobpm/nano-agent-graph-engine/releases) and open it (uses Desktop's built-in Node). Or `npx -y @nanobpm/nano-agent-graph-engine install claude-desktop`. |
+| OpenCode, Codex, Cursor | `npx -y @nanobpm/nano-agent-graph-engine install opencode` (or `codex`, `cursor`) |
+| Terminal | `npm install -g @nanobpm/nano-agent-graph-engine`, then `nage` |
+
+`nage install <host>` adds the `agent-graph` MCP server to the host's config (keeping a `.bak`
+of the file it changes) and copies the skills where the host reads them (OpenCode, Codex);
+`--dry-run` shows the change, `nage uninstall <host>` takes it out. Run from npx, the entry
+starts the server with `npx -y @nanobpm/nano-agent-graph-engine mcp`; from a global install,
+with that install's `node` and `cli.js` (absolute paths, as desktop apps don't load your
+shell PATH). Run it again after an upgrade to refresh the skills.
+
+**Coming from `agent-graph-engine`?** Flow files may keep `import … from "agent-graph-engine"`;
+the new name is `@nanobpm/nano-agent-graph-engine`. The command is now `nage` (`age` clashes with
+the age encryption tool); `age` still works for this release and prints a note. State stays in
+`~/.agent-graph`, and the `AGE_*` variables keep their names.
+
+## Claude Desktop (chat)
+
+No server to run and no workers to configure: install the `.mcpb`, or run `nage install claude-desktop`, which adds
+this to `~/Library/Application Support/Claude/claude_desktop_config.json` (restart Desktop with ⌘Q afterwards):
 
 ```json
 "mcpServers": {
   "agent-graph": {
     "command": "/absolute/path/to/node",
-    "args": ["/path/to/agent-graph-engine/dist/cli.js", "mcp"]
+    "args": ["/absolute/path/to/nano-agent-graph-engine/dist/cli.js", "mcp"]
   }
 }
 ```
-
-Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `nvm` installs aren't found otherwise.
 
 - **One engine, every project.** You have one engine (state in `~/.agent-graph`, `AGE_STATE_DIR` moves it). Each project's flows are in its `flows/`; a project joins the engine the first time a flow tool, the CLI or the `/flows` pane is used there. The flows in `~/AgentGraph/flows` (the library; `AGE_HOME` moves it) are *global*: offered in every project and run in the project they were started from. A project flow with the same id takes the global one's place there (`flow_import` copies one in to customize it). Every run belongs to a project: its `sh()` steps and agent steps run in that folder, and files a step writes should use `projectPath("file")`. `flow_status`, the `/flows` pane and the explorer show work in all projects (the explorer has a project picker), so nothing waits somewhere you aren't looking. Agent steps for the session only go to a session in the run's project. Nothing is written into your repos.
 - **Where flows live.** Desktop starts servers in `/`, so flows go in `~/AgentGraph/flows/`. Override with `"env": {"AGE_PROJECT": "/some/dir"}`.
@@ -96,7 +117,7 @@ in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS 
     task, else the incident, else this project's one running flow, else the flows. **↗**
     on a run opens that instance. The band's **Open ↗** does the same.
 - **Where it opens:** in the terminal, your default browser (the engine starts if
-  needed; `age open [instance=K | task=K | flow=ID]` does the same from a shell). In the
+  needed; `nage open [instance=K | task=K | flow=ID]` does the same from a shell). In the
   Desktop app, the links open in its Browser pane, if you chose "Open links in built-in
   browser" there (Browser pane ⋮ menu). The engine answers on `http://localhost`, the
   only plain-http links the app makes clickable.
@@ -113,26 +134,21 @@ address from `~/.agent-graph/daemon.json`. Run the mod's tests with
 with `allowManagedModsOnly` in managed settings. If they do, the band and pane don't
 appear, and everything else keeps working.
 
-## Install in OpenCode
+## OpenCode
 
-Add the server to `~/.config/opencode/opencode.json`, or to `opencode.json` in a project:
+`nage install opencode` adds the server to `~/.config/opencode/opencode.json` (in a project, `opencode.json` takes the same entry):
 
 ```json
 "mcp": {
   "agent-graph": {
     "type": "local",
-    "command": ["/absolute/path/to/node", "/path/to/agent-graph-engine/dist/cli.js", "mcp"],
+    "command": ["/absolute/path/to/node", "/absolute/path/to/nano-agent-graph-engine/dist/cli.js", "mcp"],
     "enabled": true
   }
 }
 ```
 
-Then install the skill, so OpenCode knows how to write flows. A symlink keeps it current:
-
-```sh
-ln -s /path/to/agent-graph-engine/skills/agent-graph ~/.config/opencode/skills/agent-graph
-ln -s /path/to/agent-graph-engine/skills/agent-graph-authoring ~/.config/opencode/skills/agent-graph-authoring
-```
+and copies the two skills into `~/.config/opencode/skills/`, so OpenCode knows how to run and write flows.
 
 Check it with `opencode mcp list`, which should show `✓ agent-graph connected`.
 
@@ -146,17 +162,14 @@ Check it with `opencode mcp list`, which should show `✓ agent-graph connected`
 - **User tasks.** OpenCode renders neither MCP Apps nor MCP elicitation forms. The 2.x app does declare elicitation support, but it never shows the form, so the call would hang until OpenCode's 60-second tool timeout. `task_ask` therefore skips the dialog for OpenCode and falls back to text: the agent asks you in chat and records the answer with `task_complete`. Or answer in the browser explorer; `flow_start` and `flow_status` print its URL. For any client, a form that gets no answer within 10 minutes (`AGE_ELICIT_TIMEOUT_MS`) also falls back to chat. `AGE_ELICIT=on|off` overrides the detection.
 - **No hooks.** OpenCode has no equivalent of Claude Code's SessionStart and UserPromptSubmit hooks, so ask "anything waiting in my flows?" and the agent will call `flow_status`.
 
-## Install (Claude Code plugin)
+## Claude Code plugin
 
 ```sh
-claude plugin marketplace add ~/workspace/agent-graph-engine
-claude plugin install agent-graph-engine@agent-graph-engine
-# or, for development:
-claude --plugin-dir ~/workspace/agent-graph-engine
+claude plugin marketplace add nanobpm/nano-agent-graph-engine
+claude plugin install nano-agent-graph-engine@nanobpm
 ```
 
-`dist/` is committed, so no build is needed. Node 22.15 or newer is required (Node 24 recommended: flow files are
-`.ts` and run with Node's built-in type stripping).
+The marketplace (on `main`) points at the `release` branch, which holds the built plugin.
 
 On macOS, also install `terminal-notifier` (`brew install terminal-notifier`) for
 [notifications](#notifications) that open the run in the explorer when clicked, then allow its notifications: run
@@ -171,7 +184,7 @@ The plugin provides:
   - `task_list`, `task_ask`, `task_complete`
   - `session_job_next`, `session_job_complete`, `session_job_fail`
   - `flow_operate`
-- the **`agent-graph` skill**: how to write flows
+- the **`agent-graph` and `agent-graph-authoring` skills**: how to run flows, and how to write them
 - **hooks**: when a user task, session job or incident is waiting, SessionStart and UserPromptSubmit add it to Claude's context. They stay silent otherwise and never start the daemon.
 
 ## Use
@@ -181,10 +194,10 @@ lets me review, and writes CHANGELOG.md"*. It writes `flows/<name>.flow.ts`, run
 `flow_check` until clean, and starts it. When the review step is reached, `task_ask` opens
 a form dialog in Claude Code. You can also answer it in the explorer.
 
-CLI (`node dist/cli.js …`, or `age` if linked):
+CLI (`node dist/cli.js …`, or `nage` once installed):
 
 ```
-age check [file] [--json] | up | down | status | start <flow> [--field value …] [json] | tasks | complete <task> [json] | open
+nage check [file] [--json] | up | down | status | start <flow> [--field value …] [json] | tasks | complete <task> [json] | open
 ```
 
 The example is in `examples/demo`:
@@ -201,7 +214,7 @@ node ../../dist/cli.js open      # explorer URL
 See `examples/demo/flows/changelog.flow.ts` and `skills/agent-graph-authoring/SKILL.md` for the full API.
 
 ```ts
-import { defineFlow, defineForms, sh } from "agent-graph-engine";
+import { defineFlow, defineForms, sh } from "@nanobpm/nano-agent-graph-engine";
 export const forms = defineForms({ "review": { title: "Review", description: "{{notes}}",
   fields: { decision: { type: "string", enum: ["publish", "redo", "cancel"] }, feedback: { type: "string" } }, required: ["decision"] } });
 export const changelog = defineFlow("changelog", (w) => {
@@ -221,7 +234,7 @@ A flow declares what a run starts with as the `Start` contract, an envelope from
 `@nanobpm/workflow` (it becomes `io.nanobpm.dataEnvelope.in` on the BPMN start event):
 
 ```ts
-import { defineFlow, defineStartForm, envelope } from "agent-graph-engine";
+import { defineFlow, defineStartForm, envelope } from "@nanobpm/nano-agent-graph-engine";
 const Input = envelope("ReviewInput", { pr: "integer", repo: "string", note: { type: "string", optional: true } });
 export const startForm = defineStartForm(Input, { title: "Review a PR", fields: { pr: { title: "PR number" } } }); // optional hints
 export const review = defineFlow("review", { Start: { in: Input } }, (w) => { /* … */ });
@@ -233,18 +246,18 @@ That one declaration drives:
 - the `/flows` pane in Claude Code (`pr=42 repo=x`);
 - `flow_status` (`review(pr: integer, repo: string, note?: string)`) and the `flow_start` guidance agents get;
 - the `/start-review` **MCP prompt**, with one argument per field;
-- `age start review --pr 42 --repo x`;
+- `nage start review --pr 42 --repo x`;
 - a **check at start**: `/api/start` converts text to the declared types and refuses missing or wrong fields with `400 { error, problems: [{ field, message }] }`.
 
 Flows without an input work as before, with free-form JSON variables.
 
 Flow inputs need `@nanobpm/workflow` 0.17 or later.
 
-### The authoring loop: `age check` / `flow_check`
+### The authoring loop: `nage check` / `flow_check`
 
 Authoring agents (the `agent-graph-authoring` skill) run this after every edit, until it is clean:
 
-1. **Type-check** the flow file and the project modules it imports. This is TypeScript strict mode against the real `agent-graph-engine`, `@nanobpm/workflow` and Node types, with `file:line:col TSxxxx` errors.
+1. **Type-check** the flow file and the project modules it imports. This is TypeScript strict mode against the real `@nanobpm/nano-agent-graph-engine`, `@nanobpm/workflow` and Node types, with `file:line:col TSxxxx` errors.
    - The engine loads flows with types stripped, so without this step a type error only shows up at run time.
    - The checker ships in the plugin as `dist/typecheck/` (about 6.7 MB): minified TypeScript, the ES libs, `@types/node`, and the declarations. The user's project needs nothing installed.
    - It takes about 0.4 s. `--no-types` skips it.
@@ -291,20 +304,20 @@ Any ACP agent works. Add your own in `~/.agent-graph/agents.json`, or in a flow 
 **For every run** (saved in `~/.agent-graph/agents.json`):
 
 ```sh
-age agent show review                          # each agent step: who runs it, and why
-age agent assign review opencode               # the whole flow on OpenCode
-age agent assign review/critique nano-coder --model openrouter/openai/gpt-5   # one step
-age agent assign review - --model sonnet       # keep the CLI, change the model
-age agent assign --rank senior claude          # every flow's senior:* steps
-age agent unassign review[/step] | --rank senior
-age agent default nano-coder                   # whatever nothing else decides
+nage agent show review                          # each agent step: who runs it, and why
+nage agent assign review opencode               # the whole flow on OpenCode
+nage agent assign review/critique nano-coder --model openrouter/openai/gpt-5   # one step
+nage agent assign review - --model sonnet       # keep the CLI, change the model
+nage agent assign --rank senior claude          # every flow's senior:* steps
+nage agent unassign review[/step] | --rank senior
+nage agent default nano-coder                   # whatever nothing else decides
 ```
 
 **For one run**, without changing the assignments:
 
 ```sh
-age start review --agent opencode --model anthropic/claude-sonnet-4-5   # all agent steps
-age start review --agent critique=gemini --model draft=opus            # per step
+nage start review --agent opencode --model anthropic/claude-sonnet-4-5   # all agent steps
+nage start review --agent critique=gemini --model draft=opus            # per step
 ```
 
 The same is available to agents as the `flow_agents` MCP tool (show, and `assign`) and `flow_start`'s `agents` argument (`{ "*": { "use": "opencode", "model": "…" }, "critique": { … } }`), over HTTP as `GET /api/flows/<id>/agents` and `POST /api/agents/assign`, and in the explorer's start form: its **Agents** table shows each step's CLI, model and the reason, applies your changes to the run you start, and **Save for every run** keeps them. The run records its overrides.
@@ -342,7 +355,7 @@ The profile for a step is the first of:
 7. the CLI of the host that started the run (Claude Code → `claude`, OpenCode → `opencode`, nano-coder → `nano-coder`);
 8. the first installed of `claude`, `opencode`, `nano-coder`.
 
-The model follows the same order (yours, then the author's, then the profile's). An author's profile that is unknown or not installed here is skipped with a note ("flow suggests gpt-cli (unknown here)") and a warning from `age check`, never an error; an unknown profile in your own assignment or override is an error. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `age agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
+The model follows the same order (yours, then the author's, then the profile's). An author's profile that is unknown or not installed here is skipped with a note ("flow suggests gpt-cli (unknown here)") and a warning from `nage check`, never an error; an unknown profile in your own assignment or override is an error. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `nage agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
 
 A step's prompt file may use `{{name}}` placeholders (filled from the variables); `context: []` stops the variables being appended as JSON, and `cwd` (also with placeholders) sets the agent's working directory. That lets a flow wrap an app's own prompts: a `run` step builds the prompt, the agent step runs it on your CLI, a `run` step validates and retries (see `~/AgentGraph/flows/publish-video.flow.ts`).
 
@@ -419,7 +432,7 @@ Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflo
   - Its info is in `~/.agent-graph/daemon.json`, and it listens on `localhost` (`127.0.0.1` and `::1`).
   - The MCP server, CLI and hooks are thin HTTP clients. MCP/CLI start the engine detached on first use (one client starts it; the others wait) and register their project with it (`projects.json`).
   - A project's flows deploy as `<folder>-<hash>.<id>`, so two repos can both have a `release` flow; global flows keep their id. Runs record their project; handlers run inside an async context that `sh()`, `claude()` and `projectPath()` read.
-  - Before 0.5 each project had its own engine in `<project>/.agent-graph/`. Those aren't migrated: stop one with the old version's `age down` once its runs are done (its history stays in that folder).
+  - Before 0.5 each project had its own engine in `<project>/.agent-graph/`. Those aren't migrated: stop one with the old version's `nage down` once its runs are done (its history stays in that folder).
   - `flow_start` output includes the explorer URL.
 - **Explorer** (`GET /`), a single HTML file using the bpmn-js viewer, shows:
   - the task inbox with forms
@@ -459,11 +472,21 @@ over the daemon's `/api/explorer/*` routes (`src/explorer-api.ts` maps the engin
 event log onto the console's wire model, including the trace). It isn't on npm yet
 ([nanobpm/nano-bpm#1475](https://github.com/nanobpm/nano-bpm/issues/1475)) and npm can't install a
 git subdirectory, so `scripts/fetch-explorer.mjs` sparse-clones it at a pinned commit into
-`node_modules/.cache/nano-bpm` and the build bundles it. `dist/` is committed, so only building
-needs access to that repo. Bump `NANO_BPM_REV` to update it.
+`node_modules/.cache/nano-bpm` and the build bundles it. Bump `NANO_BPM_REV` to update it.
 
-Flow files import `"agent-graph-engine"`. The daemon maps that specifier to `dist/index.js`
-with `module.registerHooks`, so the user's project needs no install.
+Flow files import `"@nanobpm/nano-agent-graph-engine"` (or the old `"agent-graph-engine"`). The
+daemon maps those specifiers to `dist/index.js` with `module.registerHooks`, and `nage check`
+type-checks against declarations shipped in `dist/typecheck`, so the user's project needs no install.
+
+To try the plugin from a checkout: `npm run build`, then `claude --plugin-dir .`.
+
+### Releasing
+
+`dist/` isn't committed. Bump the version in `package.json`, `.claude-plugin/plugin.json` and
+`.claude-plugin/marketplace.json`, commit, and push a tag `vX.Y.Z`. The `release` workflow then
+builds and tests, publishes `@nanobpm/nano-agent-graph-engine` to npm (secret `NPM_TOKEN`),
+commits the built plugin to the `release` branch (`scripts/publish-plugin-branch.mjs`), and
+creates a GitHub release with the Desktop extension (`npm run pack:mcpb`).
 
 ## Limitations and next steps
 

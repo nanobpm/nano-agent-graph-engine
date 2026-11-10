@@ -124,7 +124,7 @@ async function startEngine($) {
   await refresh($)
 }
 
-/** Opens the web explorer in the browser via `age open`, which starts the engine if
+/** Opens the web explorer in the browser via `nage open`, which starts the engine if
  *  needed. `view` is an explorer route: instance=K, task=K, flow=ID, or empty. */
 async function openExplorer($, view) {
   try {

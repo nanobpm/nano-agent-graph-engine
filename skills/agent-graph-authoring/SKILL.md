@@ -1,37 +1,37 @@
 ---
 name: agent-graph-authoring
-description: Write, change and debug Agent Graph flows — TypeScript files (flows/<name>.flow.ts) built with defineFlow that compile to BPMN; their typed input and start form, steps (code, agents, people, timers, parallel), forms and agent options — and check them in a loop with `age check` / flow_check until they type-check, compile and lint clean. Use whenever creating or editing a flow file.
+description: Write, change and debug Agent Graph flows — TypeScript files (flows/<name>.flow.ts) built with defineFlow that compile to BPMN; their typed input and start form, steps (code, agents, people, timers, parallel), forms and agent options — and check them in a loop with `nage check` / flow_check until they type-check, compile and lint clean. Use whenever creating or editing a flow file.
 ---
 
 # Writing Agent Graph flows
 
 A flow file is TypeScript in `flows/<name>.flow.ts`. It imports from
-`agent-graph-engine`, exports one or more `defineFlow(...)` flows, and is compiled to
+`@nanobpm/nano-agent-graph-engine` (the old name `agent-graph-engine` still works), exports one or more `defineFlow(...)` flows, and is compiled to
 BPMN with a generated diagram. The engine redeploys it when the file changes. For
 running flows, answering tasks and fixing incidents, see the `agent-graph` skill.
 
 ## The check loop: run it after every edit
 
 ```
-age check [flows/<name>.flow.ts] [--json]     # or the MCP tool flow_check; flow_write runs it too
+nage check [flows/<name>.flow.ts] [--json]     # or the MCP tool flow_check; flow_write runs it too
 ```
 
 It does three things:
 
-- **Type-checks** the file (TypeScript strict mode, against the real `agent-graph-engine` and `@nanobpm/workflow` types and Node's). Errors come as `flows/x.flow.ts:12:5 TS2322: …`.
+- **Type-checks** the file (TypeScript strict mode, against the real `@nanobpm/nano-agent-graph-engine` and `@nanobpm/workflow` types and Node's). Errors come as `flows/x.flow.ts:12:5 TS2322: …`.
 - **Compiles** each flow to BPMN.
 - **Lints** it: missing `run` handlers, forms, prompt files and agent profiles, job types no worker serves, start-form hints that don't match the input, and whatever the engine refuses when it deploys the BPMN.
 
 Exit code 1 means errors; warnings don't fail. `--json` gives `{ ok, files: [{ file, flows: [{ id, input }], problems: [{ severity, element?, message }] }] }`.
 
-**Loop: edit → `age check` → fix every error → repeat until it reports `✓`.** Don't start runs of a flow that doesn't check clean. The engine still deploys a file with type errors (it strips types), so it would fail or carry wrong data at run time.
+**Loop: edit → `nage check` → fix every error → repeat until it reports `✓`.** Don't start runs of a flow that doesn't check clean. The engine still deploys a file with type errors (it strips types), so it would fail or carry wrong data at run time.
 Find the CLI at `<plugin>/dist/cli.js`. Without a shell (Claude Desktop), use `flow_write`, which writes the file and checks it, then `flow_check`.
 
 ## A flow
 
 ```ts
 // flows/triage.flow.ts
-import { defineFlow, defineForms, defineAgents, defineStartForm, envelope, sh } from "agent-graph-engine";
+import { defineFlow, defineForms, defineAgents, defineStartForm, envelope, sh } from "@nanobpm/nano-agent-graph-engine";
 
 export const description = "Triage a GitHub issue";      // shown in the explorer and to agents
 
@@ -88,7 +88,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
 ## Input
 
 - **Declare it** with `envelope(name, fields)` as `{ Start: { in: Input } }` in the contracts. Field types: `"string"`, `"integer"`, `"number"`, `"boolean"`, `"datetime"` (ISO 8601). A field can also be `{ type, optional: true, list: true }`.
-- **Everything is derived from it**: the start form, the `flow_status` signature `triage(issue: integer, repo: string, labels?: string[])`, the MCP prompt `/start-triage` with one argument per field, and `age start triage --issue 7 --repo x`.
+- **Everything is derived from it**: the start form, the `flow_status` signature `triage(issue: integer, repo: string, labels?: string[])`, the MCP prompt `/start-triage` with one argument per field, and `nage start triage --issue 7 --repo x`.
 - **Checked at start**: `/api/start` converts text to the declared types and refuses missing or wrong fields, naming each one.
 - **Display hints** go in `defineStartForm(Input, { title, description, fields: { f: { title, description, enum, default, minimum, maximum } } })`. Field names are type-checked against the input.
 - **Typing step variables**: to type a step's `job.variables`, give the step its own contract, e.g. `fetch: { in: Input }` (or a narrower envelope), plus an `out` envelope to type what it returns. Variables are `envelope & JsonObject`: a misspelled name isn't a type error, it is just untyped, so check names against the envelope.
@@ -114,7 +114,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
     - **Result file**: every agent run gets `AGENT_RESULT_FILE`. A JSON object the agent writes there becomes the step's variables, and wins over JSON in its final message. That is the Nano Workforce harness contract, so nwf prompts work unchanged (`prompt: { resourceId: "prompts/x.md" }` finds `flows/prompts/x.md`).
     - `use`: a *suggested* agent — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})`. Only applies where that CLI is installed and the user hasn't assigned the flow/step/rank; otherwise their default runs it (an unknown one is a warning, not an error). Usually leave it out.
   - **Flow default**: `export const defaultAgent = "…"` (also only a suggestion).
-  - The user picks CLIs and models with `flow_agents` / `age agent assign`, or per run (`flow_start` `agents`); don't edit the flow for that.
+  - The user picks CLIs and models with `flow_agents` / `nage agent assign`, or per run (`flow_start` `agents`); don't edit the flow for that.
 - **`w.task(name, { jobType: "session", agent: true })`** is work for the live Claude Code session.
 - Inside `run`, `await claude(prompt, opts)` calls an agent directly.
 - **`w.human(name, { form })`** is a user task. The form comes from `export const forms = defineForms({...})`. Fields can be string (optionally `enum`/`enumNames`, `format: "date-time"`), boolean, or number/integer (`minimum`, `maximum`), plus `required: [...]`. `{{var}}` in the title and description is filled from the variables.

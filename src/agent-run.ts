@@ -111,7 +111,7 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
         last = now;
       },
     },
-    { clientInfo: { name: "agent-graph-engine", version: "1" } },
+    { clientInfo: { name: "nano-agent-graph-engine", version: "1" } },
   );
   const stop = () => {
     session.cancel();

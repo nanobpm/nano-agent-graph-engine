@@ -33,7 +33,7 @@ change. **To write or change a flow, use the `agent-graph-authoring` skill** (or
 - If the flow declares an input, `flow_status` shows it, e.g. `review(pr: integer, repo: string, note?: string)`. Pass exactly those fields as `variables`. Fill them in from the conversation, and ask the user only for required fields you can't infer.
 - Text is fine. The engine converts it to the declared types: `"42"` becomes 42, `"yes"` becomes true, and `"a, b"` becomes a list. It refuses missing or wrong fields and names each one. Fix what it lists and call `flow_start` again.
 - A flow without a declared input takes free-form variables. Read the flow (`flow_read`) to see which ones it uses.
-- The user can also start a run from the explorer's start form, from `/flows` in Claude Code, or with `age start <flow> --pr 42 --repo x`.
+- The user can also start a run from the explorer's start form, from `/flows` in Claude Code, or with `nage start <flow> --pr 42 --repo x`.
 - After starting, show the run with `show_explorer`, or share the explorer URL.
 
 ## While a run is going

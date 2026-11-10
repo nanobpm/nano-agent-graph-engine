@@ -3,7 +3,7 @@
 //
 //   gather ─▶ ┌▶ draft (agent) ─▶ review (human) ─▶ decision: publish → write → end
 //             └──────────────── redo with feedback ┘           cancel  → end
-import { defineFlow, projectPath, defineForms, sh } from "agent-graph-engine";
+import { defineFlow, projectPath, defineForms, sh } from "@nanobpm/nano-agent-graph-engine";
 import { writeFileSync } from "node:fs";
 
 export const description = "Draft release notes from git history, review, and write CHANGELOG-draft.md";

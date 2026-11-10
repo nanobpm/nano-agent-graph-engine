@@ -1,7 +1,8 @@
 // Type-check flow files with the kit in dist/typecheck (TypeScript, ES libs, Node types,
 // and the declarations of agent-graph-engine + @nanobpm/workflow). The engine loads flows
 // with types stripped, so without this a flow with a type error deploys and fails at run
-// time — or worse, runs with the wrong data. `age check`, flow_check and flow_write run it.
+// time — or worse, runs with the wrong data. `nage check`, flow_check and flow_write run it.
+import { ENGINE_SPECIFIERS } from "./resolve-hook.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -49,8 +50,8 @@ export function typecheckFlows(files: string[]): Map<string, TypeProblem[]> | un
     lib: ["lib.es2023.d.ts"],
     types: ["node"],
     typeRoots: [path.join(kit, "node_modules", "@types")],
-    // `import … from "agent-graph-engine"` resolves to the kit, like the engine's resolve hook.
-    paths: { "agent-graph-engine": [path.join(kit, "agent-graph-engine", "index.d.ts")] },
+    // The engine's import names resolve to the kit, like the engine's resolve hook.
+    paths: Object.fromEntries(ENGINE_SPECIFIERS.map((s) => [s, [path.join(kit, "agent-graph-engine", "index.d.ts")]])),
   };
   const program = ts.createProgram(roots, options);
   const diags = [...program.getSyntacticDiagnostics(), ...program.getSemanticDiagnostics(), ...program.getGlobalDiagnostics()];

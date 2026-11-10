@@ -169,7 +169,7 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
       const use = (mod.agents?.[t.name] as AgentOptions | undefined)?.use ?? (t.agent ? mod.defaultAgent : undefined);
       // The author's CLI is a suggestion: someone without it runs the step on their own.
       if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
-        problems.push({ severity: "warning", element: t.name, message: `the flow suggests agent profile "${use}", which isn't known here — the step will run on your assignment or default (age agent show ${authored.id})` });
+        problems.push({ severity: "warning", element: t.name, message: `the flow suggests agent profile "${use}", which isn't known here — the step will run on your assignment or default (nage agent show ${authored.id})` });
       if (t.prompt && !fs.existsSync(promptFile(projectDir, t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
@@ -198,7 +198,7 @@ export async function checkProject(project: string, keyFor?: (id: string) => str
   return out;
 }
 
-/** Add type errors to check results (authoring checks: `age check`, flow_check,
+/** Add type errors to check results (authoring checks: `nage check`, flow_check,
  *  flow_write — the daemon doesn't type-check, it loads flows with types stripped).
  *  Returns false when the type-check kit isn't available. */
 export function addTypeProblems(results: CheckResult[]): boolean {

@@ -1,6 +1,6 @@
 // Portable flows (the nano-workforce convention): agent steps are typed <rank>:<task>, an
 // author's CLI choice is only a suggestion, and the person running a flow picks the CLI and
-// model — for every run (age agent assign) or one run (age start --agent/--model).
+// model — for every run (nage agent assign) or one run (nage start --agent/--model).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

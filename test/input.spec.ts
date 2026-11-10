@@ -1,6 +1,6 @@
 // Flow inputs (the `Start` contract): the derived start form, converting text to the
 // declared types, the check at start, hint checks, CLI args — and end to end through
-// the CLI and the daemon, with the type-checking authoring loop (`age check`).
+// the CLI and the daemon, with the type-checking authoring loop (`nage check`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";

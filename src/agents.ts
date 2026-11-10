@@ -37,7 +37,7 @@ export interface AgentProfile {
   modelArg?: string;
   /** … or env vars, with "{model}" replaced (OpenCode: OPENCODE_CONFIG_CONTENT). */
   modelEnv?: Record<string, string>;
-  /** Shown in `age agents` and the explorer. */
+  /** Shown in `nage agents` and the explorer. */
   description?: string;
 }
 

@@ -49,7 +49,7 @@ const ELICIT_TIMEOUT_MS = Number(process.env.AGE_ELICIT_TIMEOUT_MS ?? 10 * 60_00
 const ELICIT_BROKEN = new Set(["opencode"]);
 
 export function createServer(project: string): McpServer {
-  const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "nano-agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   // One engine serves every project: the client scopes calls and explorer links to this one.
   const engine = () => EngineClient.connect(project);
   const canElicit = () => {
@@ -316,7 +316,7 @@ export function createServer(project: string): McpServer {
           .object({
             step: z.string().optional(),
             rank: z.string().optional(),
-            use: z.string().nullable().optional().describe("Profile name (age agent list), or null to clear"),
+            use: z.string().nullable().optional().describe("Profile name (nage agent list), or null to clear"),
             model: z.string().nullable().optional().describe("Model id for that CLI, or null to clear"),
           })
           .optional(),
@@ -578,7 +578,7 @@ export async function runMcp(project: string) {
   watchFlowPrompts(server, project);
 }
 
-/** Streamable HTTP (stateless) for MCP Apps hosts and inspectors: `age mcp --http 3001`. */
+/** Streamable HTTP (stateless) for MCP Apps hosts and inspectors: `nage mcp --http 3001`. */
 export async function runMcpHttp(project: string, port: number) {
   const http = await import("node:http");
   const { StreamableHTTPServerTransport } = await import("@modelcontextprotocol/sdk/server/streamableHttp.js");

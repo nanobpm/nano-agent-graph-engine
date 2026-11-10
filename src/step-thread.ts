@@ -22,7 +22,7 @@ export interface StepRequest {
 export type StepReply = { id: number; ok: true; variables: Record<string, unknown> } | { id: number; ok: false; error: string };
 
 installResolveHook();
-const api: Promise<typeof import("./index.ts")> = import("agent-graph-engine" as string);
+const api: Promise<typeof import("./index.ts")> = import("@nanobpm/nano-agent-graph-engine" as string);
 
 let current: AbortController | undefined;
 

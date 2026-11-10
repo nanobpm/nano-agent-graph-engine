@@ -1,6 +1,6 @@
 // A flow's input: the `Start` contract's envelope (`defineFlow(id, { Start: { in } }, …)`).
 // It drives the start form (explorer, Claude Code mod, elicitation), the input schema
-// agents see (flow_status, MCP prompt arguments), `age start --field value`, and the
+// agents see (flow_status, MCP prompt arguments), `nage start --field value`, and the
 // check /api/start makes before it creates an instance.
 import { validateEnvelope } from "@nanobpm/workflow";
 import type { FormDef, FormField } from "./index.ts";

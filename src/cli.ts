@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// age — Agent Graph Engine CLI. Also the entry the daemon, the MCP server and the
+// nage — Nano Agent Graph Engine CLI. Also the entry the daemon, the MCP server and the
 // Claude Code hooks run through.
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -9,32 +9,35 @@ import { EngineClient } from "./client.ts";
 import { summarize } from "./summary.ts";
 import { parseStartArgs } from "./input.ts";
 
-const HELP = `age — Agent Graph Engine
+const HELP = `nage — Nano Agent Graph Engine
 
-  age check [file] [--json]     type-check, compile and lint flows/*.flow.ts (or one file);
-                                exit code 1 on errors. Writes nothing. --no-types skips tsc
-  age up                        start the engine (one per user) if needed, print its URL
-  age down                      stop the engine
-  age status                    flows here; runs, open tasks, incidents in every project
-  age start <flow> [--field value …] [json] [--title t] [--agent [step=]cli] [--model [step=]m]
-                                start an instance: input fields as flags (or name=value),
-                                and/or a JSON object; the engine converts and checks them.
-                                --agent/--model override who runs agent steps, this run only
-  age tasks                     open user tasks
-  age complete <task> [json]    complete a user task
-  age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
-                                or a route like /instances); prints the URL
-  age agent [list]              agent profiles (which CLI runs agent steps) and the default
-  age agent default <name>      set the default profile (~/.agent-graph/agents.json)
-  age agent show <flow>         the flow's agent steps: who runs each, and why
-  age agent assign <flow>[/<step>] <cli|-> [--model m]
-                                run a flow's (or one step's) agent steps on your CLI/model,
-                                for every run from now on ("-": keep the CLI, set the model)
-  age agent assign --rank <rank> <cli>   who serves <rank>:* steps (e.g. senior → claude)
-  age agent unassign <flow>[/<step>] | --rank <rank>
-  age daemon                    run the engine in the foreground
-  age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
-  age hook <event>              Claude Code hook: print pending work as context
+  nage check [file] [--json]     type-check, compile and lint flows/*.flow.ts (or one file);
+                                 exit code 1 on errors. Writes nothing. --no-types skips tsc
+  nage up                        start the engine (one per user) if needed, print its URL
+  nage down                      stop the engine
+  nage status                    flows here; runs, open tasks, incidents in every project
+  nage start <flow> [--field value …] [json] [--title t] [--agent [step=]cli] [--model [step=]m]
+                                 start an instance: input fields as flags (or name=value),
+                                 and/or a JSON object; the engine converts and checks them.
+                                 --agent/--model override who runs agent steps, this run only
+  nage tasks                     open user tasks
+  nage complete <task> [json]    complete a user task
+  nage open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
+                                 or a route like /instances); prints the URL
+  nage agent [list]              agent profiles (which CLI runs agent steps) and the default
+  nage agent default <name>      set the default profile (~/.agent-graph/agents.json)
+  nage agent show <flow>         the flow's agent steps: who runs each, and why
+  nage agent assign <flow>[/<step>] <cli|-> [--model m]
+                                 run a flow's (or one step's) agent steps on your CLI/model,
+                                 for every run from now on ("-": keep the CLI, set the model)
+  nage agent assign --rank <rank> <cli>   who serves <rank>:* steps (e.g. senior → claude)
+  nage agent unassign <flow>[/<step>] | --rank <rank>
+  nage daemon                    run the engine in the foreground
+  nage mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
+  nage hook <event>              Claude Code hook: print pending work as context
+  nage install <host> [--dry-run]
+                                 add the MCP server (and skills) to claude-code, claude-desktop,
+                                 opencode, codex or cursor; nage uninstall <host> removes it
 
   Options: --project <dir> (default: nearest dir with flows/, else the git root, else cwd)
   The engine keeps its state in ~/.agent-graph (AGE_STATE_DIR); ~/AgentGraph/flows are
@@ -51,6 +54,9 @@ function arg(name: string): string | undefined {
 const projectOpt = arg("--project");
 const project = projectOpt ? path.resolve(projectOpt) : resolveProject();
 const [cmd, ...rest] = process.argv.slice(2);
+// `age` was the command's first name; it clashes with the age encryption tool.
+if (path.basename(process.argv[1] ?? "") === "age" && cmd !== "mcp" && cmd !== "hook" && cmd !== "daemon")
+  console.error("note: `age` is now `nage` (the old name goes away in a later release)");
 
 function parseVars(s?: string): Record<string, unknown> {
   if (!s) return {};
@@ -80,7 +86,7 @@ async function main() {
     case "agent": {
       const { allProfiles, readAgentsFile, writeAgentsFile, agentsFile, commandOf, which, resolveAgent } = await import("./agents.ts");
       if (rest[0] === "show") {
-        if (!rest[1]) throw new Error("usage: age agent show <flow>");
+        if (!rest[1]) throw new Error("usage: nage agent show <flow>");
         const { formatAgentPlan } = await import("./summary.ts");
         console.log(formatAgentPlan(await (await EngineClient.connect(project)).agentPlan(rest[1], "cli")));
         break;
@@ -94,7 +100,7 @@ async function main() {
         const rank = take("--rank");
         const model = take("--model");
         const clear = rest[0] === "unassign";
-        const usage = "usage: age agent assign <flow>[/<step>] <cli|-> [--model m] | --rank <rank> <cli>; age agent unassign <flow>[/<step>] | --rank <rank>";
+        const usage = "usage: nage agent assign <flow>[/<step>] <cli|-> [--model m] | --rank <rank> <cli>; nage agent unassign <flow>[/<step>] | --rank <rank>";
         if (rank) {
           const use = clear ? null : rest[1];
           if (use === undefined) throw new Error(usage);
@@ -113,7 +119,7 @@ async function main() {
       }
       if (rest[0] === "default") {
         const all = allProfiles();
-        if (!rest[1] || !all[rest[1]]) throw new Error(`usage: age agent default <${Object.keys(all).join("|")}>`);
+        if (!rest[1] || !all[rest[1]]) throw new Error(`usage: nage agent default <${Object.keys(all).join("|")}>`);
         writeAgentsFile({ ...readAgentsFile(), default: rest[1] });
         console.log(`default agent: ${rest[1]} (${agentsFile()})`);
         break;
@@ -158,7 +164,7 @@ async function main() {
     }
     case "start": {
       const c = await EngineClient.connect(project);
-      if (!rest[0]) throw new Error("usage: age start <flow> [--field value …] [json]");
+      if (!rest[0]) throw new Error("usage: nage start <flow> [--field value …] [json]");
       const { takeRunAgents } = await import("./agents.ts");
       const { agents, rest: args } = takeRunAgents(rest.slice(1));
       const { variables, title } = parseStartArgs(args);
@@ -181,6 +187,13 @@ async function main() {
       const i = process.argv.indexOf("--http");
       if (i > 0) await runMcpHttp(project, Number(process.argv[i + 1] ?? 3001));
       else await runMcp(project);
+      return;
+    }
+    case "install":
+    case "uninstall": {
+      const { install } = await import("./install.ts");
+      const dryRun = rest.includes("--dry-run");
+      install(rest.filter((a) => a !== "--dry-run")[0] ?? "", { remove: cmd === "uninstall", dryRun });
       return;
     }
     case "hook": {

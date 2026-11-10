@@ -1,0 +1,38 @@
+# Push a tag vX.Y.Z (matching package.json) to release:
+#   npm  @nanobpm/nano-agent-graph-engine (needs the NPM_TOKEN secret, or npm trusted publishing)
+#   the `release` branch (the Claude Code plugin the marketplace on main points at)
+#   a GitHub release with the Claude Desktop extension (.mcpb)
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+  id-token: write
+concurrency: release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - name: Tag matches package.json
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:engine
+      - run: npx -y @anthropic-ai/claude-code@latest plugin validate .
+      - run: node scripts/package-mcpb.mjs release
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: node scripts/publish-plugin-branch.mjs --push
+      - run: gh release create "$GITHUB_REF_NAME" release/*.mcpb --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

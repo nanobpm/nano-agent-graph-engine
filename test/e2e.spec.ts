@@ -431,7 +431,7 @@ test("agent result file + abortCheck: the result file wins, the status URL answe
   fs.writeFileSync(path.join(project, "flows/prompts/work.md"), "Do the work.");
   fs.writeFileSync(
     path.join(project, "flows/rf.flow.ts"),
-    `import { defineFlow, defineAgents } from "agent-graph-engine";
+    `import { defineFlow, defineAgents } from "@nanobpm/nano-agent-graph-engine";
 export const agents = defineAgents({ work: { abortCheck: true, context: [], env: { FAKE_WRITE_RESULT: "1" } } });
 export const f = defineFlow("rf", (w) => { w.task("work", { prompt: { resourceId: "prompts/work.md" } }); });`,
   );

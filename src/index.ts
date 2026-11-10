@@ -1,5 +1,5 @@
 // Authoring API for Agent Graph Engine flows. A flow file (flows/*.flow.ts) imports
-// from "agent-graph-engine" — the daemon resolves that specifier to this module.
+// from "@nanobpm/nano-agent-graph-engine" — the daemon resolves that specifier to this module.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -72,7 +72,7 @@ export function defineForms<T extends Record<string, FormDef>>(forms: T): T {
  *
  *  Agent steps follow the nano-workforce convention: the job type names a rank and a task
  *  (`senior:review`, `junior:triage`), never a CLI, so the flow runs on anyone's machine.
- *  Who runs it is the user's choice (`age agent assign`, flow_agents, the explorer);
+ *  Who runs it is the user's choice (`nage agent assign`, flow_agents, the explorer);
  *  `use`/`model` here are only the author's suggestion. ("claude" is the legacy job type.) */
 export interface AgentOptions extends Omit<ClaudeOptions, "cwd" | "timeoutMs"> {
   /** Variables to append to the prompt as JSON (default: all instance variables; `[]`:

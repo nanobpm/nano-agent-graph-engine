@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "types": ["node"],
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "paths": { "agent-graph-engine": ["./src/index.ts"] }
+    "paths": { "@nanobpm/nano-agent-graph-engine": ["./src/index.ts"], "agent-graph-engine": ["./src/index.ts"] }
   },
   "include": ["src", "examples", "test"]
 }

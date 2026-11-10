@@ -1,13 +1,20 @@
 {
-  "name": "agent-graph-engine",
-  "owner": { "name": "Josh Wulf" },
-  "description": "Agent Graph Engine: durable BPMN flows for Claude Code",
+  "name": "nanobpm",
+  "owner": {
+    "name": "nanobpm",
+    "url": "https://github.com/nanobpm"
+  },
+  "description": "nanobpm plugins for Claude Code",
   "plugins": [
     {
-      "name": "agent-graph-engine",
-      "source": "./",
-      "description": "Durable process engine: defineFlow → BPMN, local daemon, user tasks, web explorer",
-      "version": "0.14.0"
+      "name": "nano-agent-graph-engine",
+      "source": {
+        "source": "github",
+        "repo": "nanobpm/nano-agent-graph-engine",
+        "ref": "release"
+      },
+      "description": "Durable process engine: defineFlow \u2192 BPMN, local engine, agent steps on your CLI, user tasks, web explorer",
+      "version": "0.15.0"
     }
   ]
 }
