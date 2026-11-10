@@ -14075,6 +14075,17 @@ var init_layout = __esm({
 });
 
 // node_modules/@nanobpm/workflow/dist/envelope.js
+function isCalendarDate(y, m2, d2) {
+  const leap = y % 4 === 0 && y % 100 !== 0 || y % 400 === 0;
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return m2 >= 1 && m2 <= 12 && d2 >= 1 && d2 <= days[m2 - 1];
+}
+function isDatetime(v2) {
+  if (typeof v2 !== "string")
+    return false;
+  const m2 = DATETIME.exec(v2);
+  return !!m2 && isCalendarDate(Number(m2[1]), Number(m2[2]), Number(m2[3])) && !Number.isNaN(Date.parse(v2));
+}
 function scalarProblem(type, v2) {
   switch (type) {
     case "string":
@@ -14086,7 +14097,7 @@ function scalarProblem(type, v2) {
     case "integer":
       return typeof v2 === "number" && Number.isInteger(v2) ? void 0 : "must be a whole number";
     case "datetime":
-      return typeof v2 === "string" && DATETIME.test(v2) && !Number.isNaN(Date.parse(v2)) ? void 0 : "must be an ISO 8601 date or date-time";
+      return isDatetime(v2) ? void 0 : "must be an ISO 8601 date or date-time";
   }
 }
 function isRecord2(value) {
@@ -14097,8 +14108,8 @@ function validateEnvelope(env, value) {
     return [{ field: "", message: `${env.name} must be an object` }];
   const problems = [];
   for (const f2 of env.fields) {
-    const v2 = value[f2.name];
-    if (v2 === void 0 || v2 === null) {
+    const v2 = Object.hasOwn(value, f2.name) ? value[f2.name] : void 0;
+    if (v2 === void 0 || v2 === null && !f2.optional) {
       if (!f2.optional)
         problems.push({ field: f2.name, message: "is required" });
       continue;
@@ -14122,7 +14133,7 @@ function validateEnvelope(env, value) {
 var DATETIME;
 var init_envelope = __esm({
   "node_modules/@nanobpm/workflow/dist/envelope.js"() {
-    DATETIME = /^\d{4}-\d{2}-\d{2}([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:?\d{2})?)?$/;
+    DATETIME = /^(\d{4})-(\d{2})-(\d{2})([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:?\d{2})?)?$/;
   }
 });
 

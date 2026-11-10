@@ -1024,7 +1024,18 @@ function envelope(name, fields) {
     assertIdent("envelope field name", f.name);
   return new EnvelopeDef(name, list);
 }
-var DATETIME = /^\d{4}-\d{2}-\d{2}([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:?\d{2})?)?$/;
+var DATETIME = /^(\d{4})-(\d{2})-(\d{2})([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:?\d{2})?)?$/;
+function isCalendarDate(y, m, d) {
+  const leap = y % 4 === 0 && y % 100 !== 0 || y % 400 === 0;
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return m >= 1 && m <= 12 && d >= 1 && d <= days[m - 1];
+}
+function isDatetime(v) {
+  if (typeof v !== "string")
+    return false;
+  const m = DATETIME.exec(v);
+  return !!m && isCalendarDate(Number(m[1]), Number(m[2]), Number(m[3])) && !Number.isNaN(Date.parse(v));
+}
 function scalarProblem(type, v) {
   switch (type) {
     case "string":
@@ -1036,7 +1047,7 @@ function scalarProblem(type, v) {
     case "integer":
       return typeof v === "number" && Number.isInteger(v) ? void 0 : "must be a whole number";
     case "datetime":
-      return typeof v === "string" && DATETIME.test(v) && !Number.isNaN(Date.parse(v)) ? void 0 : "must be an ISO 8601 date or date-time";
+      return isDatetime(v) ? void 0 : "must be an ISO 8601 date or date-time";
   }
 }
 function isRecord(value) {
@@ -1047,8 +1058,8 @@ function validateEnvelope(env, value) {
     return [{ field: "", message: `${env.name} must be an object` }];
   const problems = [];
   for (const f of env.fields) {
-    const v = value[f.name];
-    if (v === void 0 || v === null) {
+    const v = Object.hasOwn(value, f.name) ? value[f.name] : void 0;
+    if (v === void 0 || v === null && !f.optional) {
       if (!f.optional)
         problems.push({ field: f.name, message: "is required" });
       continue;
