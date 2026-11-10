@@ -10,6 +10,7 @@ import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compi
 import { jobSignal, runInProject } from "./index.ts";
 import { allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
+import { TranscriptWriter, readTranscript, pruneTranscripts, linkAgentJob, jobForAgent } from "./transcript.ts";
 import { AgentRecorder } from "./agent-record.ts";
 import { Notifier, notify, notifyMode, revealPath, type Notice } from "./notify.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
@@ -511,6 +512,8 @@ export class Host {
       : undefined;
     rec?.start();
     this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} — ${agent.reason}${agent.skipped ? `; the flow suggests ${agent.skipped}` : ""}` });
+    const transcript = new TranscriptWriter(jobKey);
+    transcript.write({ kind: "lifecycle", phase: "open" });
     const r = await runAgentCli({
       name: agent.name,
       profile: agent.profile,
@@ -528,8 +531,16 @@ export class Host {
       allowedTools: opts.allowedTools,
       permissionMode: opts.permissionMode,
       signal: jobSignal(),
-      onTurn: (t) => rec?.turn(t),
+      onTurn: (t) => {
+        rec?.turn(t);
+        linkAgentJob(rec?.agentInstanceKey, String(jobKey));
+      },
+      onEvent: (e) => transcript.write(e),
+    }).catch((e) => {
+      transcript.close("exited");
+      throw e;
     });
+    transcript.close("completed");
     rec?.done();
     let out: unknown = r.result;
     if (typeof out === "string") out = parseJson(out) ?? out;
@@ -888,6 +899,19 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ processInstanceKey: mm[1] }))).items);
       if (req.method === "GET" && (mm = m(/^\/api\/explorer\/agents\/([^/]+)\/history$/)))
         return send(res, 200, JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items);
+      // The same, by AgentInstance (what the explorer's agent panel knows): its job's stream.
+      if (req.method === "GET" && (mm = m(/^\/api\/explorer\/agents\/([^/]+)\/transcript$/))) {
+        const jobKey =
+          jobForAgent(mm[1]) ??
+          (JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items as { jobKey?: string }[]).find((i) => i.jobKey)?.jobKey;
+        const t = jobKey ? readTranscript(String(jobKey), Number(url.searchParams.get("from") ?? 0) || 0, host.running.has(String(jobKey))) : null;
+        return t ? send(res, 200, t) : send(res, 404, { error: "no transcript for this agent run" });
+      }
+      // Live transcript of an agent step (nwf's transcript read shape; offsets are bytes).
+      if (req.method === "GET" && (mm = m(/^\/api\/jobs\/([\w-]+)\/transcript$/))) {
+        const t = readTranscript(mm[1], Number(url.searchParams.get("from") ?? 0) || 0, host.running.has(mm[1]));
+        return t ? send(res, 200, t) : send(res, 404, { error: "no transcript for this job" });
+      }
       // Liveness for agents with abortCheck: 404 once the step is cancelled or finished.
       if (req.method === "GET" && (mm = m(/^\/api\/jobs\/([^/]+)\/alive$/))) {
         const r = host.running.get(mm[1]);
@@ -948,6 +972,7 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   }
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+  pruneTranscripts();
   // A flow handler's stray promise or callback must not take every project's runs down
   // with it: log it and keep serving (the event log is the source of truth).
   process.on("unhandledRejection", (e: any) => host.log({ kind: "error", message: `unhandled rejection (a flow handler?): ${e?.stack ?? e}`.slice(0, 2000) }));

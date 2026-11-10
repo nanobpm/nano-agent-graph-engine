@@ -10,7 +10,9 @@ if (process.env.FAKE_CLAUDE_LOG) fs.appendFileSync(process.env.FAKE_CLAUDE_LOG, 
 if (process.env.FAKE_WRITE_RESULT && process.env.AGENT_RESULT_FILE) {
   const url = process.env.AGE_JOB_STATUS_URL;
   const alive = url ? await fetch(url).then((r) => r.json()) : null;
-  fs.writeFileSync(process.env.AGENT_RESULT_FILE, JSON.stringify({ status: "from-file", alive, briefed: prompt.includes("Abort if this run was cancelled") }));
+  // The live transcript, read while this step is still running.
+  const live = url ? await fetch(url.replace(/\/alive$/, "/transcript?from=0")).then((r) => r.json()) : null;
+  fs.writeFileSync(process.env.AGENT_RESULT_FILE, JSON.stringify({ status: "from-file", alive, briefed: prompt.includes("Abort if this run was cancelled"), liveStatus: live?.status, liveEntries: live?.entries?.length }));
 }
 const t0 = Date.now();
 if (process.env.FAKE_CLAUDE_SLEEP_MS) await new Promise((r) => setTimeout(r, Number(process.env.FAKE_CLAUDE_SLEEP_MS)));
@@ -34,7 +36,14 @@ if (process.argv.includes("stream-json")) {
     { type: "system", subtype: "init", model: "fake-model" },
     { type: "assistant", message: { model: "fake-model", content: [{ type: "tool_use", id: "tu1", name: "Bash", input: { command: "git log" } }], usage: { input_tokens: 100, output_tokens: 20 } } },
     { type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tu1", content: "abc123 a commit" }] } },
-    { type: "assistant", message: { model: "fake-model", content: [{ type: "text", text: result.result || JSON.stringify({ notes }) }], usage: { input_tokens: 150, output_tokens: 40 } } },
+    ...(process.argv.includes("--include-partial-messages")
+      ? [
+          { type: "stream_event", event: { type: "message_start", message: { id: "msg2" } } },
+          { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "Draft" } } },
+          { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "ing…" } } },
+        ]
+      : []),
+    { type: "assistant", message: { id: "msg2", model: "fake-model", content: [{ type: "text", text: result.result || JSON.stringify({ notes }) }], usage: { input_tokens: 150, output_tokens: 40 } } },
     result,
   ];
   process.stdout.write(lines.map((l) => JSON.stringify(l)).join("\n") + "\n");

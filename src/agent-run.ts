@@ -4,6 +4,7 @@
 import { spawn } from "node:child_process";
 import { openAcpSession, spawnAcpTransport } from "@nanobpm/agentic/session/acp";
 import { launch, type AgentProfile } from "./agents.ts";
+import type { TranscriptInput } from "./transcript.ts";
 
 /** One turn of an agent's transcript, in AgentInstance history terms. */
 export interface Turn {
@@ -33,7 +34,11 @@ export interface AgentRun {
   permissionMode?: string;
   signal?: AbortSignal;
   onTurn: (t: Turn) => void;
+  /** Live transcript events (text as it streams, tool calls and results). */
+  onEvent?: (e: TranscriptInput) => void;
 }
+
+const asText = (v: unknown): string => (typeof v === "string" ? v : Array.isArray(v) ? v.map((c: any) => (typeof c?.text === "string" ? c.text : JSON.stringify(c))).join("\n") : JSON.stringify(v ?? ""));
 
 export interface AgentOutcome {
   /** Structured output (schema) or the final text. */
@@ -88,15 +93,18 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
           }
           pending.text += e.text;
           finalText += e.text;
+          r.onEvent?.({ kind: "message", role: "assistant", text: e.text });
         } else if (e.type === "tool-call") {
           if (pending?.role !== "ASSISTANT") {
             flush();
             pending = { role: "ASSISTANT", metrics: { durationMs: now - last } };
           }
           (pending.toolCalls ??= []).push({ id: e.callId, name: e.name, args: e.args });
+          r.onEvent?.({ kind: "tool-call", name: e.name, callId: e.callId, args: e.args });
         } else if (e.type === "tool-result") {
           flush();
           r.onTurn({ role: "TOOL_RESULT", toolCallId: e.callId, result: e.result, ok: e.ok });
+          r.onEvent?.({ kind: "tool-result", callId: e.callId, ok: e.ok, content: asText(e.result).slice(0, 4000) });
         } else if (e.type === "usage") {
           if (pending) pending.metrics = { ...pending.metrics, inputTokens: e.inputTokens, outputTokens: e.outputTokens };
         } else return;
@@ -115,6 +123,7 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     await Promise.race([session.newSession({ cwd: r.cwd }), exited]);
     const text = `${r.system ? `${r.system}\n\n` : ""}${r.prompt}${schemaNote(r.schema)}`;
     r.onTurn({ role: "USER", text });
+    r.onEvent?.({ kind: "message", role: "user", text, mode: "snapshot", final: true });
     const res = await Promise.race([session.prompt(text), exited]);
     // The turn's token total (the usage event already set input/output on the last
     // assistant turn); add the cache/reasoning detail.
@@ -143,19 +152,22 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
 
 async function runClaude(r: AgentRun): Promise<AgentOutcome> {
   const { command, env } = launch(r.name, r.profile);
-  const args = ["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", r.permissionMode ?? "dontAsk", ...(r.profile.args ?? [])];
+  // --include-partial-messages: text deltas as they're generated, for the live transcript.
+  const args = ["-p", "--output-format", "stream-json", "--verbose", ...(r.onEvent ? ["--include-partial-messages"] : []), "--permission-mode", r.permissionMode ?? "dontAsk", ...(r.profile.args ?? [])];
   if (r.allowedTools?.length) args.push("--allowedTools", r.allowedTools.join(","));
   const model = r.model ?? r.profile.model;
   if (model) args.push(r.profile.modelArg ?? "--model", model);
   if (r.system) args.push("--append-system-prompt", r.system);
   if (r.schema) args.push("--json-schema", JSON.stringify(r.schema));
   r.onTurn({ role: "USER", text: r.prompt });
+  r.onEvent?.({ kind: "message", role: "user", text: r.prompt, mode: "snapshot", final: true });
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd: r.cwd, env: { ...process.env, ...env, ...r.env }, stdio: ["pipe", "pipe", "pipe"], signal: r.signal });
     let buf = "";
     let stderr = "";
     let final: any;
     let usedModel: string | undefined;
+    let streamId: string | undefined;
     let last = Date.now();
     const line = (l: string) => {
       if (!l.trim()) return;
@@ -166,12 +178,20 @@ async function runClaude(r: AgentRun): Promise<AgentOutcome> {
         return;
       }
       if (m.type === "system" && m.model) usedModel = m.model;
-      else if (m.type === "assistant") {
+      else if (m.type === "stream_event") {
+        const ev = m.event;
+        if (ev?.type === "message_start") streamId = ev.message?.id;
+        else if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text)
+          r.onEvent?.({ kind: "message", role: "assistant", text: ev.delta.text, messageId: streamId });
+      } else if (m.type === "assistant") {
         const content: any[] = m.message?.content ?? [];
         const text = content.filter((c) => c.type === "text").map((c) => c.text).join("");
         const calls = content.filter((c) => c.type === "tool_use").map((c) => ({ id: c.id, name: c.name, args: c.input }));
         const u = m.message?.usage;
         const now = Date.now();
+        // The whole block replaces the streamed deltas (same messageId), then its tool calls.
+        if (text) r.onEvent?.({ kind: "message", role: "assistant", text, mode: "snapshot", messageId: m.message?.id, final: true });
+        for (const c of calls) r.onEvent?.({ kind: "tool-call", name: c.name, callId: c.id, args: c.args });
         if (text || calls.length)
           r.onTurn({
             role: "ASSISTANT",
@@ -183,7 +203,10 @@ async function runClaude(r: AgentRun): Promise<AgentOutcome> {
         last = now;
       } else if (m.type === "user") {
         for (const c of m.message?.content ?? [])
-          if (c.type === "tool_result") r.onTurn({ role: "TOOL_RESULT", toolCallId: c.tool_use_id, result: c.content, ok: !c.is_error });
+          if (c.type === "tool_result") {
+            r.onTurn({ role: "TOOL_RESULT", toolCallId: c.tool_use_id, result: c.content, ok: !c.is_error });
+            r.onEvent?.({ kind: "tool-result", callId: c.tool_use_id, ok: !c.is_error, content: asText(c.content).slice(0, 4000) });
+          }
         last = Date.now();
       } else if (m.type === "result") final = m;
     };

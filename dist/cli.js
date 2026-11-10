@@ -1645,10 +1645,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path13) {
-  if (!path13)
+function getElementAtPath(obj, path14) {
+  if (!path14)
     return obj;
-  return path13.reduce((acc, key) => acc?.[key], obj);
+  return path14.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -1907,11 +1907,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path13, issues) {
+function prefixIssues(path14, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path13);
+    iss.path.unshift(path14);
     return iss;
   });
 }
@@ -2444,16 +2444,16 @@ function flattenError(error64, mapper = (issue2) => issue2.message) {
 }
 function formatError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error65, path13 = []) => {
+  const processError = (error65, path14 = []) => {
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path13, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path14, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path14, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path14, ...issue2.path]);
       } else {
-        const fullpath = [...path13, ...issue2.path];
+        const fullpath = [...path14, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -2492,17 +2492,17 @@ function formatError(error64, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error64, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error65, path13 = []) => {
+  const processError = (error65, path14 = []) => {
     var _a3;
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path13, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path14, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path14, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path14, ...issue2.path]);
       } else {
-        const fullpath = [...path13, ...issue2.path];
+        const fullpath = [...path14, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -2541,8 +2541,8 @@ function treeifyError(error64, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path13 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path13) {
+  const path14 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path14) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -20574,13 +20574,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path13 = ref.slice(1).split("/").filter(Boolean);
-  if (path13.length === 0) {
+  const path14 = ref.slice(1).split("/").filter(Boolean);
+  if (path14.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path13[0] === defsKey) {
-    const key = path13[1] === void 0 ? void 0 : decodeJSONPointerSegment(path13[1]);
+  if (path14[0] === defsKey) {
+    const key = path14[1] === void 0 ? void 0 : decodeJSONPointerSegment(path14[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -21937,9 +21937,9 @@ function bind(fn, target) {
 function assign(target, ...others) {
   return Object.assign(target, ...others);
 }
-function set2(target, path13, value) {
+function set2(target, path14, value) {
   let currentTarget = target;
-  forEach(path13, function(key, idx) {
+  forEach(path14, function(key, idx) {
     if (typeof key !== "number" && typeof key !== "string") {
       throw new Error("illegal key type: " + typeof key + ". Key should be of type number or string.");
     }
@@ -21949,7 +21949,7 @@ function set2(target, path13, value) {
     if (key === "__proto__") {
       throw new Error("illegal key: __proto__");
     }
-    let nextKey = path13[idx + 1];
+    let nextKey = path14[idx + 1];
     let nextTarget = currentTarget[key];
     if (isDefined(nextKey) && isNil(nextTarget)) {
       nextTarget = currentTarget[key] = isNaN(+nextKey) ? {} : [];
@@ -31686,8 +31686,8 @@ var init_client = __esm({
         return `${this.url}/?project=${encodeURIComponent(this.project)}${hash2 ? `#${hash2}` : ""}`;
       }
       /** Any engine route (the MCP App's ui_api proxy). */
-      call(path13, body2) {
-        return api(this.info, path13, body2);
+      call(path14, body2) {
+        return api(this.info, path14, body2);
       }
       /** Engine state: this project's flows and work (work elsewhere is marked); `all` for everything. */
       state(all = false) {
@@ -32456,9 +32456,17 @@ function decodePermissionOptions(value) {
   }
   return options;
 }
-var ROLES, PERMISSION_OPTION_KINDS, CORE_TRANSCRIPT_VOCAB, CORE_TRANSCRIPT_EVENT_KINDS;
+function encodeTranscriptEvent(event) {
+  if (event.kind === "stream-chunk")
+    return event.chunk;
+  const { offset: _offset, ...rest2 } = event;
+  return JSON.stringify({ [TRANSCRIPT_EVENT_MARKER]: TRANSCRIPT_EVENT_VERSION, ...rest2 });
+}
+var TRANSCRIPT_EVENT_MARKER, TRANSCRIPT_EVENT_VERSION, ROLES, PERMISSION_OPTION_KINDS, CORE_TRANSCRIPT_VOCAB, CORE_TRANSCRIPT_EVENT_KINDS;
 var init_events = __esm({
   "node_modules/@nanobpm/agentic/dist/transcript/events.js"() {
+    TRANSCRIPT_EVENT_MARKER = "nwfTranscriptEvent";
+    TRANSCRIPT_EVENT_VERSION = 1;
     ROLES = ["assistant", "user", "system", "tool"];
     PERMISSION_OPTION_KINDS = [
       "allow-once",
@@ -32789,15 +32797,18 @@ async function runAcp(r2) {
           }
           pending2.text += e.text;
           finalText += e.text;
+          r2.onEvent?.({ kind: "message", role: "assistant", text: e.text });
         } else if (e.type === "tool-call") {
           if (pending2?.role !== "ASSISTANT") {
             flush();
             pending2 = { role: "ASSISTANT", metrics: { durationMs: now - last } };
           }
           (pending2.toolCalls ??= []).push({ id: e.callId, name: e.name, args: e.args });
+          r2.onEvent?.({ kind: "tool-call", name: e.name, callId: e.callId, args: e.args });
         } else if (e.type === "tool-result") {
           flush();
           r2.onTurn({ role: "TOOL_RESULT", toolCallId: e.callId, result: e.result, ok: e.ok });
+          r2.onEvent?.({ kind: "tool-result", callId: e.callId, ok: e.ok, content: asText(e.result).slice(0, 4e3) });
         } else if (e.type === "usage") {
           if (pending2) pending2.metrics = { ...pending2.metrics, inputTokens: e.inputTokens, outputTokens: e.outputTokens };
         } else return;
@@ -32818,6 +32829,7 @@ async function runAcp(r2) {
 
 ` : ""}${r2.prompt}${schemaNote(r2.schema)}`;
     r2.onTurn({ role: "USER", text: text2 });
+    r2.onEvent?.({ kind: "message", role: "user", text: text2, mode: "snapshot", final: true });
     const res = await Promise.race([session.prompt(text2), exited]);
     if (res.usage && pending2?.metrics) {
       if (res.usage.cachedReadTokens !== void 0) pending2.metrics.cacheReadTokenCount = res.usage.cachedReadTokens;
@@ -32841,19 +32853,21 @@ async function runAcp(r2) {
 }
 async function runClaude(r2) {
   const { command, env } = launch(r2.name, r2.profile);
-  const args = ["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", r2.permissionMode ?? "dontAsk", ...r2.profile.args ?? []];
+  const args = ["-p", "--output-format", "stream-json", "--verbose", ...r2.onEvent ? ["--include-partial-messages"] : [], "--permission-mode", r2.permissionMode ?? "dontAsk", ...r2.profile.args ?? []];
   if (r2.allowedTools?.length) args.push("--allowedTools", r2.allowedTools.join(","));
   const model = r2.model ?? r2.profile.model;
   if (model) args.push(r2.profile.modelArg ?? "--model", model);
   if (r2.system) args.push("--append-system-prompt", r2.system);
   if (r2.schema) args.push("--json-schema", JSON.stringify(r2.schema));
   r2.onTurn({ role: "USER", text: r2.prompt });
+  r2.onEvent?.({ kind: "message", role: "user", text: r2.prompt, mode: "snapshot", final: true });
   return new Promise((resolve, reject) => {
     const child = spawn3(command, args, { cwd: r2.cwd, env: { ...process.env, ...env, ...r2.env }, stdio: ["pipe", "pipe", "pipe"], signal: r2.signal });
     let buf = "";
     let stderr = "";
     let final;
     let usedModel;
+    let streamId;
     let last = Date.now();
     const line = (l) => {
       if (!l.trim()) return;
@@ -32864,12 +32878,19 @@ async function runClaude(r2) {
         return;
       }
       if (m2.type === "system" && m2.model) usedModel = m2.model;
-      else if (m2.type === "assistant") {
+      else if (m2.type === "stream_event") {
+        const ev = m2.event;
+        if (ev?.type === "message_start") streamId = ev.message?.id;
+        else if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text)
+          r2.onEvent?.({ kind: "message", role: "assistant", text: ev.delta.text, messageId: streamId });
+      } else if (m2.type === "assistant") {
         const content = m2.message?.content ?? [];
         const text2 = content.filter((c) => c.type === "text").map((c) => c.text).join("");
         const calls = content.filter((c) => c.type === "tool_use").map((c) => ({ id: c.id, name: c.name, args: c.input }));
         const u2 = m2.message?.usage;
         const now = Date.now();
+        if (text2) r2.onEvent?.({ kind: "message", role: "assistant", text: text2, mode: "snapshot", messageId: m2.message?.id, final: true });
+        for (const c of calls) r2.onEvent?.({ kind: "tool-call", name: c.name, callId: c.id, args: c.args });
         if (text2 || calls.length)
           r2.onTurn({
             role: "ASSISTANT",
@@ -32881,7 +32902,10 @@ async function runClaude(r2) {
         last = now;
       } else if (m2.type === "user") {
         for (const c of m2.message?.content ?? [])
-          if (c.type === "tool_result") r2.onTurn({ role: "TOOL_RESULT", toolCallId: c.tool_use_id, result: c.content, ok: !c.is_error });
+          if (c.type === "tool_result") {
+            r2.onTurn({ role: "TOOL_RESULT", toolCallId: c.tool_use_id, result: c.content, ok: !c.is_error });
+            r2.onEvent?.({ kind: "tool-result", callId: c.tool_use_id, ok: !c.is_error, content: asText(c.content).slice(0, 4e3) });
+          }
         last = Date.now();
       } else if (m2.type === "result") final = m2;
     };
@@ -32925,11 +32949,170 @@ function parseJson(text2) {
   }
   return void 0;
 }
+var asText;
 var init_agent_run = __esm({
   "src/agent-run.ts"() {
     "use strict";
     init_acp();
     init_agents();
+    asText = (v2) => typeof v2 === "string" ? v2 : Array.isArray(v2) ? v2.map((c) => typeof c?.text === "string" ? c.text : JSON.stringify(c)).join("\n") : JSON.stringify(v2 ?? "");
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/transcript/schema.js
+var TRANSCRIPT_STREAM_TABLE, TRANSCRIPT_CHUNK_TABLE, TRANSCRIPT_TURN_TABLE, TRANSCRIPT_SCHEMA_SQL, TRANSCRIPT_TURN_SCHEMA_SQL;
+var init_schema = __esm({
+  "node_modules/@nanobpm/agentic/dist/transcript/schema.js"() {
+    TRANSCRIPT_STREAM_TABLE = "agentic_transcript_stream";
+    TRANSCRIPT_CHUNK_TABLE = "agentic_transcript_chunk";
+    TRANSCRIPT_TURN_TABLE = "agentic_transcript_turn";
+    TRANSCRIPT_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS ${TRANSCRIPT_STREAM_TABLE} (
+  stream        TEXT PRIMARY KEY,
+  lifecycle     TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'open',
+  created_at    TEXT NOT NULL,
+  completed_at  TEXT,
+  first_offset  INTEGER,
+  next_offset   INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS ${TRANSCRIPT_CHUNK_TABLE} (
+  stream        TEXT NOT NULL,
+  chunk_offset  INTEGER NOT NULL,
+  chunk         TEXT NOT NULL,
+  appended_at   TEXT NOT NULL,
+  PRIMARY KEY (stream, chunk_offset)
+);
+CREATE INDEX IF NOT EXISTS idx_${TRANSCRIPT_STREAM_TABLE}_retention ON ${TRANSCRIPT_STREAM_TABLE} (lifecycle, status, completed_at);`;
+    TRANSCRIPT_TURN_SCHEMA_SQL = `CREATE TABLE IF NOT EXISTS ${TRANSCRIPT_TURN_TABLE} (
+  stream         TEXT NOT NULL,
+  turn_sequence  INTEGER NOT NULL,
+  loop_iteration INTEGER NOT NULL,
+  role           TEXT NOT NULL,
+  content        TEXT NOT NULL,
+  tool_calls     TEXT NOT NULL,
+  metrics        TEXT,
+  produced_at    INTEGER,
+  recorded_at    TEXT NOT NULL,
+  PRIMARY KEY (stream, turn_sequence)
+);`;
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/transcript/store.js
+var streamMetadataFrom, STREAM_METADATA_FROM_ALL, STREAM_METADATA_FROM_ONE;
+var init_store = __esm({
+  "node_modules/@nanobpm/agentic/dist/transcript/store.js"() {
+    init_schema();
+    streamMetadataFrom = (chunkFilter) => `${TRANSCRIPT_STREAM_TABLE} s
+    LEFT JOIN (SELECT c.stream AS stream,
+                      SUM(length(CAST(c.chunk AS BLOB))) AS byte_length,
+                      COUNT(*) AS chunk_count
+                 FROM ${TRANSCRIPT_CHUNK_TABLE} c${chunkFilter}
+                GROUP BY c.stream) agg ON agg.stream = s.stream`;
+    STREAM_METADATA_FROM_ALL = streamMetadataFrom("");
+    STREAM_METADATA_FROM_ONE = streamMetadataFrom("\n                WHERE c.stream = ?");
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/transcript/display.js
+var NOOP;
+var init_display = __esm({
+  "node_modules/@nanobpm/agentic/dist/transcript/display.js"() {
+    NOOP = Object.freeze({ appended: false });
+  }
+});
+
+// node_modules/@nanobpm/agentic/dist/transcript/index.js
+var init_transcript = __esm({
+  "node_modules/@nanobpm/agentic/dist/transcript/index.js"() {
+    init_store();
+    init_schema();
+    init_events();
+    init_display();
+  }
+});
+
+// src/transcript.ts
+import fs8 from "node:fs";
+import path7 from "node:path";
+function transcriptDir() {
+  return path7.join(engineDir(), "transcripts");
+}
+function fileOf(jobKey) {
+  if (!/^[\w-]+$/.test(jobKey)) throw new Error(`bad job key ${jobKey}`);
+  return path7.join(transcriptDir(), `${jobKey}.jsonl`);
+}
+function readTranscript(jobKey, from, open2) {
+  let buf;
+  try {
+    buf = fs8.readFileSync(fileOf(jobKey));
+  } catch {
+    return null;
+  }
+  const entries = [];
+  let at = Math.max(0, Math.min(from, buf.length));
+  for (; ; ) {
+    const nl = buf.indexOf(10, at);
+    if (nl < 0) break;
+    entries.push({ offset: at, chunk: buf.subarray(at, nl + 1).toString("utf8") });
+    at = nl + 1;
+  }
+  return { status: open2 ? "open" : "completed", nextOffset: at, entries };
+}
+function pruneTranscripts(now = Date.now()) {
+  let names = [];
+  try {
+    names = fs8.readdirSync(transcriptDir());
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const f2 = path7.join(transcriptDir(), n);
+    try {
+      if (now - fs8.statSync(f2).mtimeMs > KEEP_MS) fs8.rmSync(f2, { force: true });
+    } catch {
+    }
+  }
+}
+function linkAgentJob(agentInstanceKey, jobKey) {
+  if (agentInstanceKey && !agentJobs.has(agentInstanceKey)) agentJobs.set(agentInstanceKey, jobKey);
+}
+function jobForAgent(agentInstanceKey) {
+  return agentJobs.get(agentInstanceKey);
+}
+var KEEP_MS, TranscriptWriter, agentJobs;
+var init_transcript2 = __esm({
+  "src/transcript.ts"() {
+    "use strict";
+    init_transcript();
+    init_paths();
+    KEEP_MS = 7 * 24 * 36e5;
+    TranscriptWriter = class {
+      fd;
+      jobKey;
+      constructor(jobKey) {
+        this.jobKey = jobKey;
+        try {
+          fs8.mkdirSync(transcriptDir(), { recursive: true });
+          this.fd = fs8.openSync(fileOf(jobKey), "a");
+        } catch {
+          this.fd = void 0;
+        }
+      }
+      write(e) {
+        if (this.fd === void 0) return;
+        try {
+          fs8.writeSync(this.fd, encodeTranscriptEvent({ ...e, offset: 0 }) + "\n");
+        } catch {
+        }
+      }
+      close(phase) {
+        this.write({ kind: "lifecycle", phase });
+        if (this.fd !== void 0) fs8.closeSync(this.fd);
+        this.fd = void 0;
+      }
+    };
+    agentJobs = /* @__PURE__ */ new Map();
   }
 });
 
@@ -33032,7 +33215,7 @@ var init_agent_record = __esm({
 });
 
 // src/notify.ts
-import path7 from "node:path";
+import path8 from "node:path";
 import { spawn as spawn4, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 function findTerminalNotifier() {
@@ -33117,7 +33300,7 @@ function notifyMode(env = process.env.AGE_NOTIFY) {
   return "all";
 }
 function revealPath(file2, platform = process.platform) {
-  const [cmd2, args] = platform === "darwin" ? ["open", ["-R", file2]] : platform === "win32" ? ["explorer", [`/select,${file2}`]] : ["xdg-open", [path7.dirname(file2)]];
+  const [cmd2, args] = platform === "darwin" ? ["open", ["-R", file2]] : platform === "win32" ? ["explorer", [`/select,${file2}`]] : ["xdg-open", [path8.dirname(file2)]];
   try {
     spawn4(cmd2, args, { stdio: "ignore", detached: true }).on("error", () => {
     }).unref();
@@ -33164,12 +33347,12 @@ var init_notify = __esm({
 });
 
 // src/explorer-html.ts
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 function explorerHtml() {
   if (cached2) return cached2;
   for (const rel of ["./explorer.html", "../dist/explorer.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs8.existsSync(u2)) return cached2 = fs8.readFileSync(u2, "utf8");
+    if (fs9.existsSync(u2)) return cached2 = fs9.readFileSync(u2, "utf8");
   }
   return "<!doctype html><title>Agent Graph Engine</title><p>Explorer not built \u2014 run <code>npm run build</code>. API: <a href=/api/state>/api/state</a>";
 }
@@ -33177,7 +33360,7 @@ function appHtml() {
   if (cachedApp) return cachedApp;
   for (const rel of ["./explorer-app.html", "../dist/explorer-app.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs8.existsSync(u2)) return cachedApp = fs8.readFileSync(u2, "utf8");
+    if (fs9.existsSync(u2)) return cachedApp = fs9.readFileSync(u2, "utf8");
   }
   return "<!doctype html><p>Explorer not built \u2014 run <code>npm run build</code>.";
 }
@@ -33189,7 +33372,7 @@ var init_explorer_html = __esm({
 });
 
 // src/explorer-api.ts
-import path8 from "node:path";
+import path9 from "node:path";
 function closeTerminated(el, at) {
   if (!el || el.exitedAt != null) return;
   el.exitedAt = at;
@@ -33347,7 +33530,7 @@ function instanceView(host, f2, live, incidentOpen) {
     has_incident: incidentOpen,
     business_id: f2.businessId ?? meta3?.title ?? null,
     suspendedDate: null,
-    tags: [path8.basename(project2), ...meta3?.title ? [meta3.title] : []],
+    tags: [path9.basename(project2), ...meta3?.title ? [meta3.title] : []],
     parent_process_instance_key: f2.parentKey,
     parent_element_instance_key: f2.parentElementKey
   };
@@ -33364,7 +33547,7 @@ function listInstances(host, q) {
   const page = Math.max(0, Number(q.page ?? 0) || 0);
   const pageSize = Math.min(200, Math.max(1, Number(q.pageSize ?? 50)));
   const all = [...facts.values()].map((f2) => instanceView(host, f2, live.get(f2.key), openIncidents.has(f2.key))).filter(
-    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path8.resolve(q.project))
+    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path9.resolve(q.project))
   ).sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
   return { items: all.slice(page * pageSize, (page + 1) * pageSize), total: all.length, page, pageSize };
 }
@@ -33446,11 +33629,11 @@ var init_explorer_api = __esm({
 });
 
 // src/step-pool.ts
-import fs9 from "node:fs";
+import fs10 from "node:fs";
 import { Worker as Thread } from "node:worker_threads";
 function threadUrl2() {
   const js = new URL("./step-thread.js", import.meta.url);
-  return fs9.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
+  return fs10.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
 }
 var GRACE_MS, StepPool;
 var init_step_pool = __esm({
@@ -33661,9 +33844,9 @@ __export(daemon_exports, {
   fillVars: () => fillVars,
   serve: () => serve
 });
-import fs10 from "node:fs";
+import fs11 from "node:fs";
 import http from "node:http";
-import path9 from "node:path";
+import path10 from "node:path";
 import os from "node:os";
 import crypto4 from "node:crypto";
 function agentMode() {
@@ -33712,11 +33895,11 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const watch = () => {
     for (const root of [host.home, ...host.projects]) {
       const dir = flowsDir(root);
-      if (watched.has(dir) || !fs10.existsSync(dir)) continue;
+      if (watched.has(dir) || !fs11.existsSync(dir)) continue;
       try {
         watched.set(
           dir,
-          fs10.watch(dir, { recursive: true }, () => {
+          fs11.watch(dir, { recursive: true }, () => {
             clearTimeout(reloadTimer);
             reloadTimer = setTimeout(() => host.reload().catch(() => {
             }), 300);
@@ -33773,6 +33956,15 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ processInstanceKey: mm[1] }))).items);
       if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/agents\/([^/]+)\/history$/)))
         return send(res, 200, JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items);
+      if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/agents\/([^/]+)\/transcript$/))) {
+        const jobKey = jobForAgent(mm[1]) ?? JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items.find((i) => i.jobKey)?.jobKey;
+        const t = jobKey ? readTranscript(String(jobKey), Number(url2.searchParams.get("from") ?? 0) || 0, host.running.has(String(jobKey))) : null;
+        return t ? send(res, 200, t) : send(res, 404, { error: "no transcript for this agent run" });
+      }
+      if (req.method === "GET" && (mm = m2(/^\/api\/jobs\/([\w-]+)\/transcript$/))) {
+        const t = readTranscript(mm[1], Number(url2.searchParams.get("from") ?? 0) || 0, host.running.has(mm[1]));
+        return t ? send(res, 200, t) : send(res, 404, { error: "no transcript for this job" });
+      }
       if (req.method === "GET" && (mm = m2(/^\/api\/jobs\/([^/]+)\/alive$/))) {
         const r2 = host.running.get(mm[1]);
         return r2 ? send(res, 200, { jobKey: mm[1], instanceKey: r2.instanceKey, status: "running", abandoned: false }) : send(res, 404, { error: "job is no longer running", abandoned: true });
@@ -33781,7 +33973,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       const b = await body(req);
       if (p2 === "/api/reload") return send(res, 200, await host.reload());
       if (p2 === "/api/projects") {
-        if (typeof b.path !== "string" || !path9.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
+        if (typeof b.path !== "string" || !path10.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
         if (host.addProject(b.path)) {
           await host.reload();
           watch();
@@ -33816,12 +34008,12 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       return send(res, 400, { error: String(e?.message ?? e) });
     }
   });
-  const infoFile = path9.join(host.dir, "daemon.json");
+  const infoFile = path10.join(host.dir, "daemon.json");
   function shutdown() {
     host.stop();
     try {
-      const cur = JSON.parse(fs10.readFileSync(infoFile, "utf8"));
-      if (cur.pid === process.pid) fs10.unlinkSync(infoFile);
+      const cur = JSON.parse(fs11.readFileSync(infoFile, "utf8"));
+      if (cur.pid === process.pid) fs11.unlinkSync(infoFile);
     } catch {
     }
     server.close();
@@ -33829,6 +34021,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   }
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
+  pruneTranscripts();
   process.on("unhandledRejection", (e) => host.log({ kind: "error", message: `unhandled rejection (a flow handler?): ${e?.stack ?? e}`.slice(0, 2e3) }));
   process.on("uncaughtException", (e) => host.log({ kind: "error", message: `uncaught exception (a flow handler?): ${e?.stack ?? e}`.slice(0, 2e3) }));
   await new Promise((r2) => server.listen(port, "127.0.0.1", r2));
@@ -33842,7 +34035,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const info = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
   host.url = info.url;
   host.baseUrl = info.url;
-  fs10.writeFileSync(infoFile, JSON.stringify(info, null, 2));
+  fs11.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
 function fillVars(text2, vars) {
@@ -33881,6 +34074,7 @@ var init_daemon = __esm({
     init_src();
     init_agents();
     init_agent_run();
+    init_transcript2();
     init_agent_record();
     init_notify();
     init_wasm();
@@ -33906,7 +34100,7 @@ var init_daemon = __esm({
     Host = class {
       /** The global flow library (~/AgentGraph): its flows are offered in every project.
        *  Claude Desktop, which has no project, works there. */
-      home = path9.resolve(defaultHome());
+      home = path10.resolve(defaultHome());
       dir;
       /** Projects whose flows/ this engine loads (registered by clients as they connect). */
       projects = [];
@@ -33940,7 +34134,7 @@ var init_daemon = __esm({
       });
       constructor(dir = engineDir()) {
         this.dir = dir;
-        fs10.mkdirSync(path9.join(this.dir, "compiled"), { recursive: true });
+        fs11.mkdirSync(path10.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
         this.worker = new Worker2(
           {
@@ -33964,13 +34158,13 @@ var init_daemon = __esm({
             onError: (job, err) => this.agentUnavailable(job, err)
           }
         );
-        const journal = path9.join(this.dir, "journal.json");
-        if (fs10.existsSync(journal)) {
-          this.engine.replayEvents(fs10.readFileSync(journal, "utf8"));
+        const journal = path10.join(this.dir, "journal.json");
+        if (fs11.existsSync(journal)) {
+          this.engine.replayEvents(fs11.readFileSync(journal, "utf8"));
           this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
         }
         this.deployed = this.readJson("deployed.json", {});
-        this.projects = this.readJson("projects.json", []).filter((p2) => fs10.existsSync(p2));
+        this.projects = this.readJson("projects.json", []).filter((p2) => fs11.existsSync(p2));
         this.instanceMeta = this.readJson("instances.json", {});
         this.announce();
         this.activity = this.readJson("activity.json", []);
@@ -33980,22 +34174,22 @@ var init_daemon = __esm({
       }
       readJson(name2, dflt) {
         try {
-          return JSON.parse(fs10.readFileSync(path9.join(this.dir, name2), "utf8"));
+          return JSON.parse(fs11.readFileSync(path10.join(this.dir, name2), "utf8"));
         } catch {
           return dflt;
         }
       }
       writeAtomic(name2, data) {
-        const p2 = path9.join(this.dir, name2);
-        fs10.writeFileSync(`${p2}.tmp`, data);
-        fs10.renameSync(`${p2}.tmp`, p2);
+        const p2 = path10.join(this.dir, name2);
+        fs11.writeFileSync(`${p2}.tmp`, data);
+        fs11.renameSync(`${p2}.tmp`, p2);
       }
       /** Desktop notification for each new incident or waiting user task. */
       announce() {
         try {
           const snap = this.snapshot();
           const link = (instanceKey, hash2) => this.baseUrl ? `${this.baseUrl}/?project=${encodeURIComponent(this.projectOf(instanceKey))}#${hash2}` : void 0;
-          const where = (instanceKey) => path9.basename(this.projectOf(instanceKey));
+          const where = (instanceKey) => path10.basename(this.projectOf(instanceKey));
           const notices = [
             ...(snap.incidents ?? []).map((i) => ({
               key: `incident:${i.key}`,
@@ -34058,7 +34252,7 @@ var init_daemon = __esm({
       /** Add a project (its flows/ are loaded and watched). Idempotent. The library itself
        *  is not a project: its flows are global. Returns whether it was new. */
       addProject(dir) {
-        const p2 = path9.resolve(dir);
+        const p2 = path10.resolve(dir);
         if (p2 === this.home || this.projects.includes(p2)) return false;
         this.projects.push(p2);
         this.touch();
@@ -34068,7 +34262,7 @@ var init_daemon = __esm({
       /** "~/…" for paths under the home dir, for display. */
       tilde(p2) {
         const h2 = process.env.HOME;
-        return h2 && (p2 === h2 || p2.startsWith(h2 + path9.sep)) ? `~${p2.slice(h2.length)}` : p2;
+        return h2 && (p2 === h2 || p2.startsWith(h2 + path10.sep)) ? `~${p2.slice(h2.length)}` : p2;
       }
       /** Compile every project's flows/ and the library's, and deploy every flow whose BPMN
        *  changed. Project flows deploy as "<projectSlug>.<id>", global ones as "<id>". */
@@ -34088,7 +34282,7 @@ var init_daemon = __esm({
           for (const f2 of r2.flows) {
             if (flows.has(f2.key)) continue;
             flows.set(f2.key, f2);
-            fs10.writeFileSync(path9.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
+            fs11.writeFileSync(path10.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
             const hash2 = crypto4.createHash("sha256").update(f2.xml).digest("hex");
             if (this.deployed[f2.key] !== hash2) {
               this.engine.deploy(f2.xml);
@@ -34098,7 +34292,7 @@ var init_daemon = __esm({
             }
           }
         }
-        for (const [key, f2] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, fs10.existsSync(f2.file) ? f2 : { ...f2, retired: true });
+        for (const [key, f2] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, fs11.existsSync(f2.file) ? f2 : { ...f2, retired: true });
         this.flows = flows;
         this.steps?.recycle();
         this.touch();
@@ -34108,20 +34302,20 @@ var init_daemon = __esm({
       /** The flow a name means in a project: the project's own, else the global one with
        *  that id. An exact key (e.g. "nanobpmn-1a2b.release") also works. */
       resolveFlow(ref, project2) {
-        if (project2 && path9.resolve(project2) !== this.home) {
+        if (project2 && path10.resolve(project2) !== this.home) {
           const own2 = this.flows.get(`${projectSlug(project2)}.${ref}`);
           if (own2 && !own2.retired) return own2;
         }
         const g = this.flows.get(ref);
         if (g?.retired) return void 0;
-        return g && (g.scope === "global" || !project2 || path9.resolve(g.projectDir) === path9.resolve(project2)) ? g : void 0;
+        return g && (g.scope === "global" || !project2 || path10.resolve(g.projectDir) === path10.resolve(project2)) ? g : void 0;
       }
       /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
       flowsFor(project2) {
         const all = [...this.flows.values()].filter((f2) => !f2.retired);
         if (!project2) return all;
-        const p2 = path9.resolve(project2);
-        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path9.resolve(f2.projectDir) === p2);
+        const p2 = path10.resolve(project2);
+        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path10.resolve(f2.projectDir) === p2);
         const ids = new Set(own2.map((f2) => f2.id));
         return [...own2, ...all.filter((f2) => f2.scope === "global" && !ids.has(f2.id))];
       }
@@ -34135,7 +34329,7 @@ var init_daemon = __esm({
       /** Start a flow in a project (default: the library home). Global flows run in the
        *  project they were started from. */
       start(flowRef, variables = {}, title, project2, host, agents) {
-        const where = path9.resolve(project2 ?? this.home);
+        const where = path10.resolve(project2 ?? this.home);
         if (where !== this.home) this.addProject(where);
         const flow = this.resolveFlow(flowRef, where);
         if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
@@ -34148,7 +34342,7 @@ var init_daemon = __esm({
         const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
         const key = String(s.created);
         this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title, host, ...agents && Object.keys(agents).length ? { agents } : {} };
-        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path9.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
+        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path10.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
         this.persist();
         return key;
       }
@@ -34181,7 +34375,7 @@ var init_daemon = __esm({
       /** Each agent step of a flow, what the author suggested, what you assigned, and what
        *  would run it now (for a run started from `host`, with `run` overrides). */
       agentPlan(flowRef, project2, host, run) {
-        const flow = this.resolveFlow(flowRef, path9.resolve(project2 ?? this.home));
+        const flow = this.resolveFlow(flowRef, path10.resolve(project2 ?? this.home));
         if (!flow) throw new Error(`unknown flow "${flowRef}"`);
         const file2 = readAgentsFile();
         const profiles = allProfiles(flow.agentProfiles, file2);
@@ -34295,7 +34489,7 @@ var init_daemon = __esm({
         if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
-        const instructions = fillVars(fs10.readFileSync(promptPath, "utf8").trim(), vars);
+        const instructions = fillVars(fs11.readFileSync(promptPath, "utf8").trim(), vars);
         const prompt = instructions + // `context: []`: the prompt carries everything it needs; no variables appended.
         (Object.keys(ctx).length || !opts.context ? `
 
@@ -34310,21 +34504,23 @@ ${vars.appendPrompt}
         const jobKey = String(job.key);
         const statusUrl = this.url ? `${this.url}/api/jobs/${jobKey}/alive` : void 0;
         const fullPrompt = opts.abortCheck && statusUrl ? prompt + abortBrief(statusUrl) : prompt;
-        const resultFile = path9.join(os.tmpdir(), `age-result-${jobKey}-${process.pid}.json`);
-        fs10.rmSync(resultFile, { force: true });
-        const cwd = opts.cwd ? path9.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
+        const resultFile = path10.join(os.tmpdir(), `age-result-${jobKey}-${process.pid}.json`);
+        fs11.rmSync(resultFile, { force: true });
+        const cwd = opts.cwd ? path10.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
         const model = agent.model;
         const lease = this.leases[String(job.key)];
         const rec = lease ? new AgentRecorder(
           this.engine,
           { key: String(job.key), elementInstanceKey: String(job.elementInstanceKey), jobLeaseToken: lease },
-          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `${path9.relative(flow.projectDir, promptPath)}:
+          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `${path10.relative(flow.projectDir, promptPath)}:
 ${instructions}`].filter(Boolean).join("\n\n") },
           (message) => this.log({ kind: "error", instanceKey, elementId: job.elementId, message }),
           () => this.touch()
         ) : void 0;
         rec?.start();
         this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} \u2014 ${agent.reason}${agent.skipped ? `; the flow suggests ${agent.skipped}` : ""}` });
+        const transcript = new TranscriptWriter(jobKey);
+        transcript.write({ kind: "lifecycle", phase: "open" });
         const r2 = await runAgentCli({
           name: agent.name,
           profile: agent.profile,
@@ -34342,14 +34538,22 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           allowedTools: opts.allowedTools,
           permissionMode: opts.permissionMode,
           signal: jobSignal(),
-          onTurn: (t) => rec?.turn(t)
+          onTurn: (t) => {
+            rec?.turn(t);
+            linkAgentJob(rec?.agentInstanceKey, String(jobKey));
+          },
+          onEvent: (e) => transcript.write(e)
+        }).catch((e) => {
+          transcript.close("exited");
+          throw e;
         });
+        transcript.close("completed");
         rec?.done();
         let out = r2.result;
         if (typeof out === "string") out = parseJson(out) ?? out;
-        if (fs10.existsSync(resultFile)) {
-          const fromFile = parseJson(fs10.readFileSync(resultFile, "utf8"));
-          fs10.rmSync(resultFile, { force: true });
+        if (fs11.existsSync(resultFile)) {
+          const fromFile = parseJson(fs11.readFileSync(resultFile, "utf8"));
+          fs11.rmSync(resultFile, { force: true });
           if (fromFile) out = fromFile;
           else this.log({ kind: "error", instanceKey, elementId: job.elementId, message: "AGENT_RESULT_FILE was not a JSON object; using the agent's final message" });
         }
@@ -34397,10 +34601,10 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           activeElements: (i.activeElements ?? []).map((a) => a.elementId)
         }));
         return {
-          project: project2 ? path9.resolve(project2) : void 0,
+          project: project2 ? path10.resolve(project2) : void 0,
           home: this.home,
           globalDir: this.home,
-          projects: this.projects.map((p2) => ({ path: p2, name: path9.basename(p2), slug: projectSlug(p2) })),
+          projects: this.projects.map((p2) => ({ path: p2, name: path10.basename(p2), slug: projectSlug(p2) })),
           now: snap.now,
           eventCount: snap.eventCount,
           flows: this.flowsFor(project2).map((f2) => ({
@@ -34408,14 +34612,14 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             key: f2.key,
             scope: f2.scope,
             project: f2.scope === "project" ? f2.projectDir : void 0,
-            file: f2.scope === "project" ? path9.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
+            file: f2.scope === "project" ? path10.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
             description: f2.description,
             humans: f2.humans,
             tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent })),
             input: f2.input,
             startForm: f2.startForm
           })),
-          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path9.resolve(project2)) : this.problems,
+          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path10.resolve(project2)) : this.problems,
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
           agentMode: this.agentMode,
@@ -34475,7 +34679,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
        *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
       claimJobs(type, max = 1, project2) {
         const types2 = type ? [type] : this.agentMode === "session" ? ["session", ...this.agentTypeSet()] : ["session"];
-        const where = project2 ? path9.resolve(project2) : void 0;
+        const where = project2 ? path10.resolve(project2) : void 0;
         const open2 = (this.snapshot().jobs ?? []).filter((j2) => j2.state === "Created");
         const jobs = [];
         for (const t of types2) {
@@ -34500,8 +34704,8 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
-            prompt: promptPath && fs10.existsSync(promptPath) ? fillVars(fs10.readFileSync(promptPath, "utf8"), j2.variables ?? {}) : void 0,
-            cwd: flow?.agents[j2.elementId]?.cwd ? path9.resolve(this.projectOf(String(j2.instanceKey)), fillVars(flow.agents[j2.elementId].cwd, j2.variables ?? {})) : void 0,
+            prompt: promptPath && fs11.existsSync(promptPath) ? fillVars(fs11.readFileSync(promptPath, "utf8"), j2.variables ?? {}) : void 0,
+            cwd: flow?.agents[j2.elementId]?.cwd ? path10.resolve(this.projectOf(String(j2.instanceKey)), fillVars(flow.agents[j2.elementId].cwd, j2.variables ?? {})) : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
@@ -34980,8 +35184,8 @@ var init_parseUtil = __esm({
     init_errors3();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path13, errorMaps, issueData } = params;
-      const fullPath = [...path13, ...issueData.path || []];
+      const { data, path: path14, errorMaps, issueData } = params;
+      const fullPath = [...path14, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -35265,11 +35469,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path13, key) {
+      constructor(parent, value, path14, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path13;
+        this._path = path14;
         this._key = key;
       }
       get path() {
@@ -38725,11 +38929,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path13) {
-  if (path13.length === 0) {
+function getDotPath(path14) {
+  if (path14.length === 0) {
     return "object root";
   }
-  return path13.reduce((acc, seg, index) => {
+  return path14.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -46206,8 +46410,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path13) {
-      let input2 = path13;
+    function removeDotSegments(path14) {
+      let input2 = path14;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -46281,11 +46485,11 @@ var require_utils = __commonJS({
       }
       return output2.join("");
     }
-    function removeDotSegmentsRelative(path13) {
-      if (path13 === "" || path13[0] === "/") {
-        return removeDotSegments(path13);
+    function removeDotSegmentsRelative(path14) {
+      if (path14 === "" || path14[0] === "/") {
+        return removeDotSegments(path14);
       }
-      const segments = path13.split("/");
+      const segments = path14.split("/");
       const last = segments.length - 1;
       const output2 = [];
       let trailingDirectory = false;
@@ -46648,8 +46852,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path13 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
+        const path14 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path14 && path14 !== "/" ? path14 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -50186,12 +50390,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name2}"`);
       return f2;
     };
-    function addFormats(ajv, list, fs13, exportName) {
+    function addFormats(ajv, list, fs14, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f2 of list)
-        ajv.addFormat(f2, fs13[f2]);
+        ajv.addFormat(f2, fs14[f2]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -54389,16 +54593,16 @@ __export(mcp_exports, {
   runMcp: () => runMcp,
   runMcpHttp: () => runMcpHttp
 });
-import fs11 from "node:fs";
-import path10 from "node:path";
+import fs12 from "node:fs";
+import path11 from "node:path";
 function ensureModuleType(dir) {
-  const f2 = path10.join(dir, "package.json");
-  if (!fs11.existsSync(f2)) fs11.writeFileSync(f2, '{ "type": "module" }\n');
+  const f2 = path11.join(dir, "package.json");
+  if (!fs12.existsSync(f2)) fs12.writeFileSync(f2, '{ "type": "module" }\n');
 }
 function guideText() {
   for (const rel of ["./guide.md", "../skills/agent-graph-authoring/SKILL.md"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs11.existsSync(u2)) return fs11.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
+    if (fs12.existsSync(u2)) return fs12.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
   }
   return "guide not found";
 }
@@ -54427,7 +54631,7 @@ function createServer2(project2) {
     guard(async () => {
       const r2 = await checkProject(project2);
       addTypeProblems(r2);
-      if (!r2.length) return text(`No flows yet. Create ${path10.join(project2, "flows")}/<name>.flow.ts (see the agent-graph-authoring skill or flow_guide).`);
+      if (!r2.length) return text(`No flows yet. Create ${path11.join(project2, "flows")}/<name>.flow.ts (see the agent-graph-authoring skill or flow_guide).`);
       const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
@@ -54466,11 +54670,11 @@ ${guideText()}`))
     },
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
-      fs11.mkdirSync(path10.join(dir, "prompts"), { recursive: true });
+      fs12.mkdirSync(path11.join(dir, "prompts"), { recursive: true });
       ensureModuleType(dir);
-      for (const [f2, body2] of Object.entries(prompts ?? {})) fs11.writeFileSync(path10.join(dir, "prompts", f2), body2);
-      const file2 = path10.join(dir, `${name2}.flow.ts`);
-      fs11.writeFileSync(file2, source);
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs12.writeFileSync(path11.join(dir, "prompts", f2), body2);
+      const file2 = path11.join(dir, `${name2}.flow.ts`);
+      fs12.writeFileSync(file2, source);
       const r2 = await checkFile(file2);
       addTypeProblems([r2]);
       const bad = r2.problems.some((p2) => p2.severity === "error");
@@ -54482,7 +54686,7 @@ ${guideText()}`))
 Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r2])}
-written ${path10.relative(project2, file2)}${tail}`, bad);
+written ${path11.relative(project2, file2)}${tail}`, bad);
     })
   );
   server.registerTool(
@@ -54494,7 +54698,7 @@ written ${path10.relative(project2, file2)}${tail}`, bad);
     },
     guard(async () => {
       const home = defaultHome();
-      const places = [[project2, "this project"], ...path10.resolve(home) !== path10.resolve(project2) ? [[home, "global (library)"]] : []];
+      const places = [[project2, "this project"], ...path11.resolve(home) !== path11.resolve(project2) ? [[home, "global (library)"]] : []];
       const out = [];
       for (const [dir, label] of places) {
         out.push(`## ${label} (${flowsDir(dir)})`);
@@ -54502,7 +54706,7 @@ written ${path10.relative(project2, file2)}${tail}`, bad);
         if (!files.length) out.push("(none)");
         for (const f2 of files) {
           const r2 = await checkFile(f2);
-          const name2 = path10.basename(f2).replace(/\.flow\.\w+$/, "");
+          const name2 = path11.basename(f2).replace(/\.flow\.\w+$/, "");
           const errs = r2.problems.filter((p2) => p2.severity === "error").length;
           for (const fl of r2.flows) {
             const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h2) => `${h2.name}(human)`), ...Object.keys(fl.handlers).map((h2) => h2.split(":").pop())];
@@ -54524,24 +54728,24 @@ written ${path10.relative(project2, file2)}${tail}`, bad);
     },
     guard(async ({ name: name2, overwrite }) => {
       const home = defaultHome();
-      if (path10.resolve(home) === path10.resolve(project2)) return text("This project is the library already.", true);
-      const src = listFlowFiles(home).find((f2) => path10.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
+      if (path11.resolve(home) === path11.resolve(project2)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f2) => path11.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
       if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
-      const dst = path10.join(flowsDir(project2), path10.basename(src));
-      if (fs11.existsSync(dst) && !overwrite) return text(`${path10.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
-      fs11.mkdirSync(path10.join(flowsDir(project2), "prompts"), { recursive: true });
+      const dst = path11.join(flowsDir(project2), path11.basename(src));
+      if (fs12.existsSync(dst) && !overwrite) return text(`${path11.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs12.mkdirSync(path11.join(flowsDir(project2), "prompts"), { recursive: true });
       ensureModuleType(flowsDir(project2));
-      fs11.copyFileSync(src, dst);
-      const copied = [path10.relative(project2, dst)];
+      fs12.copyFileSync(src, dst);
+      const copied = [path11.relative(project2, dst)];
       const r0 = await checkFile(src);
       for (const fl of r0.flows)
         for (const t of fl.tasks)
           if (t.prompt) {
-            const p2 = path10.join(flowsDir(home), "prompts", t.prompt.resourceId);
-            const q = path10.join(flowsDir(project2), "prompts", t.prompt.resourceId);
-            if (fs11.existsSync(p2) && (overwrite || !fs11.existsSync(q))) {
-              fs11.copyFileSync(p2, q);
-              copied.push(path10.relative(project2, q));
+            const p2 = path11.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path11.join(flowsDir(project2), "prompts", t.prompt.resourceId);
+            if (fs12.existsSync(p2) && (overwrite || !fs12.existsSync(q))) {
+              fs12.copyFileSync(p2, q);
+              copied.push(path11.relative(project2, q));
             }
           }
       const r2 = await checkFile(dst);
@@ -54561,13 +54765,13 @@ Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
     },
     guard(async ({ name: name2 }) => {
       const files = listFlowFiles(project2);
-      if (!name2) return text(files.length ? files.map((f3) => path10.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
-      const f2 = files.find((x) => path10.basename(x).replace(/\.flow\.\w+$/, "") === name2);
+      if (!name2) return text(files.length ? files.map((f3) => path11.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
+      const f2 = files.find((x) => path11.basename(x).replace(/\.flow\.\w+$/, "") === name2);
       if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
-      const pdir = path10.join(flowsDir(project2), "prompts");
-      const prompts = fs11.existsSync(pdir) ? fs11.readdirSync(pdir).map((p2) => `--- prompts/${p2}
-${fs11.readFileSync(path10.join(pdir, p2), "utf8")}`) : [];
-      return text([`--- ${path10.basename(f2)}`, fs11.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+      const pdir = path11.join(flowsDir(project2), "prompts");
+      const prompts = fs12.existsSync(pdir) ? fs12.readdirSync(pdir).map((p2) => `--- prompts/${p2}
+${fs12.readFileSync(path11.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path11.basename(f2)}`, fs12.readFileSync(f2, "utf8"), ...prompts].join("\n"));
     })
   );
   K3(
@@ -54893,8 +55097,8 @@ function watchFlowPrompts(server, project2) {
   });
   let t;
   try {
-    fs11.mkdirSync(flowsDir(project2), { recursive: true });
-    fs11.watch(flowsDir(project2), () => {
+    fs12.mkdirSync(flowsDir(project2), { recursive: true });
+    fs12.watch(flowsDir(project2), () => {
       clearTimeout(t);
       t = setTimeout(sync, 300);
     }).unref();
@@ -54963,8 +55167,8 @@ var hooks_exports = {};
 __export(hooks_exports, {
   runHook: () => runHook
 });
-import fs12 from "node:fs";
-import path11 from "node:path";
+import fs13 from "node:fs";
+import path12 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
   let s = "";
@@ -54981,7 +55185,7 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   const c = await EngineClient.find(project2);
   if (!c) return;
   const s = await c.state();
-  const here = (x) => !x.project || x.project === path11.resolve(project2);
+  const here = (x) => !x.project || x.project === path12.resolve(project2);
   const tasks = s.userTasks.filter(here);
   const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created" && here(j2));
   const incidents = s.incidents.filter(here);
@@ -54993,21 +55197,21 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
     ...event === "SessionStart" ? elsewhere.map((x) => `e${x.key}`) : []
   ].sort();
   if (!keys.length) return;
-  const seenFile = path11.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
+  const seenFile = path12.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
-      seen = JSON.parse(fs12.readFileSync(seenFile, "utf8"));
+      seen = JSON.parse(fs13.readFileSync(seenFile, "utf8"));
     } catch {
     }
     if (keys.every((k2) => seen.includes(k2))) return;
   }
-  fs12.writeFileSync(seenFile, JSON.stringify(keys));
+  fs13.writeFileSync(seenFile, JSON.stringify(keys));
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);
   if (elsewhere.length) {
-    const names = [...new Set(elsewhere.map((x) => path11.basename(x.project)))];
+    const names = [...new Set(elsewhere.map((x) => path12.basename(x.project)))];
     lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) \u2014 flow_status lists them`);
   }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
@@ -55032,7 +55236,7 @@ init_client();
 init_summary();
 init_input();
 import { spawn as spawn5 } from "node:child_process";
-import path12 from "node:path";
+import path13 from "node:path";
 var HELP = `age \u2014 Agent Graph Engine
 
   age check [file] [--json]     type-check, compile and lint flows/*.flow.ts (or one file);
@@ -55071,7 +55275,7 @@ function arg(name2) {
   return v2;
 }
 var projectOpt = arg("--project");
-var project = projectOpt ? path12.resolve(projectOpt) : resolveProject();
+var project = projectOpt ? path13.resolve(projectOpt) : resolveProject();
 var [cmd, ...rest] = process.argv.slice(2);
 function parseVars(s) {
   if (!s) return {};
@@ -55086,11 +55290,11 @@ async function main() {
     case "check": {
       const json5 = rest.includes("--json");
       const file2 = rest.find((a) => !a.startsWith("--"));
-      const r2 = file2 ? [await checkFile(path12.resolve(file2))] : await checkProject(project);
+      const r2 = file2 ? [await checkFile(path13.resolve(file2))] : await checkProject(project);
       const typed = rest.includes("--no-types") || addTypeProblems(r2);
       if (json5)
         console.log(JSON.stringify({ ok: !r2.some((x) => x.problems.some((p2) => p2.severity === "error")), typesChecked: typed && !rest.includes("--no-types"), files: r2.map((x) => ({ file: x.file, flows: x.flows.map((f2) => ({ id: f2.id, input: f2.input })), problems: x.problems })) }, null, 2));
-      else if (!r2.length) console.log(`no flows in ${path12.join(project, "flows")}`);
+      else if (!r2.length) console.log(`no flows in ${path13.join(project, "flows")}`);
       else console.log(formatProblems(r2) + (typed ? "" : "\n(type check skipped: dist/typecheck missing \u2014 rebuild the plugin)"));
       const code = r2.some((x) => x.problems.some((p2) => p2.severity === "error")) ? 1 : 0;
       process.stdout.write("", () => process.exit(code));

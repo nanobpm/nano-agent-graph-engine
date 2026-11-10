@@ -451,6 +451,25 @@ export const f = defineFlow("rf", (w) => { w.task("work", { prompt: { resourceId
     assert.match(done, /"status":\s*"from-file"/);
     assert.match(done, /"abandoned":\s*false/);
     assert.match(done, /"briefed":\s*true/);
+    // Live transcript: readable while the step ran (open: lifecycle + the prompt so far) …
+    assert.match(done, /"liveStatus":\s*"open"/);
+    assert.match(done, /"liveEntries":\s*2/);
+    // … and kept afterwards, in nwf's transcript format.
+    const dir = path.join(env.AGE_STATE_DIR, "transcripts");
+    const [file] = fs.readdirSync(dir);
+    const events = fs.readFileSync(path.join(dir, file), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.ok(events.every((e) => e.nwfTranscriptEvent === 1));
+    const brief = events.map((e) => [e.kind, e.phase ?? e.role ?? e.name ?? (e.ok === undefined ? "" : String(e.ok)), e.mode ?? ""].filter(Boolean).join(":"));
+    assert.deepEqual(brief, ["lifecycle:open", "message:user:snapshot", "tool-call:Bash", "tool-result:true", "message:assistant", "message:assistant", "message:assistant:snapshot", "lifecycle:completed"]);
+    assert.equal(events.filter((e) => e.role === "assistant" && e.mode !== "snapshot").map((e) => e.text).join(""), "Drafting…");
+    // The explorer reads it by AgentInstance: settled, the whole stream, then nothing new.
+    const { url } = JSON.parse(fs.readFileSync(path.join(env.AGE_STATE_DIR, "daemon.json"), "utf8"));
+    const [agent] = await (await fetch(`${url}/api/explorer/instances/${key}/agents`)).json();
+    const page = await (await fetch(`${url}/api/explorer/agents/${agent.agentInstanceKey}/transcript?from=0`)).json();
+    assert.equal(page.status, "completed");
+    assert.equal(page.entries.length, events.length);
+    const rest = await (await fetch(`${url}/api/explorer/agents/${agent.agentInstanceKey}/transcript?from=${page.nextOffset}`)).json();
+    assert.equal(rest.entries.length, 0);
   } finally {
     await client.close();
     execFileSync(process.execPath, [cli, "down"], { env });

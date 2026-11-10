@@ -124,6 +124,8 @@ const source: ExplorerDataSource = {
   agents: {
     listAgentInstances: (key) => api(`/api/explorer/instances/${enc(key)}/agents`),
     getAgentHistory: (key) => api(`/api/explorer/agents/${enc(key)}/history`),
+    // Live tail while a step's agent runs (src/transcript.ts); null when it has none.
+    followTranscript: (key, from) => api(`/api/explorer/agents/${enc(key)}/transcript?from=${from}`).catch(() => null),
   },
 };
 
