@@ -11,7 +11,7 @@ import { anyAgentInstalled, resolveAgent } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
 import { AgentRecorder } from "./agent-record.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
-import { defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
+import { acquireEngineLock, defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
 import { StepPool } from "./step-pool.ts";
@@ -652,6 +652,9 @@ async function body(req: http.IncomingMessage): Promise<any> {
 export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const running = await findDaemon();
   if (running) throw new Error(`the engine is already running (pid ${running.pid}, ${running.url})`);
+  // Single writer: take the state dir before reading or writing the journal.
+  const releaseLock = acquireEngineLock();
+  process.on("exit", releaseLock);
   const host = new Host();
   await host.reload();
   host.run();

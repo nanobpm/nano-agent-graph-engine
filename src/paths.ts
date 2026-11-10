@@ -78,12 +78,46 @@ export async function findDaemon(project = defaultHome()): Promise<DaemonInfo | 
     return undefined;
   }
   if (!alive(info.pid)) return undefined;
-  try {
-    const r = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500) });
-    return r.ok ? { ...info, project: path.resolve(project) } : undefined;
-  } catch {
-    return undefined;
+  // A live engine can be slow to answer (a big journal write, a busy handler). Keep
+  // asking rather than report it gone: a caller would start a second engine on the
+  // same journal.
+  for (let i = 0; i < 5; i++) {
+    try {
+      const r = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500 + i * 1000) });
+      if (r.ok) return { ...info, project: path.resolve(project) };
+    } catch {
+      /* retry */
+    }
+    if (!alive(info.pid)) return undefined;
   }
+  return undefined;
+}
+
+/** The engine's single-writer guarantee: one process owns ~/.agent-graph (its journal).
+ *  Held for the process's life via engine.lock (pid). A lock left by a dead process is
+ *  taken over. Throws if another live engine holds it. */
+export function acquireEngineLock(dir = engineDir()): () => void {
+  fs.mkdirSync(dir, { recursive: true });
+  const lock = path.join(dir, "engine.lock");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      fs.writeFileSync(lock, String(process.pid), { flag: "wx" });
+      return () => {
+        try {
+          if (fs.readFileSync(lock, "utf8").trim() === String(process.pid)) fs.rmSync(lock, { force: true });
+        } catch {
+          /* gone */
+        }
+      };
+    } catch {
+      const owner = Number(fs.readFileSync(lock, "utf8").trim());
+      if (owner && owner !== process.pid && alive(owner)) {
+        throw new Error(`another engine (pid ${owner}) owns ${dir}; one engine per state dir`);
+      }
+      fs.rmSync(lock, { force: true }); // stale: its owner died
+    }
+  }
+  throw new Error(`could not take ${lock}`);
 }
 
 /** Find the user's engine or start it detached (it outlives the Claude session, so

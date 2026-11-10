@@ -34528,12 +34528,37 @@ async function findDaemon(project2 = defaultHome()) {
     return void 0;
   }
   if (!alive(info.pid)) return void 0;
-  try {
-    const r2 = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500) });
-    return r2.ok ? { ...info, project: path.resolve(project2) } : void 0;
-  } catch {
-    return void 0;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const r2 = await fetch(`${info.url}/api/health`, { signal: AbortSignal.timeout(1500 + i * 1e3) });
+      if (r2.ok) return { ...info, project: path.resolve(project2) };
+    } catch {
+    }
+    if (!alive(info.pid)) return void 0;
   }
+  return void 0;
+}
+function acquireEngineLock(dir = engineDir()) {
+  fs.mkdirSync(dir, { recursive: true });
+  const lock = path.join(dir, "engine.lock");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      fs.writeFileSync(lock, String(process.pid), { flag: "wx" });
+      return () => {
+        try {
+          if (fs.readFileSync(lock, "utf8").trim() === String(process.pid)) fs.rmSync(lock, { force: true });
+        } catch {
+        }
+      };
+    } catch {
+      const owner = Number(fs.readFileSync(lock, "utf8").trim());
+      if (owner && owner !== process.pid && alive(owner)) {
+        throw new Error(`another engine (pid ${owner}) owns ${dir}; one engine per state dir`);
+      }
+      fs.rmSync(lock, { force: true });
+    }
+  }
+  throw new Error(`could not take ${lock}`);
 }
 async function ensureDaemon(project2) {
   let info = await findDaemon(project2);
@@ -38627,6 +38652,8 @@ async function body(req) {
 async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const running = await findDaemon();
   if (running) throw new Error(`the engine is already running (pid ${running.pid}, ${running.url})`);
+  const releaseLock = acquireEngineLock();
+  process.on("exit", releaseLock);
   const host = new Host();
   await host.reload();
   host.run();
