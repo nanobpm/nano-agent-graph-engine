@@ -376,3 +376,46 @@ export const f = defineFlow("${id}", (w) => {
     execFileSync(process.execPath, [cli, "down"], { env: a.env });
   }
 });
+
+test("task_ask: a client that declares elicitation but never shows it gets the question in chat", async () => {
+  const project = tempProject();
+  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome(), AGE_STATE_DIR: engineHome() } as Record<string, string>;
+  const dial = async (name: string, extra: Record<string, string>, onElicit: () => Promise<any>) => {
+    const client = new Client({ name, version: "2.2.6" }, { capabilities: { elicitation: { form: {} } } });
+    let asked = 0;
+    client.setRequestHandler(ElicitRequestSchema, async () => {
+      asked++;
+      return onElicit();
+    });
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env: { ...env, ...extra }, cwd: project }));
+    const call = async (tool: string, args: Record<string, unknown> = {}) => {
+      const r: any = await client.callTool({ name: tool, arguments: args });
+      return r.content.map((c: any) => c.text).join("\n") as string;
+    };
+    return { client, call, asked: () => asked };
+  };
+  const a = await dial("opencode", {}, async () => ({ action: "accept", content: {} }));
+  try {
+    await a.call("flow_start", { flowId: "changelog", variables: { commits: 5 } });
+    const task = await until(async () => {
+      const t = await a.call("task_list");
+      return t.startsWith("[") ? JSON.parse(t)[0] : undefined;
+    });
+    // OpenCode: known not to render forms → straight to chat, no elicitation sent.
+    assert.match(await a.call("task_ask", { taskKey: task.key }), /can't show a form dialog/);
+    assert.equal(a.asked(), 0);
+    // A client that never answers: times out, then falls back to chat.
+    const b = await dial("silent", { AGE_ELICIT_TIMEOUT_MS: "500" }, () => new Promise(() => {}));
+    try {
+      assert.match(await b.call("task_ask", { taskKey: task.key }), /got no answer[\s\S]*task_complete/);
+      assert.equal(b.asked(), 1);
+    } finally {
+      await b.client.close();
+    }
+  } finally {
+    await a.client.close();
+    try {
+      execFileSync(process.execPath, [cli, "down"], { env, cwd: project });
+    } catch {}
+  }
+});

@@ -135,9 +135,14 @@ ln -s /path/to/agent-graph-engine/skills/agent-graph ~/.config/opencode/skills/a
 
 Check it with `opencode mcp list`, which should show `✓ agent-graph connected`.
 
+**OpenCode desktop app (2.x).** The app runs its own bundled server (`opencode-cli serve --service`, 2.2.6 at the time of writing) and reads the same `~/.config/opencode/opencode.json` and `skills/`, so the entry above is all it needs. It accepts the 1.x shape shown here; the 2.x shape is `"mcp": {"servers": {"agent-graph": {..., "disabled": false}}}`. Restart the app after editing the config. Two things differ from the terminal CLI:
+
+- The 2.x `opencode mcp list` prints "No MCP servers configured" even when the server is connected. Ask the running app instead: `"~/Library/Application Support/ai.opencode.desktop/cli/<version>/opencode-cli" api mcp.list` should list `agent-graph` as `connected`.
+- The model calls tools from code, through one `execute` tool (`tools["agent-graph"].flow_start(...)`). Tool names and results are the same.
+
 - **Where flows live.** The project is OpenCode's working directory, or the nearest parent with `flows/`, as in Claude Code. `flow_list` and `flow_import` reach the `~/AgentGraph` library.
 - **Agent steps.** If the Claude Code CLI is installed and logged in, these still run as headless `claude -p`. Otherwise they go to the OpenCode agent through `session_job_next`, which uses whatever model you picked. To force this, set `"environment": {"AGE_AGENT_MODE": "session"}` on the server entry.
-- **User tasks.** OpenCode renders neither MCP Apps nor MCP elicitation forms. `task_ask` falls back to text: the agent asks you in chat and records the answer with `task_complete`. Or answer in the browser explorer; `flow_start` and `flow_status` print its URL.
+- **User tasks.** OpenCode renders neither MCP Apps nor MCP elicitation forms. The 2.x app does declare elicitation support, but it never shows the form, so the call would hang until OpenCode's 60-second tool timeout. `task_ask` therefore skips the dialog for OpenCode and falls back to text: the agent asks you in chat and records the answer with `task_complete`. Or answer in the browser explorer; `flow_start` and `flow_status` print its URL. For any client, a form that gets no answer within 10 minutes (`AGE_ELICIT_TIMEOUT_MS`) also falls back to chat. `AGE_ELICIT=on|off` overrides the detection.
 - **No hooks.** OpenCode has no equivalent of Claude Code's SessionStart and UserPromptSubmit hooks, so ask "anything waiting in my flows?" and the agent will call `flow_status`.
 
 ## Install (Claude Code plugin)

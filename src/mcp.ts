@@ -38,10 +38,23 @@ function guideText(): string {
   return "guide not found";
 }
 
+/** How long task_ask waits on a form dialog before handing the question to the chat. */
+const ELICIT_TIMEOUT_MS = Number(process.env.AGE_ELICIT_TIMEOUT_MS ?? 10 * 60_000);
+
+/** Clients that advertise MCP elicitation but don't show the form: the call hangs until
+ *  it times out. OpenCode 2.x (desktop app and CLI, checked with 2.2.6) declares
+ *  elicitation {form,url} yet never renders it. AGE_ELICIT=on|off overrides. */
+const ELICIT_BROKEN = new Set(["opencode"]);
+
 export function createServer(project: string): McpServer {
   const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   // One engine serves every project: the client scopes calls and explorer links to this one.
   const engine = () => EngineClient.connect(project);
+  const canElicit = () => {
+    if (process.env.AGE_ELICIT === "off") return false;
+    if (!server.server.getClientCapabilities()?.elicitation) return false;
+    return process.env.AGE_ELICIT === "on" || !ELICIT_BROKEN.has(server.server.getClientVersion()?.name ?? "");
+  };
   const guard =
     <A,>(fn: (a: A) => Promise<Result>) =>
     async (a: A): Promise<Result> => {
@@ -312,16 +325,21 @@ export function createServer(project: string): McpServer {
       if (!t) return text(`No open user task ${taskKey}`, true);
       const form = t.form ?? { title: `${t.flowId}: ${t.elementId}`, fields: { response: { type: "string", title: "Your answer" } }, required: ["response"] };
       const message = [form.title, form.description].filter(Boolean).join("\n\n") + (t.title ? `\n\n(${t.flowId} — ${t.title})` : "");
-      if (!server.server.getClientCapabilities()?.elicitation) {
-        return text(
-          `This client can't show a form dialog. Ask the user, then call task_complete with taskKey ${taskKey}.\n\n${message}\n\nFields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `\nRequired: ${form.required.join(", ")}` : ""}\n\nOr answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`,
+      const askInChat = (why: string) =>
+        text(
+          `${why} Ask the user (with your ask-the-user/question tool if you have one), then call task_complete with taskKey ${taskKey}.\n\n${message}\n\nFields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `\nRequired: ${form.required.join(", ")}` : ""}\n\nOr answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`,
         );
+      if (!canElicit()) return askInChat("This client can't show a form dialog.");
+      let r;
+      try {
+        r = await server.server.elicitInput(
+          { mode: "form", message, requestedSchema: { type: "object", properties: form.fields, required: form.required } } as any,
+          { timeout: ELICIT_TIMEOUT_MS },
+        );
+      } catch (e) {
+        // The client advertised forms but never answered (or timed it out itself).
+        return askInChat(`The form dialog got no answer (${(e as Error).message}).`);
       }
-      const r = await server.server.elicitInput({
-        mode: "form",
-        message,
-        requestedSchema: { type: "object", properties: form.fields, required: form.required },
-      } as any);
       if (r.action !== "accept") return text(`The user ${r.action === "decline" ? "declined" : "dismissed"} the form; task ${taskKey} is still open.`);
       await c.completeTask(taskKey, r.content ?? {});
       return text(`Task ${taskKey} completed with ${JSON.stringify(r.content)}. The flow continues.`);

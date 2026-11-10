@@ -1,6 +1,6 @@
 {
   "name": "agent-graph-engine",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Durable BPMN process engine for Claude Code: code-first flows (defineFlow) that orchestrate scripts, Claude Code agents and people.",
   "type": "module",
   "license": "Apache-2.0",

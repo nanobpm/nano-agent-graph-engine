@@ -59147,6 +59147,11 @@ function guideText() {
 function createServer2(project2) {
   const server = new McpServer({ name: "agent-graph-engine", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   const engine = () => EngineClient.connect(project2);
+  const canElicit = () => {
+    if (process.env.AGE_ELICIT === "off") return false;
+    if (!server.server.getClientCapabilities()?.elicitation) return false;
+    return process.env.AGE_ELICIT === "on" || !ELICIT_BROKEN.has(server.server.getClientVersion()?.name ?? "");
+  };
   const guard = (fn) => async (a) => {
     try {
       return await fn(a);
@@ -59411,9 +59416,8 @@ explorer: ${c.explorerUrl()}`);
       const message = [form.title, form.description].filter(Boolean).join("\n\n") + (t.title ? `
 
 (${t.flowId} \u2014 ${t.title})` : "");
-      if (!server.server.getClientCapabilities()?.elicitation) {
-        return text(
-          `This client can't show a form dialog. Ask the user, then call task_complete with taskKey ${taskKey}.
+      const askInChat = (why) => text(
+        `${why} Ask the user (with your ask-the-user/question tool if you have one), then call task_complete with taskKey ${taskKey}.
 
 ${message}
 
@@ -59421,13 +59425,17 @@ Fields: ${JSON.stringify(form.fields, null, 2)}${form.required ? `
 Required: ${form.required.join(", ")}` : ""}
 
 Or answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`
+      );
+      if (!canElicit()) return askInChat("This client can't show a form dialog.");
+      let r2;
+      try {
+        r2 = await server.server.elicitInput(
+          { mode: "form", message, requestedSchema: { type: "object", properties: form.fields, required: form.required } },
+          { timeout: ELICIT_TIMEOUT_MS }
         );
+      } catch (e) {
+        return askInChat(`The form dialog got no answer (${e.message}).`);
       }
-      const r2 = await server.server.elicitInput({
-        mode: "form",
-        message,
-        requestedSchema: { type: "object", properties: form.fields, required: form.required }
-      });
       if (r2.action !== "accept") return text(`The user ${r2.action === "decline" ? "declined" : "dismissed"} the form; task ${taskKey} is still open.`);
       await c.completeTask(taskKey, r2.content ?? {});
       return text(`Task ${taskKey} completed with ${JSON.stringify(r2.content)}. The flow continues.`);
@@ -59621,7 +59629,7 @@ async function runMcpHttp(project2, port) {
     await transport.handleRequest(req, res, body2);
   }).listen(port, "127.0.0.1", () => console.error(`agent-graph MCP on http://127.0.0.1:${port}/mcp`));
 }
-var text, json4, UI_URI, INSTRUCTIONS;
+var text, json4, UI_URI, INSTRUCTIONS, ELICIT_TIMEOUT_MS, ELICIT_BROKEN;
 var init_mcp2 = __esm({
   "src/mcp.ts"() {
     "use strict";
@@ -59640,6 +59648,8 @@ var init_mcp2 = __esm({
     INSTRUCTIONS = `Agent Graph Engine: durable workflows ("flows") that orchestrate scripts, AI agent steps, the user (forms) and timers; they run in a local background engine and survive restarts.
 Before writing or changing a flow, call flow_guide once. Write flows with flow_write, then fix every problem it reports. Start with flow_start and show progress with show_explorer.
 When a flow waits for the user (task_list), use task_ask or show_explorer \u2014 never answer a user task yourself. When session_job_next has work (agent steps assigned to you), do it and hand back the result with session_job_complete.`;
+    ELICIT_TIMEOUT_MS = Number(process.env.AGE_ELICIT_TIMEOUT_MS ?? 10 * 6e4);
+    ELICIT_BROKEN = /* @__PURE__ */ new Set(["opencode"]);
   }
 });
 
