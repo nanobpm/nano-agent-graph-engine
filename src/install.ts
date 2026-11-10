@@ -125,6 +125,15 @@ export function planFor(host: Host, remove = false): Plan {
   }
 }
 
+function changedLines(before: string, after: string): string {
+  const old = new Set(before.split("\n"));
+  const gone = new Set(after.split("\n"));
+  return [
+    ...before.split("\n").filter((l) => l.trim() && !gone.has(l)).map((l) => `- ${l}`),
+    ...after.split("\n").filter((l) => l.trim() && !old.has(l)).map((l) => `+ ${l}`),
+  ].join("\n");
+}
+
 function backup(file: string) {
   if (fs.existsSync(file)) fs.copyFileSync(file, `${file}.bak`);
 }
@@ -155,10 +164,12 @@ export function install(host: string, opts: { remove?: boolean; dryRun?: boolean
   const plan = planFor(host as Host, opts.remove);
   const dry = !!opts.dryRun;
   if (plan.file && plan.after !== undefined) {
-    if (plan.after === plan.before) log(`${plan.file}: already up to date`);
+    if (plan.after === plan.before || (plan.before !== undefined && !changedLines(plan.before, plan.after)))
+      log(`${plan.file}: already up to date`);
     else {
       log(`${dry ? "would write" : "write"} ${plan.file}${plan.before !== undefined && !dry ? " (previous version: .bak)" : ""}`);
-      if (dry) log(plan.after);
+      // Only the lines that change: host configs often hold API keys.
+      if (dry) log(changedLines(plan.before ?? "", plan.after));
       else {
         backup(plan.file);
         fs.mkdirSync(path.dirname(plan.file), { recursive: true });
