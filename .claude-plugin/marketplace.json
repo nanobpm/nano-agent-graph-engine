@@ -1,0 +1,20 @@
+{
+  "name": "nanobpm",
+  "owner": {
+    "name": "nanobpm",
+    "url": "https://github.com/nanobpm"
+  },
+  "description": "nanobpm plugins for Claude Code",
+  "plugins": [
+    {
+      "name": "nano-agent-graph-engine",
+      "source": {
+        "source": "github",
+        "repo": "nanobpm/nano-agent-graph-engine",
+        "ref": "release"
+      },
+      "description": "Durable process engine: defineFlow \u2192 BPMN, local engine, agent steps on your CLI, user tasks, web explorer",
+      "version": "0.15.0"
+    }
+  ]
+}

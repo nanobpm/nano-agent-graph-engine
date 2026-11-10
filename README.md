@@ -1,0 +1,500 @@
+# Nano Agent Graph Engine
+
+A durable process engine for coding agents (Claude Code, Claude Desktop, OpenCode, Codex, Cursor). Write a flow in TypeScript with `defineFlow`.
+It compiles to BPMN with a generated diagram and runs in a small local daemon. A flow can
+orchestrate:
+
+- **scripts**: `w.run` with Node code, plus `sh()`
+- **headless agents**: `w.task({ jobType: "senior:review" })` runs a prompt file on an agent CLI of *your* choice (the flow names a rank and task, never a CLI) — `claude -p`, or any ACP agent such as OpenCode or nano-coder — and records the transcript as an AgentInstance
+- **the live Claude Code session**: `w.task({ jobType: "session" })`, which the agent picks up through MCP
+- **people**: `w.human` user tasks, asked in a Claude Code dialog or in the web explorer
+- **time and events**: `w.timer` and `w.signal`
+
+…with loops, switches, branches and parallel steps. State is an event log on disk, so
+instances survive restarts and keep running after the Claude session ends.
+
+This fills a different spot than [Claude Code workflows](https://code.claude.com/docs/en/workflows).
+Those are session-scoped scripts that fan out subagents, with no user input mid-run, no
+timers and no shell. Agent Graph flows are long-lived, can wait for people or time, run
+real code, and can be inspected as a diagram.
+
+```
+flows/*.flow.ts ──check──▶ BPMN + DI ──deploy──▶ engine (one per user, ~/.agent-graph/journal.json)
+                                                   │  workers: run handlers · claude -p · timers
+Claude Code ──MCP (stdio)──▶ nage mcp ──HTTP──▶─────┤
+   hooks (SessionStart/UserPromptSubmit) ──────────┤  "user task waiting…" → context
+browser ──────────────────────────────────────────▶┘  explorer: diagram, tokens, forms, incidents
+```
+
+## Install
+
+Node 22.15 or newer (24 recommended; flow files are `.ts` and run with Node's built-in type stripping).
+
+| Host | Install |
+|---|---|
+| Claude Code | `/plugin marketplace add nanobpm/nano-agent-graph-engine`, then `/plugin install nano-agent-graph-engine@nanobpm`. Brings the MCP server, skills, hooks and the `/flows` mod. |
+| Claude Desktop | Download `nano-agent-graph-engine-<version>.mcpb` from [Releases](https://github.com/nanobpm/nano-agent-graph-engine/releases) and open it (uses Desktop's built-in Node). Or `npx -y @nanobpm/nano-agent-graph-engine install claude-desktop`. |
+| OpenCode, Codex, Cursor | `npx -y @nanobpm/nano-agent-graph-engine install opencode` (or `codex`, `cursor`) |
+| Terminal | `npm install -g @nanobpm/nano-agent-graph-engine`, then `nage` |
+
+`nage install <host>` adds the `agent-graph` MCP server to the host's config (keeping a `.bak`
+of the file it changes) and copies the skills where the host reads them (OpenCode, Codex);
+`--dry-run` shows the change, `nage uninstall <host>` takes it out. Run from npx, the entry
+starts the server with `npx -y @nanobpm/nano-agent-graph-engine mcp`; from a global install,
+with that install's `node` and `cli.js` (absolute paths, as desktop apps don't load your
+shell PATH). Run it again after an upgrade to refresh the skills.
+
+**Coming from `agent-graph-engine`?** Flow files may keep `import … from "agent-graph-engine"`;
+the new name is `@nanobpm/nano-agent-graph-engine`. The command is now `nage` (`age` clashes with
+the age encryption tool); `age` still works for this release and prints a note. State stays in
+`~/.agent-graph`, and the `AGE_*` variables keep their names.
+
+## Claude Desktop (chat)
+
+No server to run and no workers to configure: install the `.mcpb`, or run `nage install claude-desktop`, which adds
+this to `~/Library/Application Support/Claude/claude_desktop_config.json` (restart Desktop with ⌘Q afterwards):
+
+```json
+"mcpServers": {
+  "agent-graph": {
+    "command": "/absolute/path/to/node",
+    "args": ["/absolute/path/to/nano-agent-graph-engine/dist/cli.js", "mcp"]
+  }
+}
+```
+
+- **One engine, every project.** You have one engine (state in `~/.agent-graph`, `AGE_STATE_DIR` moves it). Each project's flows are in its `flows/`; a project joins the engine the first time a flow tool, the CLI or the `/flows` pane is used there. The flows in `~/AgentGraph/flows` (the library; `AGE_HOME` moves it) are *global*: offered in every project and run in the project they were started from. A project flow with the same id takes the global one's place there (`flow_import` copies one in to customize it). Every run belongs to a project: its `sh()` steps and agent steps run in that folder, and files a step writes should use `projectPath("file")`. `flow_status`, the `/flows` pane and the explorer show work in all projects (the explorer has a project picker), so nothing waits somewhere you aren't looking. Agent steps for the session only go to a session in the run's project. Nothing is written into your repos.
+- **Where flows live.** Desktop starts servers in `/`, so flows go in `~/AgentGraph/flows/`. Override with `"env": {"AGE_PROJECT": "/some/dir"}`.
+- **Authoring.** Claude reads `flow_guide`, then writes flows with `flow_write`, which saves, compiles, lints and deploys in one step. Nothing is needed on your side.
+- **Agent steps** (`jobType: "senior:<task>"`) need no setup:
+  - If the Claude Code CLI is installed and logged in, they run headless in the background.
+  - Otherwise the Claude you are chatting with does them (`session_job_next`/`session_job_complete`). If the CLI fails to authenticate, the engine switches to this automatically.
+  - To force one mode: `AGE_AGENT_MODE=cli|session`.
+- **Seeing and answering.**
+  - `show_explorer` renders the explorer **inline in the chat** as an MCP App, with three tabs:
+    - **Inbox:** task forms.
+    - **Flows:** diagrams with live token counts, and a start form.
+    - **Instances:** the nano console's Process Explorer: filters, diagram, variables (editable), jobs, incidents, cancel, and a step-by-step trace.
+  - The view reaches the engine only through the server's app-only `ui_api` tool, so the iframe needs no network access.
+  - The same explorer is also at the daemon URL in a browser.
+- **Background.** The engine daemon keeps running after the chat is closed, so timers and CLI agent steps continue. In chat, nothing can wake Claude by itself: the explorer shows "agent step waiting — say *continue the flow*".
+
+### Reusing flows across Desktop and Claude Code
+
+`~/AgentGraph` doubles as a **library**. In any Claude Code project, `flow_list` shows the
+project's flows and the library's, with descriptions and steps. `flow_import <name>` copies a
+library flow and its prompt files into `./flows/` and deploys it there. Runs and state stay
+per project. Relative imports from a flow file (your own helper modules) are not copied.
+
+## In the interface: slash commands and the Claude Code mod
+
+**Every MCP client: prompts.** The server publishes one prompt per flow in the project,
+`start-<flow>`, with an `inputs` argument, plus `flows`, which shows what's going on. The
+list follows `flows/` as you add or change flows.
+
+| Client | How the prompts appear |
+|---|---|
+| Claude Code | `/mcp__agent-graph__start-release-notes since v1.0` |
+| Claude Desktop | In the prompt menu (+) |
+| OpenCode | As the command `agent-graph:start-release-notes`, e.g. `opencode run --command agent-graph:start-release-notes "since v1.0"` |
+
+**Claude Code: the mod.** This needs Claude Code v2.1.287 or later, or v2.1.286 or later
+in the Desktop Code tab. The plugin includes a mod (`hooks/mod.js`), so the engine shows up
+in the Claude Code interface itself: the terminal, the Desktop Code tab, and VS Code
+(panes only).
+
+- **Band above the prompt.** While something is going on, it shows
+  `⚙ Agent Graph · 2 flows running · 1 task waiting for you · 1 incident`, with a
+  buttons that open the pane and the web explorer.
+- **`/flows` pane**, with three tabs:
+  - **Inbox:** user tasks drawn as forms that you answer right there, and incidents
+    with **Retry**, **Ask Claude to fix** and **Cancel run**.
+  - **Flows:** every flow has a **Start** button. Type JSON variables and the mod starts
+    the run directly, with no model turn. Type plain words and Claude works out the
+    variables.
+  - **Runs:** what's active and where.
+  - **Open ↗** (hotkey `o`) opens the web explorer at what needs you: the waiting
+    task, else the incident, else this project's one running flow, else the flows. **↗**
+    on a run opens that instance. The band's **Open ↗** does the same.
+- **Where it opens:** in the terminal, your default browser (the engine starts if
+  needed; `nage open [instance=K | task=K | flow=ID]` does the same from a shell). In the
+  Desktop app, the links open in its Browser pane, if you chose "Open links in built-in
+  browser" there (Browser pane ⋮ menu). The engine answers on `http://localhost`, the
+  only plain-http links the app makes clickable.
+- **Wakes the agent.** When a flow hands agent steps to the session, the mod submits a
+  prompt so the agent picks them up, using `session_job_next` with `max` for a fan-out.
+  New user tasks show a toast.
+- **No engine running?** The pane offers **Start engine**.
+
+The mod polls the engine every 3 s over its local HTTP API. It reads the engine's
+address from `~/.agent-graph/daemon.json`. Run the mod's tests with
+`claude plugin test .`; `npm test` runs them after the engine tests.
+
+**Organisations.** Mods are on by default. An administrator can allow only managed mods
+with `allowManagedModsOnly` in managed settings. If they do, the band and pane don't
+appear, and everything else keeps working.
+
+## OpenCode
+
+`nage install opencode` adds the server to `~/.config/opencode/opencode.json` (in a project, `opencode.json` takes the same entry):
+
+```json
+"mcp": {
+  "agent-graph": {
+    "type": "local",
+    "command": ["/absolute/path/to/node", "/absolute/path/to/nano-agent-graph-engine/dist/cli.js", "mcp"],
+    "enabled": true
+  }
+}
+```
+
+and copies the two skills into `~/.config/opencode/skills/`, so OpenCode knows how to run and write flows.
+
+Check it with `opencode mcp list`, which should show `✓ agent-graph connected`.
+
+**OpenCode desktop app (2.x).** The app runs its own bundled server (`opencode-cli serve --service`, 2.2.6 at the time of writing) and reads the same `~/.config/opencode/opencode.json` and `skills/`, so the entry above is all it needs. It accepts the 1.x shape shown here; the 2.x shape is `"mcp": {"servers": {"agent-graph": {..., "disabled": false}}}`. Restart the app after editing the config. Two things differ from the terminal CLI:
+
+- The 2.x `opencode mcp list` prints "No MCP servers configured" even when the server is connected. Ask the running app instead: `"~/Library/Application Support/ai.opencode.desktop/cli/<version>/opencode-cli" api mcp.list` should list `agent-graph` as `connected`.
+- The model calls tools from code, through one `execute` tool (`tools["agent-graph"].flow_start(...)`). Tool names and results are the same.
+
+- **Where flows live.** The project is OpenCode's working directory, or the nearest parent with `flows/`, as in Claude Code. `flow_list` and `flow_import` reach the `~/AgentGraph` library.
+- **Agent steps.** If the Claude Code CLI is installed and logged in, these still run as headless `claude -p`. Otherwise they go to the OpenCode agent through `session_job_next`, which uses whatever model you picked. To force this, set `"environment": {"AGE_AGENT_MODE": "session"}` on the server entry.
+- **User tasks.** OpenCode renders neither MCP Apps nor MCP elicitation forms. The 2.x app does declare elicitation support, but it never shows the form, so the call would hang until OpenCode's 60-second tool timeout. `task_ask` therefore skips the dialog for OpenCode and falls back to text: the agent asks you in chat and records the answer with `task_complete`. Or answer in the browser explorer; `flow_start` and `flow_status` print its URL. For any client, a form that gets no answer within 10 minutes (`AGE_ELICIT_TIMEOUT_MS`) also falls back to chat. `AGE_ELICIT=on|off` overrides the detection.
+- **No hooks.** OpenCode has no equivalent of Claude Code's SessionStart and UserPromptSubmit hooks, so ask "anything waiting in my flows?" and the agent will call `flow_status`.
+
+## Claude Code plugin
+
+```sh
+claude plugin marketplace add nanobpm/nano-agent-graph-engine
+claude plugin install nano-agent-graph-engine@nanobpm
+```
+
+The marketplace (on `main`) points at the `release` branch, which holds the built plugin.
+
+On macOS, also install `terminal-notifier` (`brew install terminal-notifier`) for
+[notifications](#notifications) that open the run in the explorer when clicked, then allow its notifications: run
+`terminal-notifier -title Test -message Hello` once and accept the prompt, or turn on **Allow notifications** for
+**terminal-notifier** in System Settings → Notifications. Without it, notifications still appear, but clicking one
+opens Script Editor.
+
+The plugin provides:
+
+- the **`agent-graph` MCP server**:
+  - `flow_check`, `flow_start`, `flow_status`
+  - `task_list`, `task_ask`, `task_complete`
+  - `session_job_next`, `session_job_complete`, `session_job_fail`
+  - `flow_operate`
+- the **`agent-graph` and `agent-graph-authoring` skills**: how to run flows, and how to write them
+- **hooks**: when a user task, session job or incident is waiting, SessionStart and UserPromptSubmit add it to Claude's context. They stay silent otherwise and never start the daemon.
+
+## Use
+
+Ask Claude something like *"make a flow that drafts release notes from git log with an agent,
+lets me review, and writes CHANGELOG.md"*. It writes `flows/<name>.flow.ts`, runs
+`flow_check` until clean, and starts it. When the review step is reached, `task_ask` opens
+a form dialog in Claude Code. You can also answer it in the explorer.
+
+CLI (`node dist/cli.js …`, or `nage` once installed):
+
+```
+nage check [file] [--json] | up | down | status | start <flow> [--field value …] [json] | tasks | complete <task> [json] | open
+```
+
+The example is in `examples/demo`:
+
+```sh
+cd examples/demo
+node ../../dist/cli.js check
+node ../../dist/cli.js start changelog '{"commits":10}'
+node ../../dist/cli.js open      # explorer URL
+```
+
+### A flow
+
+See `examples/demo/flows/changelog.flow.ts` and `skills/agent-graph-authoring/SKILL.md` for the full API.
+
+```ts
+import { defineFlow, defineForms, sh } from "@nanobpm/nano-agent-graph-engine";
+export const forms = defineForms({ "review": { title: "Review", description: "{{notes}}",
+  fields: { decision: { type: "string", enum: ["publish", "redo", "cancel"] }, feedback: { type: "string" } }, required: ["decision"] } });
+export const changelog = defineFlow("changelog", (w) => {
+  w.run("gather", async () => ({ commitLog: (await sh("git log --oneline -n 20")).stdout }));
+  w.loop((b) => {
+    b.task("draft", { jobType: "senior:draft", prompt: { resourceId: "changelog.md" } });
+    b.human("review", { form: "review" });
+    b.switch("decision", { publish: (c) => { c.run("write", async (j) => { /* … */ }); c.break(); },
+                           cancel: (c) => c.break(), default: (c) => c.continue() });
+  });
+});
+```
+
+### Flow input and the start form
+
+A flow declares what a run starts with as the `Start` contract, an envelope from
+`@nanobpm/workflow` (it becomes `io.nanobpm.dataEnvelope.in` on the BPMN start event):
+
+```ts
+import { defineFlow, defineStartForm, envelope } from "@nanobpm/nano-agent-graph-engine";
+const Input = envelope("ReviewInput", { pr: "integer", repo: "string", note: { type: "string", optional: true } });
+export const startForm = defineStartForm(Input, { title: "Review a PR", fields: { pr: { title: "PR number" } } }); // optional hints
+export const review = defineFlow("review", { Start: { in: Input } }, (w) => { /* … */ });
+```
+
+That one declaration drives:
+
+- the explorer's **start form** (typed fields, with a JSON box under *Advanced* for extra variables);
+- the `/flows` pane in Claude Code (`pr=42 repo=x`);
+- `flow_status` (`review(pr: integer, repo: string, note?: string)`) and the `flow_start` guidance agents get;
+- the `/start-review` **MCP prompt**, with one argument per field;
+- `nage start review --pr 42 --repo x`;
+- a **check at start**: `/api/start` converts text to the declared types and refuses missing or wrong fields with `400 { error, problems: [{ field, message }] }`.
+
+Flows without an input work as before, with free-form JSON variables.
+
+Flow inputs need `@nanobpm/workflow` 0.17 or later.
+
+### The authoring loop: `nage check` / `flow_check`
+
+Authoring agents (the `agent-graph-authoring` skill) run this after every edit, until it is clean:
+
+1. **Type-check** the flow file and the project modules it imports. This is TypeScript strict mode against the real `@nanobpm/nano-agent-graph-engine`, `@nanobpm/workflow` and Node types, with `file:line:col TSxxxx` errors.
+   - The engine loads flows with types stripped, so without this step a type error only shows up at run time.
+   - The checker ships in the plugin as `dist/typecheck/` (about 6.7 MB): minified TypeScript, the ES libs, `@types/node`, and the declarations. The user's project needs nothing installed.
+   - It takes about 0.4 s. `--no-types` skips it.
+2. `defineFlow` validates the structure.
+3. `@nanobpm/workflow` emits BPMN.
+4. `bpmn-auto-layout` generates the DI.
+5. Our lint checks catch:
+   - `run` steps without a handler
+   - unknown forms
+   - missing prompt files and unknown agent profiles
+   - job types no worker serves
+   - start-form hints that don't match the input
+6. A trial deploy into the engine is the final check.
+
+`--json` prints `{ ok, typesChecked, files: [{ file, flows: [{ id, input }], problems }] }`, and the exit code is 1 on errors.
+`flow_write` (for MCP-only clients) writes a flow and runs the same check.
+
+The daemon deploys every flow that compiles (it does not type-check), and a new version only when the BPMN changed. It watches `flows/`.
+
+## Which agent runs an agent step
+
+Agent steps follow the [nano-workforce](https://github.com/nanobpm) convention, so a flow is portable: its job type names a **rank and a task** (`senior:review`, `junior:triage`), never a CLI, and the BPMN carries the agent marker (`zeebe:agentDefinition agentType="external"`) and the prompt as a linked resource. Which CLI and model run a step is decided on the machine that runs it. So:
+
+- someone who uses OpenCode can send you a flow and it runs on your Claude Code (or anything else you've installed);
+- you can rerun the same flow on another CLI or model to compare them, without editing it.
+
+`jobType: "claude"` still works as the legacy name of an agent step (no rank). A `jobType` that is neither `<rank>:<task>` nor `claude` gets a lint warning.
+
+An agent step runs on an **agent profile**: a CLI the engine starts headless for that step.
+
+Built-in profiles:
+
+| profile | runs | protocol |
+| --- | --- | --- |
+| `claude` | `claude -p --output-format stream-json` | Claude Code print mode |
+| `opencode` | `opencode acp` | [ACP](https://agentclientprotocol.com) |
+| `nano-coder` | `nano-coder --acp` | ACP |
+| `gemini` | `gemini --experimental-acp` | ACP |
+
+Any ACP agent works. Add your own in `~/.agent-graph/agents.json`, or in a flow file.
+
+### Choosing the CLI and model
+
+**For every run** (saved in `~/.agent-graph/agents.json`):
+
+```sh
+nage agent show review                          # each agent step: who runs it, and why
+nage agent assign review opencode               # the whole flow on OpenCode
+nage agent assign review/critique nano-coder --model openrouter/openai/gpt-5   # one step
+nage agent assign review - --model sonnet       # keep the CLI, change the model
+nage agent assign --rank senior claude          # every flow's senior:* steps
+nage agent unassign review[/step] | --rank senior
+nage agent default nano-coder                   # whatever nothing else decides
+```
+
+**For one run**, without changing the assignments:
+
+```sh
+nage start review --agent opencode --model anthropic/claude-sonnet-4-5   # all agent steps
+nage start review --agent critique=gemini --model draft=opus            # per step
+```
+
+The same is available to agents as the `flow_agents` MCP tool (show, and `assign`) and `flow_start`'s `agents` argument (`{ "*": { "use": "opencode", "model": "…" }, "critique": { … } }`), over HTTP as `GET /api/flows/<id>/agents` and `POST /api/agents/assign`, and in the explorer's start form: its **Agents** table shows each step's CLI, model and the reason, applies your changes to the run you start, and **Save for every run** keeps them. The run records its overrides.
+
+```jsonc
+// ~/.agent-graph/agents.json
+{
+  "default": "nano-coder",
+  "ranks": { "senior": "claude", "junior": "nano-coder" },
+  "flows": { "review": { "use": "opencode", "steps": { "critique": { "use": "critic", "model": "openai/gpt-5" } } } },
+  "profiles": {
+    "critic": { "protocol": "acp", "command": "nano-coder", "args": ["--acp"], "model": "openrouter/openai/gpt-5", "modelArg": "--model" },
+    "oc-sonnet": { "protocol": "acp", "command": "opencode", "args": ["acp"], "model": "anthropic/claude-sonnet-4-5" }
+  }
+}
+```
+
+A flow's author can **suggest** a CLI and model; it's used only where that CLI is installed and you haven't decided otherwise:
+
+```ts
+// flows/review.flow.ts
+export const agentProfiles = defineAgentProfiles({ critic: { protocol: "acp", command: "nano-coder", args: ["--acp"], model: "…" } });
+export const defaultAgent = "claude";
+export const agents = { critique: { use: "critic" }, draft: { model: "opus" } };
+```
+
+The profile for a step is the first of:
+
+1. this run's override (`--agent`, `flow_start` `agents`, the start form): the step, then `*`;
+2. your assignment for the step;
+3. your assignment for the flow;
+4. your assignment for the step's rank;
+5. the author's suggestion — the step's `use`, else the flow's `defaultAgent` — if that CLI is installed here;
+6. `default` in `agents.json`;
+7. the CLI of the host that started the run (Claude Code → `claude`, OpenCode → `opencode`, nano-coder → `nano-coder`);
+8. the first installed of `claude`, `opencode`, `nano-coder`.
+
+The model follows the same order (yours, then the author's, then the profile's). An author's profile that is unknown or not installed here is skipped with a note ("flow suggests gpt-cli (unknown here)") and a warning from `nage check`, never an error; an unknown profile in your own assignment or override is an error. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `nage agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
+
+A step's prompt file may use `{{name}}` placeholders (filled from the variables); `context: []` stops the variables being appended as JSON, and `cwd` (also with placeholders) sets the agent's working directory. That lets a flow wrap an app's own prompts: a `run` step builds the prompt, the agent step runs it on your CLI, a `run` step validates and retries (see `~/AgentGraph/flows/publish-video.flow.ts`).
+
+`env` (also with placeholders) adds environment variables for the agent CLI. Every agent run gets `AGENT_RESULT_FILE`: a JSON object written there becomes the step's variables, ahead of the final message. With `abortCheck: true` the agent also gets `AGE_JOB_STATUS_URL` plus a prompt section telling it to `curl -fsS` that URL before irreversible actions; it 404s once the step is cancelled, and the cancelled step's CLI is killed. Those are the Nano Workforce harness conventions, so nwf prompts run unchanged: `~/AgentGraph/flows/pr-converge.flow.ts` is a port of nwf's single-PR converge → merge loop (Copilot review rounds, adversarial self-review, CI fix, rebase, merge, escalations as forms) that uses nwf's own prompt files.
+
+**Live transcript.** While an agent step runs, everything it does streams to `~/.agent-graph/transcripts/<jobKey>.jsonl` in Nano Workforce's transcript format (`@nanobpm/agentic/transcript`): the prompt, assistant text as it's generated (claude runs with `--include-partial-messages`; ACP agents send deltas anyway), tool calls and their results, then a closing lifecycle event. Read it with `GET /api/jobs/<jobKey>/transcript?from=<offset>` or `GET /api/explorer/agents/<agentInstanceKey>/transcript?from=<offset>`, which return `{status: "open"|"completed", nextOffset, entries: [{offset, chunk}]}` (the shape of nwf's `/agentic/transcripts` read; offsets are bytes). In the explorer, the agent panel on a running step shows a **Now** section under the turn scrubber: text as it streams, and tool calls with a spinner until their result lands. Transcripts older than 7 days are pruned when the engine starts.
+
+Big flows: the detailed diagram layout (bpmn-auto-layout 2) slows down steeply with flow size. It runs on a worker thread for up to `AGE_LAYOUT_MS` (default 5 s); past that the flow deploys with the simpler 1.x layout, and the detailed one finishes in the background into `~/.agent-graph/layout-cache/` and is used from the next deploy.
+
+ACP agents run in the agent's working directory (by default the run's project directory) with permission requests approved, so give them a sandbox you trust. Each step is a fresh ACP session. `schema` is passed as an instruction to answer with JSON; the first JSON object in the answer becomes variables.
+
+### Agent transcripts (AgentInstance)
+
+Each agent step is recorded in the engine as an **AgentInstance** with its **history** (the same read model Camunda's agentic orchestration and `c8ctl-plugin-nano` use): a CONFIGURATION item (profile as provider, model, prompt), the USER prompt, each ASSISTANT turn with its tool calls and token/time metrics, and each TOOL_RESULT. Agent jobs are activated with a lease token, so writes are fenced to the activation; the history is committed when the step completes and discarded if it fails. A retry of the same step continues the same AgentInstance.
+
+The explorer shows an agent badge on the step; click it for the transcript, with a timeline, metrics and a run picker when a step ran several times. The data comes from `GET /api/explorer/instances/<key>/agents` and `GET /api/explorer/agents/<key>/history`. Recording is best-effort: a failure is logged and never fails the step.
+
+## Notifications
+
+The engine runs in the background, so a run can stop long after you've left the session. When an incident is raised, or a user task starts waiting for you, the engine shows a desktop notification with the flow and project. Clicking it opens that run or task in the explorer, where available. Each incident or task is announced once. Anything already waiting when the engine starts is not announced again. More than three at once are combined into one notification.
+
+| Platform | Uses | Click opens the explorer |
+|---|---|---|
+| macOS | `terminal-notifier` (**recommended:** `brew install terminal-notifier`; found on PATH or in Homebrew's bin), else `osascript` | only with `terminal-notifier`; `osascript` notifications belong to Script Editor, so a click opens Script Editor |
+| Linux | `notify-send` (libnotify, any freedesktop notification daemon) | with libnotify 0.7.9+ (`--action`); the URL is also in the text |
+| Windows 10/11 | a PowerShell toast (no install) | yes |
+
+`AGE_NOTIFY=off` turns them off, and `AGE_NOTIFY=incidents` or `AGE_NOTIFY=tasks` limits them to one kind. Set it in the environment the engine starts from. A missing or failing notifier is logged once in the activity log and never affects runs.
+
+If no notifications appear on macOS, check System Settings → Notifications for **terminal-notifier** (and **Script Editor**, which is what `osascript` notifications show up as). macOS asks for permission the first time; if that prompt was dismissed, notifications stay off for that app, and `terminal-notifier` prints "Notifications are turned off for this application" and exits with code 3. The engine then logs `terminal-notifier failed (exit 3): …` in the activity log and falls back to `osascript`. To fix it, open System Settings → Notifications, select **terminal-notifier** and turn on **Allow notifications** (choose **Alerts** to keep them on screen until dismissed). The `tccutil reset UserNotification …` command that `terminal-notifier` suggests fails on recent macOS, so use System Settings. No restart is needed afterwards.
+
+## Parallelism and fan-out
+
+Flows fan out with `w.parallel([...])`, a fixed set of branches, and
+`w.forEach("files", "file", body, { outputCollection, outputElement })`, one branch per
+list item with the results collected in order. Both are BPMN parallel gateways and
+multi-instance activities, so the engine joins the branches and continues only when
+all are done, or when `completionCondition` holds.
+
+How the branches run depends on who does the work:
+
+- **`run` steps and headless agents** (`claude -p`) run concurrently inside the daemon, up to `AGE_MAX_CONCURRENT` at a time (default 4). `AGE_CONCURRENCY="claude=2"` sets a lower limit for a step type. Each agent step is its own `claude -p` process: a durable subagent with its own context, tools and cost line. Measured with six 2-second agent steps plus a two-branch `parallel`: they ran in three waves of 4 + 2 + 2, so about 7 s instead of 16 s.
+- **Steps handed to the chat agent** (`session` jobs, and agent steps when there's no CLI) are queued. `session_job_next` hands them out one at a time, or as a batch with `max`. An agent that has subagents (Claude Code's Task tool, OpenCode's `task`) can then do the batch in parallel and complete each job by key. Without subagents, the agent works through them one by one.
+
+Compared with session-scoped workflow tools (Claude Code workflows, dsh `workflow`):
+
+- **What's the same:** both fan out to fresh agents.
+- **What's different:**
+  - The fan-out here is a step in a durable process, so it can be joined, retried per branch (an incident on one branch doesn't lose the others), and followed by human review or timers.
+  - Each branch shows on the diagram with ×N badges.
+
+## How it works
+
+- **Engine**: `@nanobpm/engine-wasm` (`TestEngine`) running in Node. The host owns the clock (`tickNow(Date.now())` every 500 ms) and runs the job workers.
+- **Durability**:
+  - After each change, `engine.events()` is written atomically to `~/.agent-graph/journal.json`.
+  - On start, `replayEvents()` restores it.
+  - Jobs that were mid-run when the daemon died are handed back out.
+  - Tested by the e2e test: it stops the daemon in the middle of a flow.
+- **Code layout**: three parts with narrow seams between them.
+  - **Control** (`src/client.ts`): `EngineClient`, the one typed client the MCP server, CLI and hooks use. It finds or starts the engine, scopes calls to a project and builds explorer links. The mod runs sandboxed and keeps a few direct calls to the same routes.
+  - **Engine** (`src/daemon.ts`): the WASM engine, event log, timers and HTTP API.
+  - **Worker** (`src/worker.ts`): runs activated jobs. It meets the engine only through complete/fail, so it's tested with a fake engine (`test/worker.spec.ts`).
+  - **Step threads** (`src/step-pool.ts`, `src/step-thread.ts`): flow code runs on a pool of worker threads, one step per thread, up to `AGE_MAX_CONCURRENT` threads. Each thread imports the flow file itself, and only JSON variables pass between it and the engine.
+- **Workers**:
+  - `run` handlers are imported from the flow file. A failed job gets 3 retries with backoff, then an incident.
+  - A step can't take the engine down. A handler that throws, rejects or hangs fails its job. Steps time out after 25 minutes, agent steps after 55 (`AGE_JOB_TIMEOUT_MS` overrides both); on timeout the step's `sh()`/`claude()` process is killed, and handlers can pass `jobSignal()` to `fetch()` and other long calls. A stray rejection or exception from flow code is logged, not fatal.
+  - Flow code runs on step threads, not the engine's thread. Steps that compute run in parallel, and the engine keeps ticking timers and answering the explorer meanwhile. A step that doesn't stop within 2 s of its timeout, even one stuck in a synchronous loop, has its thread terminated. `process.exit()` in a step ends only its thread and fails the step. Threads are replaced when flows are reloaded. `AGE_STEP_THREADS=0` runs flow code on the engine's thread, as before 0.7.
+  - Threads share the process's memory, so a step that exhausts memory or crashes native code still stops the engine. Module-level state in a flow file isn't shared between steps, since each thread has its own copy; keep shared state in variables or files.
+  - Agent steps (`claude`) stay on the engine's thread: they only wait on the `claude` process.
+  - The agent worker runs the step's profile (see [Which agent runs an agent step](#which-agent-runs-an-agent-step)). For `claude` it spawns `claude -p --output-format stream-json --verbose --permission-mode dontAsk` with optional `--json-schema`, `--allowedTools` and `--model`; ACP profiles go through the `@nanobpm/agentic` ACP client. Options come from `export const agents`. The cost is logged when the CLI reports it.
+  - `AGE_CLAUDE_CMD` swaps the `claude` binary (the tests use fakes: `test/fixtures/fake-claude.mjs`, `fake-acp.mjs`).
+- **One engine per user**:
+  - Its info is in `~/.agent-graph/daemon.json`, and it listens on `localhost` (`127.0.0.1` and `::1`).
+  - The MCP server, CLI and hooks are thin HTTP clients. MCP/CLI start the engine detached on first use (one client starts it; the others wait) and register their project with it (`projects.json`).
+  - A project's flows deploy as `<folder>-<hash>.<id>`, so two repos can both have a `release` flow; global flows keep their id. Runs record their project; handlers run inside an async context that `sh()`, `claude()` and `projectPath()` read.
+  - Before 0.5 each project had its own engine in `<project>/.agent-graph/`. Those aren't migrated: stop one with the old version's `nage down` once its runs are done (its history stays in that folder).
+  - `flow_start` output includes the explorer URL.
+- **Explorer** (`GET /`), a single HTML file using the bpmn-js viewer, shows:
+  - the task inbox with forms
+  - flows, with token counts and a start form
+  - instances: active, done and incident markers, the path taken, ×N loop badges, variables (rebuilt from the event log for finished instances), activity and costs, retry and cancel
+
+## Surfacing user tasks and prompting in Claude Code: findings
+
+| Surface | Status | Used here |
+|---|---|---|
+| **MCP elicitation** (form/url dialogs from a tool call) | stable in Claude Code | ✅ `task_ask` asks the form in a dialog. It only works *inside* a tool call, so the agent has to call it. |
+| **Hooks** `additionalContext` (SessionStart, UserPromptSubmit) | stable | ✅ tells the agent what's waiting on the next prompt (deduplicated) |
+| **Web UI** (own HTTP server) | — | ✅ explorer: inbox, forms, diagram |
+| **Mods** (`$.ui.open` panes in terminal/Desktop/VS Code, `$.ui.notify/toast/status`, `$.ui.ask`, `$.clock.every`, `$.prompt.submit` to start a turn from the background) | Claude Code ≥ 2.1.290 | ❌ not yet. This is the best fit: a live task-inbox pane, a status line ("2 tasks waiting"), and waking the agent when a session job arrives. Local Claude Code is 2.1.177. |
+| **MCP tasks** (`input_required` → elicitation while a long job runs) | public beta, ≥ 2.1.304 | ❌ could make `flow_start … wait` a first-class background task |
+| **Channels** (`notifications/claude/channel` push into a running session) | research preview, needs `--dangerously-load-development-channels` | ❌ push alternative to hooks |
+
+Without mods, nothing can *interrupt* an idle session. Waiting work is surfaced on the next prompt (hook), in the explorer, and by `flow_status`.
+
+## Develop
+
+```sh
+npm install
+npm run build      # fetch the Process Explorer, typecheck, esbuild + tailwind →
+                   #   dist/{cli.js,index.js,explorer.html,explorer-app.html,nanobpmn_engine_bg.wasm}
+npm test           # e2e: MCP client with elicitation → server → daemon, restart mid-flow, hooks, lint,
+                   #      and a Desktop-like client (cwd /, no CLI, no elicitation) authoring + running via MCP only
+node dist/cli.js mcp --http 3001          # Streamable HTTP, for MCP Apps hosts / inspector
+PLAYWRIGHT_FROM=/tmp/bh node test/app-host-e2e.mjs http://localhost:8090   # explorer as MCP App in basic-host
+node test/explorer-e2e.mjs [out-prefix]  # temp project + daemon, drives inbox → instance → flows; screenshots
+                                          #   (PLAYWRIGHT_FROM=<dir with playwright>)
+```
+
+The explorer's Instances tab is the nano console's Process Explorer
+([`@nanobpm/process-explorer`](https://github.com/nanobpm/nano-bpm/tree/main/process-explorer)),
+over the daemon's `/api/explorer/*` routes (`src/explorer-api.ts` maps the engine snapshot and
+event log onto the console's wire model, including the trace). It isn't on npm yet
+([nanobpm/nano-bpm#1475](https://github.com/nanobpm/nano-bpm/issues/1475)) and npm can't install a
+git subdirectory, so `scripts/fetch-explorer.mjs` sparse-clones it at a pinned commit into
+`node_modules/.cache/nano-bpm` and the build bundles it. Bump `NANO_BPM_REV` to update it.
+
+Flow files import `"@nanobpm/nano-agent-graph-engine"` (or the old `"agent-graph-engine"`). The
+daemon maps those specifiers to `dist/index.js` with `module.registerHooks`, and `nage check`
+type-checks against declarations shipped in `dist/typecheck`, so the user's project needs no install.
+
+To try the plugin from a checkout: `npm run build`, then `claude --plugin-dir .`.
+
+### Releasing
+
+`dist/` isn't committed. Bump the version in `package.json`, `.claude-plugin/plugin.json` and
+`.claude-plugin/marketplace.json`, commit, and push a tag `vX.Y.Z`. The `release` workflow then
+builds and tests, publishes `@nanobpm/nano-agent-graph-engine` to npm (secret `NPM_TOKEN`),
+commits the built plugin to the `release` branch (`scripts/publish-plugin-branch.mjs`), and
+creates a GitHub release with the Desktop extension (`npm run pack:mcpb`).
+
+## Limitations and next steps
+
+- The explorer draws the *current* BPMN of a flow, even for instances started on an older version (the flow id is the definition key).
+- The explorer polls (every 1.5 s); the daemon has no push feed.
+- The journal is rewritten whole on each change. Fine for local use, but long-lived projects will want compaction (snapshot + tail).
+- One process: `run` handlers share the daemon. A blocking handler stalls ticks; use async APIs.
+- Headless agents never prompt for permissions: list the tools they need in `agents.<step>.allowedTools`. No cost caps yet beyond what you set in prompts. Spend is logged per job.
+- Not yet verified inside a real Claude Code session: the local OAuth token had expired (`claude -p` → 401). The plugin validates, and `claude mcp list` shows `agent-graph` ✔ Connected.
+- MCP Apps view verified in the ext-apps reference host (`test/app-host-e2e.mjs`). Claude Desktop's own rendering has not been verified yet.
+- Next: a mods pane/status line and `$.prompt.submit` for session jobs, plus MCP tasks for "start and wait".
