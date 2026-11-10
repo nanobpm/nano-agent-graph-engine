@@ -14,7 +14,8 @@ const git = (args, cwd = root) => execFileSync("git", args, { cwd, encoding: "ut
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
 // Exactly what npm would publish.
-const [packed] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: root, encoding: "utf8" }));
+const report = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { cwd: root, encoding: "utf8" }));
+const packed = Array.isArray(report) ? report[0] : report[pkg.name]; // npm ≤11: array; npm 12: keyed by name
 const files = packed.files.map((f) => f.path);
 if (!files.includes("dist/cli.js")) throw new Error("dist/ is missing: run npm run build first");
 
