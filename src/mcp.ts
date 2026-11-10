@@ -8,7 +8,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { checkFile, checkProject, flowsDir, formatProblems, listFlowFiles } from "./compile.ts";
+import { addTypeProblems, checkFile, checkProject, flowsDir, formatProblems, listFlowFiles } from "./compile.ts";
+import { describeInput, describeType, type FlowInput } from "./input.ts";
+import type { FormDef } from "./index.ts";
 import { appHtml } from "./explorer-html.ts";
 import { defaultHome } from "./paths.ts";
 import { EngineClient } from "./client.ts";
@@ -31,7 +33,7 @@ function ensureModuleType(dir: string) {
 }
 
 function guideText(): string {
-  for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
+  for (const rel of ["./guide.md", "../skills/agent-graph-authoring/SKILL.md"]) {
     const u = new URL(rel, import.meta.url);
     if (fs.existsSync(u)) return fs.readFileSync(u, "utf8").replace(/^---[\s\S]*?---\n/, "");
   }
@@ -70,12 +72,13 @@ export function createServer(project: string): McpServer {
     {
       title: "Compile and lint flows",
       description:
-        "Compile every flows/*.flow.ts in the project to BPMN (with diagram layout) and lint it: missing handlers, forms or prompt files, unknown job types, and whatever the engine rejects. Run after every edit to a flow. The daemon deploys flows that pass automatically.",
+        "Type-check every flows/*.flow.ts in the project (TypeScript, strict — type errors come with file:line:col), compile it to BPMN (with diagram layout) and lint it: missing handlers, forms or prompt files, unknown job types, start-form hints, and whatever the engine rejects. Run after every edit to a flow and fix every error until it reports none.",
       inputSchema: {},
     },
     guard(async () => {
       const r = await checkProject(project);
-      if (!r.length) return text(`No flows yet. Create ${path.join(project, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
+      addTypeProblems(r);
+      if (!r.length) return text(`No flows yet. Create ${path.join(project, "flows")}/<name>.flow.ts (see the agent-graph-authoring skill or flow_guide).`);
       const bad = r.some((x) => x.problems.some((p) => p.severity === "error"));
       let reload = "";
       if (!bad) {
@@ -105,7 +108,7 @@ export function createServer(project: string): McpServer {
     {
       title: "Write a flow",
       description:
-        "Create or replace flows/<name>.flow.ts (TypeScript, see flow_guide) and any prompt files for its agent steps (flows/prompts/<file>), then compile + lint it. If it passes it is deployed at once. Fix every reported error and write again.",
+        "Create or replace flows/<name>.flow.ts (TypeScript, see flow_guide) and any prompt files for its agent steps (flows/prompts/<file>), then type-check, compile and lint it. If it passes it is deployed at once. Fix every reported error and write again.",
       inputSchema: {
         name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('File name without extension, e.g. "release-notes"'),
         source: z.string().describe("The full TypeScript source of the flow file"),
@@ -120,6 +123,7 @@ export function createServer(project: string): McpServer {
       const file = path.join(dir, `${name}.flow.ts`);
       fs.writeFileSync(file, source);
       const r = await checkFile(file);
+      addTypeProblems([r]);
       const bad = r.problems.some((p) => p.severity === "error");
       let tail = "";
       if (!bad) {
@@ -282,7 +286,7 @@ export function createServer(project: string): McpServer {
     {
       title: "Start a flow",
       description:
-        "Start an instance of a flow in this project: one of its own flows/, or a global one from ~/AgentGraph/flows (it runs here, in this project). Returns the instance key; the engine runs it in the background (it keeps running after this session ends).",
+        "Start an instance of a flow in this project: one of its own flows/, or a global one from ~/AgentGraph/flows (it runs here, in this project). Returns the instance key; the engine runs it in the background (it keeps running after this session ends). A flow with an input lists it in flow_status as id(field: type, optional?: type): pass those fields as variables. The engine converts text (\"42\" → 42, \"yes\" → true, \"a, b\" → a list) and refuses missing or wrong fields, naming each one — ask the user for what you can't infer.",
       inputSchema: {
         flowId: z.string(),
         variables: z.record(z.string(), z.any()).optional().describe("Initial process variables"),
@@ -455,6 +459,7 @@ export function createServer(project: string): McpServer {
     }),
   );
   const flowPrompts = new Map<string, ReturnType<McpServer["registerPrompt"]>>();
+  const promptSigs = new Map<string, string>();
   (server as any).syncFlowPrompts = async () => {
     const seen = new Set<string>();
     for (const f of listFlowFiles(project)) {
@@ -467,7 +472,12 @@ export function createServer(project: string): McpServer {
       for (const fl of r.flows) {
         const name = `start-${fl.id}`;
         seen.add(name);
-        if (flowPrompts.has(name)) continue;
+        // Re-register when the input changed (the arguments derive from it).
+        const sig = JSON.stringify(fl.input ?? null) + (fl.description ?? "");
+        const known = flowPrompts.get(name);
+        if (known && promptSigs.get(name) === sig) continue;
+        if (known) (known.remove(), flowPrompts.delete(name));
+        promptSigs.set(name, sig);
         const steps = [...fl.tasks.map((t) => t.name), ...fl.humans.map((h) => h.name)].join(", ");
         flowPrompts.set(
           name,
@@ -476,19 +486,25 @@ export function createServer(project: string): McpServer {
             {
               title: `Start flow: ${fl.id}`,
               description: fl.description || `Start the ${fl.id} flow (steps: ${steps})`,
-              argsSchema: { inputs: z.string().optional().describe("What to run it on: plain words or JSON variables") },
+              argsSchema: fl.input ? inputArgs(fl.input, fl.startForm) : { inputs: z.string().optional().describe("What to run it on: plain words or JSON variables") },
             },
-            ({ inputs }) => ({
-              messages: [
-                {
-                  role: "user",
-                  content: {
-                    type: "text",
-                    text: `Start the Agent Graph flow "${fl.id}"${fl.description ? ` (${fl.description})` : ""}.${inputs ? `\nInputs: ${inputs}` : ""}\nWork out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask me only for what's missing and can't be inferred), call flow_start with a short title, then show_explorer for the new instance. If agent steps come to this session (session_job_next), do them.`,
+            (args: Record<string, string | undefined>) => {
+              const given = Object.entries(args).filter(([, v]) => v !== undefined && v !== "");
+              const what = fl.input
+                ? `${given.length ? `\nInputs: ${given.map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}` : ""}\nIts input is ${describeInput(fl.input)}. Pass these as flow_start variables; fill in what's missing from context or ask me. The engine converts text to these types and names any field it refuses.`
+                : `${args.inputs ? `\nInputs: ${args.inputs}` : ""}\nWork out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask me only for what's missing and can't be inferred).`;
+              return {
+                messages: [
+                  {
+                    role: "user",
+                    content: {
+                      type: "text",
+                      text: `Start the Agent Graph flow "${fl.id}"${fl.description ? ` (${fl.description})` : ""}.${what}\nCall flow_start with a short title, then show_explorer for the new instance. If agent steps come to this session (session_job_next), do them.`,
+                    },
                   },
-                },
-              ],
-            }),
+                ],
+              };
+            },
           ),
         );
       }
@@ -497,6 +513,18 @@ export function createServer(project: string): McpServer {
   };
 
   return server;
+}
+
+/** MCP prompt arguments for a flow input: one text argument per field (prompt arguments
+ *  are strings; the engine converts them). Required fields are required arguments. */
+function inputArgs(input: FlowInput, form?: FormDef): Record<string, z.ZodType<string | undefined>> {
+  const out: Record<string, z.ZodType<string | undefined>> = {};
+  for (const f of input.fields) {
+    const ff: any = form?.fields[f.name] ?? {};
+    const desc = [ff.title && ff.title !== f.name ? ff.title : "", ff.description, `(${describeType(f)}${ff.enum ? `: one of ${ff.enum.join(", ")}` : ""})`].filter(Boolean).join(" ");
+    out[f.name] = f.optional ? z.string().optional().describe(desc) : z.string().describe(desc);
+  }
+  return out;
 }
 
 /** Keep the per-flow prompts in step with flows/ (long-lived stdio sessions only). */

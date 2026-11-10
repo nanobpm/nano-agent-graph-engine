@@ -131,6 +131,7 @@ Then install the skill, so OpenCode knows how to write flows. A symlink keeps it
 
 ```sh
 ln -s /path/to/agent-graph-engine/skills/agent-graph ~/.config/opencode/skills/agent-graph
+ln -s /path/to/agent-graph-engine/skills/agent-graph-authoring ~/.config/opencode/skills/agent-graph-authoring
 ```
 
 Check it with `opencode mcp list`, which should show `✓ agent-graph connected`.
@@ -183,7 +184,7 @@ a form dialog in Claude Code. You can also answer it in the explorer.
 CLI (`node dist/cli.js …`, or `age` if linked):
 
 ```
-age check | up | down | status | start <flow> [json] | tasks | complete <task> [json] | open
+age check [file] [--json] | up | down | status | start <flow> [--field value …] [json] | tasks | complete <task> [json] | open
 ```
 
 The example is in `examples/demo`:
@@ -197,7 +198,7 @@ node ../../dist/cli.js open      # explorer URL
 
 ### A flow
 
-See `examples/demo/flows/changelog.flow.ts` and `skills/agent-graph/SKILL.md` for the full API.
+See `examples/demo/flows/changelog.flow.ts` and `skills/agent-graph-authoring/SKILL.md` for the full API.
 
 ```ts
 import { defineFlow, defineForms, sh } from "agent-graph-engine";
@@ -214,19 +215,55 @@ export const changelog = defineFlow("changelog", (w) => {
 });
 ```
 
-**The compiler and lint step** (`flow_check` / `age check`):
+### Flow input and the start form
 
-1. `defineFlow` validates the structure.
-2. `@nanobpm/workflow` emits BPMN.
-3. `bpmn-auto-layout` generates the DI.
-4. Our lint checks catch:
+A flow declares what a run starts with as the `Start` contract, an envelope from
+`@nanobpm/workflow` (it becomes `io.nanobpm.dataEnvelope.in` on the BPMN start event):
+
+```ts
+import { defineFlow, defineStartForm, envelope } from "agent-graph-engine";
+const Input = envelope("ReviewInput", { pr: "integer", repo: "string", note: { type: "string", optional: true } });
+export const startForm = defineStartForm(Input, { title: "Review a PR", fields: { pr: { title: "PR number" } } }); // optional hints
+export const review = defineFlow("review", { Start: { in: Input } }, (w) => { /* … */ });
+```
+
+That one declaration drives:
+
+- the explorer's **start form** (typed fields, with a JSON box under *Advanced* for extra variables);
+- the `/flows` pane in Claude Code (`pr=42 repo=x`);
+- `flow_status` (`review(pr: integer, repo: string, note?: string)`) and the `flow_start` guidance agents get;
+- the `/start-review` **MCP prompt**, with one argument per field;
+- `age start review --pr 42 --repo x`;
+- a **check at start**: `/api/start` converts text to the declared types and refuses missing or wrong fields with `400 { error, problems: [{ field, message }] }`.
+
+Flows without an input work as before, with free-form JSON variables.
+
+Until nanobpm/nano-ide#610 is released, `@nanobpm/workflow` comes from `vendor/nanobpm-workflow-0.16.0-pr610.tgz`
+(`npm pack` of the PR branch). Switch back to the npm version when it ships.
+
+### The authoring loop: `age check` / `flow_check`
+
+Authoring agents (the `agent-graph-authoring` skill) run this after every edit, until it is clean:
+
+1. **Type-check** the flow file and the project modules it imports. This is TypeScript strict mode against the real `agent-graph-engine`, `@nanobpm/workflow` and Node types, with `file:line:col TSxxxx` errors.
+   - The engine loads flows with types stripped, so without this step a type error only shows up at run time.
+   - The checker ships in the plugin as `dist/typecheck/` (about 6.7 MB): minified TypeScript, the ES libs, `@types/node`, and the declarations. The user's project needs nothing installed.
+   - It takes about 0.4 s. `--no-types` skips it.
+2. `defineFlow` validates the structure.
+3. `@nanobpm/workflow` emits BPMN.
+4. `bpmn-auto-layout` generates the DI.
+5. Our lint checks catch:
    - `run` steps without a handler
    - unknown forms
-   - missing prompt files
+   - missing prompt files and unknown agent profiles
    - job types no worker serves
-5. A trial deploy into the engine is the final check.
+   - start-form hints that don't match the input
+6. A trial deploy into the engine is the final check.
 
-Flows that pass are deployed. A new version is deployed only when the BPMN changed, and the daemon watches `flows/`.
+`--json` prints `{ ok, typesChecked, files: [{ file, flows: [{ id, input }], problems }] }`, and the exit code is 1 on errors.
+`flow_write` (for MCP-only clients) writes a flow and runs the same check.
+
+The daemon deploys every flow that compiles (it does not type-check), and a new version only when the BPMN changed. It watches `flows/`.
 
 ## Which agent runs an agent step
 

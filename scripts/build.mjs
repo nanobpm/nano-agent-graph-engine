@@ -72,6 +72,41 @@ for (const [isApp, out] of [[false, "explorer.html"], [true, "explorer-app.html"
     .replace("/*JS*/", () => js);
   fs.writeFileSync(path.join(dist, out), html);
 }
-fs.copyFileSync("skills/agent-graph/SKILL.md", path.join(dist, "guide.md"));
+fs.copyFileSync("skills/agent-graph-authoring/SKILL.md", path.join(dist, "guide.md"));
+
+// Type-check kit (dist/typecheck): `age check` / flow_check type-check flow files with
+// it, so authoring mistakes TypeScript can see (a typo'd variable, a wrong form field
+// type, a missing start input) are reported without anything installed in the project.
+// TypeScript itself (minified), the ES libs, Node's types, and the declarations of
+// agent-graph-engine and @nanobpm/workflow, laid out so module resolution finds them.
+const kit = path.join(dist, "typecheck");
+const nm = path.join(root, "node_modules");
+fs.mkdirSync(kit, { recursive: true });
+await build({ entryPoints: [path.join(nm, "typescript/lib/typescript.js")], outfile: path.join(kit, "ts.cjs"), platform: "node", format: "cjs", minify: true, logLevel: "error" });
+// The default lib location is next to ts.cjs.
+for (const f of fs.readdirSync(path.join(nm, "typescript/lib")))
+  if (/^lib\.(es\d{4}|es5|decorators)[\w.]*\.d\.ts$/.test(f)) fs.copyFileSync(path.join(nm, "typescript/lib", f), path.join(kit, f));
+const copyDts = (from, to) => {
+  for (const e of fs.readdirSync(from, { withFileTypes: true })) {
+    const src = path.join(from, e.name);
+    if (e.isDirectory()) copyDts(src, path.join(to, e.name));
+    else if (e.name.endsWith(".d.ts") || e.name === "package.json") {
+      fs.mkdirSync(to, { recursive: true });
+      fs.copyFileSync(src, path.join(to, e.name));
+    }
+  }
+};
+copyDts(path.join(nm, "@types/node"), path.join(kit, "node_modules/@types/node"));
+copyDts(path.join(nm, "undici-types"), path.join(kit, "node_modules/undici-types"));
+copyDts(path.join(nm, "@nanobpm/workflow"), path.join(kit, "node_modules/@nanobpm/workflow"));
+execFileSync(
+  path.join(nm, ".bin", "tsc"),
+  ["src/index.ts", "--declaration", "--emitDeclarationOnly", "--allowImportingTsExtensions", "--rewriteRelativeImportExtensions", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2023", "--types", "node", "--skipLibCheck", "--strict", "--outDir", path.join(kit, "agent-graph-engine")],
+  { cwd: root, stdio: "inherit" },
+);
+let kitBytes = 0;
+const sizeOf = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) e.isDirectory() ? sizeOf(path.join(d, e.name)) : (kitBytes += fs.statSync(path.join(d, e.name)).size); };
+sizeOf(kit);
+console.log(`dist/typecheck/  ${(kitBytes / 1024).toFixed(0)} kB`);
 
 for (const f of fs.readdirSync(dist)) console.log(`dist/${f}  ${(fs.statSync(path.join(dist, f)).size / 1024).toFixed(0)} kB`);

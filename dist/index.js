@@ -805,6 +805,14 @@ function claimName(ctx, id, name) {
     throw new Error(`duplicate step name "${name}" in flow "${id}"`);
   ctx.seen.add(name);
 }
+function startInput(id, contracts) {
+  const c = contracts.Start;
+  if (!c)
+    return void 0;
+  if (c.out)
+    throw new Error(`flow "${id}": the Start contract takes only \`in\` (the flow's input), not \`out\``);
+  return c.in;
+}
 function contractEnvelopes(ctx, name) {
   const c = ctx.contracts[name];
   if (!c || !c.in && !c.out)
@@ -961,6 +969,9 @@ function defineFlow(id, second, third) {
   const flow = { kind: "declarative", id, steps, handlers };
   if (ctx.startTimer)
     flow.startTimer = ctx.startTimer;
+  const input = startInput(id, contracts);
+  if (input)
+    flow.input = input;
   return flow;
 }
 var feel = (expr) => `=${expr}`;
@@ -1013,8 +1024,56 @@ function envelope(name, fields) {
     assertIdent("envelope field name", f.name);
   return new EnvelopeDef(name, list);
 }
+var DATETIME = /^\d{4}-\d{2}-\d{2}([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:?\d{2})?)?$/;
+function scalarProblem(type, v) {
+  switch (type) {
+    case "string":
+      return typeof v === "string" ? void 0 : "must be a string";
+    case "boolean":
+      return typeof v === "boolean" ? void 0 : "must be true or false";
+    case "number":
+      return typeof v === "number" && Number.isFinite(v) ? void 0 : "must be a number";
+    case "integer":
+      return typeof v === "number" && Number.isInteger(v) ? void 0 : "must be a whole number";
+    case "datetime":
+      return typeof v === "string" && DATETIME.test(v) && !Number.isNaN(Date.parse(v)) ? void 0 : "must be an ISO 8601 date or date-time";
+  }
+}
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function validateEnvelope(env, value) {
+  if (!isRecord(value))
+    return [{ field: "", message: `${env.name} must be an object` }];
+  const problems = [];
+  for (const f of env.fields) {
+    const v = value[f.name];
+    if (v === void 0 || v === null) {
+      if (!f.optional)
+        problems.push({ field: f.name, message: "is required" });
+      continue;
+    }
+    if (f.list) {
+      if (!Array.isArray(v)) {
+        problems.push({ field: f.name, message: "must be a list" });
+        continue;
+      }
+      const bad = v.findIndex((item) => scalarProblem(f.type, item) !== void 0);
+      if (bad >= 0)
+        problems.push({ field: f.name, message: `item ${bad} ${scalarProblem(f.type, v[bad])}` });
+      continue;
+    }
+    const p = scalarProblem(f.type, v);
+    if (p)
+      problems.push({ field: f.name, message: p });
+  }
+  return problems;
+}
 
 // src/index.ts
+function defineStartForm(_input, hints) {
+  return hints;
+}
 var jobContext = globalThis[/* @__PURE__ */ Symbol.for("agent-graph.job")] ??= new AsyncLocalStorage();
 function jobProject() {
   return jobContext.getStore()?.project;
@@ -1104,10 +1163,12 @@ export {
   defineAgents,
   defineFlow,
   defineForms,
+  defineStartForm,
   envelope,
   jobProject,
   jobSignal,
   projectPath,
   runInProject,
-  sh
+  sh,
+  validateEnvelope
 };

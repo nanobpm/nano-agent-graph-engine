@@ -164,7 +164,11 @@ async function startFlow($, flowId, input) {
   const text = (input || '').trim()
   let variables
   if (!text) variables = {}
-  else {
+  else if (/^[A-Za-z_][\w]*\s*=/.test(text)) {
+    // name=value pairs (quote values with spaces); the engine converts them to the input's types
+    variables = {}
+    for (const m of text.matchAll(/([A-Za-z_][\w]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))/g)) variables[m[1]] = m[2] ?? m[3] ?? m[4]
+  } else {
     try {
       variables = JSON.parse(text)
     } catch {
@@ -417,7 +421,9 @@ export function register(on) {
             Input({
               key: 'inputs-' + f.id,
               label: 'Inputs',
-              placeholder: 'JSON variables, or describe it in words for Claude',
+              placeholder: f.input
+                ? f.input.fields.map((x) => x.name + '=…').join(' ') + '  (' + f.input.fields.map((x) => x.name + (x.optional ? '?' : '') + ': ' + x.type + (x.list ? '[]' : '')).join(', ') + '), JSON, or words for Claude'
+                : 'JSON variables, or describe it in words for Claude',
               value: '',
               submitLabel: 'start',
               autoFocus: true,

@@ -3,18 +3,22 @@
 // Claude Code hooks run through.
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { checkProject, formatProblems } from "./compile.ts";
+import { addTypeProblems, checkFile, checkProject, formatProblems } from "./compile.ts";
 import { resolveProject } from "./paths.ts";
 import { EngineClient } from "./client.ts";
 import { summarize } from "./summary.ts";
+import { parseStartArgs } from "./input.ts";
 
 const HELP = `age — Agent Graph Engine
 
-  age check                     compile + lint flows/*.flow.ts (writes nothing)
+  age check [file] [--json]     type-check, compile and lint flows/*.flow.ts (or one file);
+                                exit code 1 on errors. Writes nothing. --no-types skips tsc
   age up                        start the engine (one per user) if needed, print its URL
   age down                      stop the engine
   age status                    flows here; runs, open tasks, incidents in every project
-  age start <flow> [json]       start an instance with variables
+  age start <flow> [--field value …] [json] [--title t]
+                                start an instance: input fields as flags (or name=value),
+                                and/or a JSON object; the engine converts and checks them
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
@@ -53,9 +57,14 @@ function parseVars(s?: string): Record<string, unknown> {
 async function main() {
   switch (cmd) {
     case "check": {
-      const r = await checkProject(project);
-      if (!r.length) console.log(`no flows in ${path.join(project, "flows")}`);
-      else console.log(formatProblems(r));
+      const json = rest.includes("--json");
+      const file = rest.find((a) => !a.startsWith("--"));
+      const r = file ? [await checkFile(path.resolve(file))] : await checkProject(project);
+      const typed = rest.includes("--no-types") || addTypeProblems(r);
+      if (json)
+        console.log(JSON.stringify({ ok: !r.some((x) => x.problems.some((p) => p.severity === "error")), typesChecked: typed && !rest.includes("--no-types"), files: r.map((x) => ({ file: x.file, flows: x.flows.map((f) => ({ id: f.id, input: f.input })), problems: x.problems })) }, null, 2));
+      else if (!r.length) console.log(`no flows in ${path.join(project, "flows")}`);
+      else console.log(formatProblems(r) + (typed ? "" : "\n(type check skipped: dist/typecheck missing — rebuild the plugin)"));
       process.exitCode = r.some((x) => x.problems.some((p) => p.severity === "error")) ? 1 : 0;
       return;
     }
@@ -108,7 +117,9 @@ async function main() {
     }
     case "start": {
       const c = await EngineClient.connect(project);
-      const r = await c.start(rest[0], parseVars(rest[1]));
+      if (!rest[0]) throw new Error("usage: age start <flow> [--field value …] [json]");
+      const { variables, title } = parseStartArgs(rest.slice(1));
+      const r = await c.start(rest[0], variables, title, "cli");
       console.log(`started instance ${r.instanceKey} — ${c.explorerUrl(`instance=${r.instanceKey}`)}`);
       return;
     }

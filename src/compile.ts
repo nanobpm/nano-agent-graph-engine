@@ -6,7 +6,9 @@ import { declarativeToLayoutedBpmn, inlineJobTypes, walkNodes } from "@nanobpm/w
 import type { AgentOptions, FormDef } from "./index.ts";
 import { allProfiles, type AgentProfile } from "./agents.ts";
 import { newEngine } from "./wasm.ts";
+import { hintProblems, inputForm, type FlowInput, type StartFormHints } from "./input.ts";
 import { installResolveHook } from "./resolve-hook.ts";
+import { typecheckFlows } from "./typecheck.ts";
 
 export { installResolveHook };
 
@@ -58,6 +60,10 @@ export interface CompiledFlow {
    *  (~/AgentGraph/flows), available in every project and run there. */
   scope: "project" | "global";
   description?: string;
+  /** The flow's input (its `Start` contract's envelope), if it declares one. */
+  input?: FlowInput;
+  /** The start form derived from the input and `export const startForm` hints. */
+  startForm?: FormDef;
 }
 
 export interface CheckResult {
@@ -156,13 +162,18 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
     if (mod.workers) {
       for (const [type, h] of Object.entries(mod.workers)) if (typeof h === "function") handlers[type] = h as any;
     }
+    const input: FlowInput | undefined = authored.input
+      ? { name: authored.input.name, fields: authored.input.fields.map((f: any) => ({ name: f.name, type: f.type, optional: !!f.optional, list: !!f.list })) }
+      : undefined;
+    const hints: StartFormHints | undefined = mod.startForm;
+    for (const message of hintProblems(input, hints)) problems.push({ severity: "error", element: "Start", message });
     // The engine is the final judge: deploy into a throwaway engine.
     try {
       newEngine().deploy(xml);
     } catch (e: any) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file, stamp, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : undefined, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file, stamp, xml, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : undefined, projectDir, scope: "project", description: mod.description, input, startForm: input ? inputForm(input, hints) : undefined });
   }
   return { file, flows, problems };
 }
@@ -171,6 +182,16 @@ export async function checkProject(project: string, keyFor?: (id: string) => str
   const out: CheckResult[] = [];
   for (const f of listFlowFiles(project)) out.push(await checkFile(f, keyFor));
   return out;
+}
+
+/** Add type errors to check results (authoring checks: `age check`, flow_check,
+ *  flow_write — the daemon doesn't type-check, it loads flows with types stripped).
+ *  Returns false when the type-check kit isn't available. */
+export function addTypeProblems(results: CheckResult[]): boolean {
+  const types = typecheckFlows(results.map((r) => r.file));
+  if (!types) return false;
+  for (const r of results) r.problems.push(...(types.get(path.resolve(r.file)) ?? []).map(({ severity, message }) => ({ severity, message })));
+  return true;
 }
 
 export function formatProblems(results: CheckResult[]): string {

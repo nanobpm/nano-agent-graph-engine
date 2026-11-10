@@ -4,8 +4,21 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import path from "node:path";
 
-export { defineFlow, envelope } from "@nanobpm/workflow";
-export type { FlowBuilder, Job, JsonObject } from "@nanobpm/workflow";
+export { defineFlow, envelope, validateEnvelope } from "@nanobpm/workflow";
+export type { Envelope, EnvelopeProblem, FlowBuilder, Job, JsonObject, StartVars } from "@nanobpm/workflow";
+export type { StartFormHints } from "./input.ts";
+
+/** Display hints for the start form of a flow with an input (`{ Start: { in: Input } }`):
+ *  a title, a description, and per field a title, description, choices (`enum`) or default.
+ *  The fields come from the input, which this takes so field names are type-checked.
+ *  Export the result as `startForm`. */
+export function defineStartForm<E extends import("@nanobpm/workflow").Envelope<any>>(
+  _input: E,
+  hints: Omit<import("./input.ts").StartFormHints, "fields"> & { fields?: { [K in keyof E["type"] & string]?: NonNullable<import("./input.ts").StartFormHints["fields"]>[string] } },
+): import("./input.ts").StartFormHints {
+  // Optional mapped keys widen to `| undefined`; the hints are read the same either way.
+  return hints as import("./input.ts").StartFormHints;
+}
 
 /** A field of a human-task form. Mirrors the MCP elicitation primitive schema, so a
  *  form can be asked in Claude Code (elicitation dialog) and in the web explorer. */

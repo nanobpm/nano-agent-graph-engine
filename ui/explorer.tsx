@@ -363,6 +363,78 @@ function InboxView({ state, taskKey, go }: { state: any; taskKey?: string; go: (
   );
 }
 
+/** The fields of a form (task form or start form), as controlled inputs. */
+function FormFields({ form, values, setValues }: { form: any; values: Record<string, unknown>; setValues: (v: Record<string, unknown>) => void }) {
+  const required = new Set<string>(form.required ?? []);
+  const fields = Object.entries<any>(form.fields ?? {});
+  return (
+    <>
+      {fields.map(([name, f]) => (
+        <label key={name} className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">
+            {f.title ?? name}
+            {required.has(name) ? " *" : ""}
+          </span>
+          {f.description && <span className="text-xs text-fg-muted">{f.description}</span>}
+          {f.type === "boolean" ? (
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={!!values[name]}
+              onChange={(e) => setValues({ ...values, [name]: e.target.checked })}
+            />
+          ) : f.enum ? (
+            <select className={inputClass} value={String(values[name] ?? "")} onChange={(e) => setValues({ ...values, [name]: e.target.value })}>
+              {/* A required choice without a default starts on a placeholder: otherwise the
+                  browser shows the first option while the value is still empty. */}
+              {required.has(name) ? (
+                values[name] === undefined || values[name] === "" ? (
+                  <option value="" disabled>
+                    Choose…
+                  </option>
+                ) : null
+              ) : (
+                <option value="" />
+              )}
+              {f.enum.map((v: string, i: number) => (
+                <option key={v} value={v}>
+                  {f.enumNames?.[i] ?? v}
+                </option>
+              ))}
+            </select>
+          ) : f.type === "number" || f.type === "integer" ? (
+            <input
+              type="number"
+              className={inputClass}
+              value={String(values[name] ?? "")}
+              onChange={(e) => setValues({ ...values, [name]: e.target.value })}
+            />
+          ) : f.format === "date-time" || f.format === "date" ? (
+            <input
+              type={f.format === "date" ? "date" : "datetime-local"}
+              className={inputClass}
+              value={String(values[name] ?? "")}
+              onChange={(e) => setValues({ ...values, [name]: e.target.value })}
+            />
+          ) : (
+            <textarea
+              rows={3}
+              className={inputClass}
+              value={String(values[name] ?? "")}
+              onChange={(e) => setValues({ ...values, [name]: e.target.value })}
+            />
+          )}
+        </label>
+      ))}
+    </>
+  );
+}
+
+/** Initial values for a form: defaults, else unchecked / empty. */
+function formDefaults(form: any): Record<string, unknown> {
+  return Object.fromEntries(Object.entries<any>(form.fields ?? {}).map(([name, f]) => [name, f.default ?? (f.type === "boolean" ? false : "")]));
+}
+
 function TaskForm({ task, onDone }: { task: any; onDone: () => void }) {
   const form = task.form ?? { fields: { response: { type: "string", title: "Your answer" } } };
   const required = new Set<string>(form.required ?? []);
@@ -409,56 +481,7 @@ function TaskForm({ task, onDone }: { task: any; onDone: () => void }) {
           </div>
         </div>
         {form.description && <pre className="whitespace-pre-wrap rounded-md bg-inset p-3 text-sm">{form.description}</pre>}
-        {fields.map(([name, f]) => (
-          <label key={name} className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">
-              {f.title ?? name}
-              {required.has(name) ? " *" : ""}
-            </span>
-            {f.description && <span className="text-xs text-fg-muted">{f.description}</span>}
-            {f.type === "boolean" ? (
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={!!values[name]}
-                onChange={(e) => setValues({ ...values, [name]: e.target.checked })}
-              />
-            ) : f.enum ? (
-              <select className={inputClass} value={String(values[name] ?? "")} onChange={(e) => setValues({ ...values, [name]: e.target.value })}>
-                {/* A required choice without a default starts on a placeholder: otherwise the
-                    browser shows the first option while the value is still empty. */}
-                {required.has(name) ? (
-                  values[name] === undefined || values[name] === "" ? (
-                    <option value="" disabled>
-                      Choose…
-                    </option>
-                  ) : null
-                ) : (
-                  <option value="" />
-                )}
-                {f.enum.map((v: string, i: number) => (
-                  <option key={v} value={v}>
-                    {f.enumNames?.[i] ?? v}
-                  </option>
-                ))}
-              </select>
-            ) : f.type === "number" || f.type === "integer" ? (
-              <input
-                type="number"
-                className={inputClass}
-                value={String(values[name] ?? "")}
-                onChange={(e) => setValues({ ...values, [name]: e.target.value })}
-              />
-            ) : (
-              <textarea
-                rows={3}
-                className={inputClass}
-                value={String(values[name] ?? "")}
-                onChange={(e) => setValues({ ...values, [name]: e.target.value })}
-              />
-            )}
-          </label>
-        ))}
+        <FormFields form={form} values={values} setValues={setValues} />
         {error && <ErrorText>{error}</ErrorText>}
         <div>
           <Button type="submit" variant="primary" disabled={busy}>
@@ -571,13 +594,25 @@ function segments(state: any): [string, any[], ReactNode][] {
 function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: string) => void }) {
   // Project flows run in their project; global ones in the project shown (else the library).
   const where: string = flow.project ?? (scope || home || "");
+  // A flow with an input gets a form; the engine converts and checks the values.
+  const form = flow.startForm;
   const [title, setTitle] = useState("");
+  const [values, setValues] = useState<Record<string, unknown>>(() => (form ? formDefaults(form) : {}));
+  const [advanced, setAdvanced] = useState(!form);
   const [vars, setVars] = useState("{}");
   const [error, setError] = useState("");
   async function start(e: FormEvent) {
     e.preventDefault();
+    setError("");
     try {
-      const variables = JSON.parse(vars || "{}");
+      let extra: Record<string, unknown>;
+      try {
+        extra = JSON.parse(vars || "{}");
+      } catch {
+        return setError("More variables must be a JSON object");
+      }
+      const fromForm = form ? Object.fromEntries(Object.entries(values).filter(([, v]) => v !== "")) : {};
+      const variables = { ...extra, ...fromForm };
       const r = await api("/api/start", { flowId: flow.key, variables, title: title || undefined, project: where || undefined });
       go(`/instances?instance=${r.instanceKey}`);
     } catch (err: any) {
@@ -588,7 +623,7 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
     <div className="flex max-w-3xl flex-col gap-6">
       <form onSubmit={start} className="flex flex-col gap-3">
         <h2 className="flex items-center gap-2 text-base font-semibold">
-          Start {flow.id}
+          {form?.title ?? `Start ${flow.id}`}
           {flow.scope === "global" && (
             <span title={flow.file}>
               <Badge tone="info">global</Badge>
@@ -596,11 +631,30 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
           )}
         </h2>
         <p className="-mt-2 text-xs text-fg-muted">
-          Runs in <code title={where}>{tilde(where)}</code>
+          {form?.title ? `${flow.id} · ` : ""}Runs in <code title={where}>{tilde(where)}</code>
           {flow.scope === "global" && !scope && " — pick a project above to run it there"}
         </p>
-        <input className={inputClass} placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <textarea className={`${inputClass} font-mono`} rows={4} value={vars} onChange={(e) => setVars(e.target.value)} aria-label="Variables (JSON)" />
+        {form?.description && <p className="text-sm">{form.description}</p>}
+        {form && <FormFields form={form} values={values} setValues={setValues} />}
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Run title</span>
+          <input className={inputClass} placeholder="Optional — shown in the instance list" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        {form && (
+          <button type="button" className="self-start text-xs text-fg-muted underline" onClick={() => setAdvanced(!advanced)}>
+            {advanced ? "Hide" : "Advanced:"} more variables (JSON)
+          </button>
+        )}
+        {advanced && (
+          <textarea
+            className={`${inputClass} font-mono`}
+            rows={4}
+            value={vars}
+            onChange={(e) => setVars(e.target.value)}
+            aria-label="Variables (JSON)"
+            title={form ? "Extra variables; the form's fields win on a clash" : "Start variables"}
+          />
+        )}
         {error && <ErrorText>{error}</ErrorText>}
         <div>
           <Button type="submit" variant="primary">

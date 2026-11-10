@@ -1181,14 +1181,27 @@ ${props.join("\n")}
         return nodeXml + (nodeXml && flowXml ? "\n" : "") + flowXml;
       }
       /** Render the Start event — a plain none start, or a timer start when the
-       *  flow declared `startOn(...)`. */
+       *  flow declared `startOn(...)` — carrying the flow's input envelope, if any. */
       renderStart(outg) {
         const t = this.flow.startTimer;
-        if (!t)
-          return `    <bpmn:startEvent id="Start">${outgoingOnly(outg)}</bpmn:startEvent>`;
+        const input2 = this.flow.input;
+        this.recordEnvelope(input2);
+        const ext = input2 ? `      <bpmn:extensionElements>
+        <zeebe:properties>
+${envelopeProp("in", input2.name)}
+        </zeebe:properties>
+      </bpmn:extensionElements>
+` : "";
+        if (!t) {
+          if (!ext)
+            return `    <bpmn:startEvent id="Start">${outgoingOnly(outg)}</bpmn:startEvent>`;
+          return `    <bpmn:startEvent id="Start">
+${ext}      ${outgoingOnly(outg)}
+    </bpmn:startEvent>`;
+        }
         const body2 = t.cycle !== void 0 ? `<bpmn:timeCycle>${escapeXml(t.cycle)}</bpmn:timeCycle>` : t.after !== void 0 ? `<bpmn:timeDuration>${escapeXml(t.after)}</bpmn:timeDuration>` : `<bpmn:timeDate>${escapeXml(requireStartAt(t))}</bpmn:timeDate>`;
         return `    <bpmn:startEvent id="Start">
-      ${outgoingOnly(outg)}
+` + ext + `      ${outgoingOnly(outg)}
       <bpmn:timerEventDefinition>
         ${body2}
       </bpmn:timerEventDefinition>
@@ -1367,9 +1380,9 @@ function bind(fn, target) {
 function assign(target, ...others) {
   return Object.assign(target, ...others);
 }
-function set(target, path10, value) {
+function set(target, path11, value) {
   let currentTarget = target;
-  forEach(path10, function(key, idx) {
+  forEach(path11, function(key, idx) {
     if (typeof key !== "number" && typeof key !== "string") {
       throw new Error("illegal key type: " + typeof key + ". Key should be of type number or string.");
     }
@@ -1379,7 +1392,7 @@ function set(target, path10, value) {
     if (key === "__proto__") {
       throw new Error("illegal key: __proto__");
     }
-    let nextKey = path10[idx + 1];
+    let nextKey = path11[idx + 1];
     let nextTarget = currentTarget[key];
     if (isDefined(nextKey) && isNil(nextTarget)) {
       nextTarget = currentTarget[key] = isNaN(+nextKey) ? {} : [];
@@ -8087,7 +8100,7 @@ function findCompactFlowRegions(records, graphEdges, outgoing, edgeOrder) {
       ];
     });
     const primaryEdge = selectPrimaryEdge(split, branches, edgeOrder, /* @__PURE__ */ new Set(), outgoing);
-    const primaryPath = paths.find((path10) => path10[0] === primaryEdge);
+    const primaryPath = paths.find((path11) => path11[0] === primaryEdge);
     regions.push({ split, join, paths, primaryPath });
   }
   return regions;
@@ -8125,13 +8138,13 @@ function shortestFlowPath(start, target, outgoing, edgeOrder, blocked) {
       visited.add(edge.targetRef);
       previous.set(edge.targetRef, edge);
       if (edge.targetRef === target) {
-        const path10 = [];
+        const path11 = [];
         for (let current = target; current !== start; ) {
           const previousEdge = previous.get(current);
-          path10.unshift(previousEdge);
+          path11.unshift(previousEdge);
           current = previousEdge.sourceRef;
         }
-        return path10;
+        return path11;
       }
       pending.push(edge.targetRef);
     }
@@ -8145,18 +8158,18 @@ function createCompactRankWeights(regions) {
   const weights = /* @__PURE__ */ new Map();
   for (const { paths, primaryPath } of regions) {
     const span = primaryPath.length;
-    for (const path10 of paths) {
-      if (path10 === primaryPath) {
+    for (const path11 of paths) {
+      if (path11 === primaryPath) {
         continue;
       }
-      const internalCount = path10.length - 1;
+      const internalCount = path11.length - 1;
       const offsets = [0];
       for (let index = 1; index <= internalCount; index++) {
         const offset = internalCount === 1 ? Math.floor(span / 2) : Math.floor((index - 1) * span / (internalCount - 1));
         offsets.push(offset);
       }
       offsets.push(span);
-      path10.forEach((edge, index) => {
+      path11.forEach((edge, index) => {
         const weight = offsets[index + 1] - offsets[index];
         const existing = weights.get(edge);
         weights.set(edge, existing === void 0 ? weight : Math.min(existing, weight));
@@ -8333,21 +8346,21 @@ function selectPrimaryEdge(node2, edges, edgeOrder, visited = /* @__PURE__ */ ne
   const preferred = endReaching.length ? endReaching : candidates;
   return preferred.find((edge) => edge === defaultEdge) || [...preferred].sort((a, b) => edgeOrder.get(a) - edgeOrder.get(b))[0];
 }
-function canReachEndEvent(node2, outgoing, path10) {
+function canReachEndEvent(node2, outgoing, path11) {
   if (is(node2, "bpmn:EndEvent")) {
     return true;
   }
-  if (path10.has(node2)) {
+  if (path11.has(node2)) {
     return false;
   }
-  path10.add(node2);
+  path11.add(node2);
   for (const edge of outgoing.get(node2) || []) {
-    if (canReachEndEvent(edge.targetRef, outgoing, path10)) {
-      path10.delete(node2);
+    if (canReachEndEvent(edge.targetRef, outgoing, path11)) {
+      path11.delete(node2);
       return true;
     }
   }
-  path10.delete(node2);
+  path11.delete(node2);
   return false;
 }
 function branchOffset(index, oneSided = false) {
@@ -14061,6 +14074,58 @@ var init_layout = __esm({
   }
 });
 
+// node_modules/@nanobpm/workflow/dist/envelope.js
+function scalarProblem(type, v2) {
+  switch (type) {
+    case "string":
+      return typeof v2 === "string" ? void 0 : "must be a string";
+    case "boolean":
+      return typeof v2 === "boolean" ? void 0 : "must be true or false";
+    case "number":
+      return typeof v2 === "number" && Number.isFinite(v2) ? void 0 : "must be a number";
+    case "integer":
+      return typeof v2 === "number" && Number.isInteger(v2) ? void 0 : "must be a whole number";
+    case "datetime":
+      return typeof v2 === "string" && DATETIME.test(v2) && !Number.isNaN(Date.parse(v2)) ? void 0 : "must be an ISO 8601 date or date-time";
+  }
+}
+function isRecord2(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function validateEnvelope(env, value) {
+  if (!isRecord2(value))
+    return [{ field: "", message: `${env.name} must be an object` }];
+  const problems = [];
+  for (const f2 of env.fields) {
+    const v2 = value[f2.name];
+    if (v2 === void 0 || v2 === null) {
+      if (!f2.optional)
+        problems.push({ field: f2.name, message: "is required" });
+      continue;
+    }
+    if (f2.list) {
+      if (!Array.isArray(v2)) {
+        problems.push({ field: f2.name, message: "must be a list" });
+        continue;
+      }
+      const bad = v2.findIndex((item) => scalarProblem(f2.type, item) !== void 0);
+      if (bad >= 0)
+        problems.push({ field: f2.name, message: `item ${bad} ${scalarProblem(f2.type, v2[bad])}` });
+      continue;
+    }
+    const p2 = scalarProblem(f2.type, v2);
+    if (p2)
+      problems.push({ field: f2.name, message: p2 });
+  }
+  return problems;
+}
+var DATETIME;
+var init_envelope = __esm({
+  "node_modules/@nanobpm/workflow/dist/envelope.js"() {
+    DATETIME = /^\d{4}-\d{2}-\d{2}([Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([Zz]|[+-]\d{2}:?\d{2})?)?$/;
+  }
+});
+
 // node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
@@ -14283,10 +14348,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path10) {
-  if (!path10)
+function getElementAtPath(obj, path11) {
+  if (!path11)
     return obj;
-  return path10.reduce((acc, key) => acc?.[key], obj);
+  return path11.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14545,11 +14610,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path10, issues) {
+function prefixIssues(path11, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path10);
+    iss.path.unshift(path11);
     return iss;
   });
 }
@@ -15082,16 +15147,16 @@ function flattenError(error64, mapper = (issue2) => issue2.message) {
 }
 function formatError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error65, path10 = []) => {
+  const processError = (error65, path11 = []) => {
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else {
-        const fullpath = [...path10, ...issue2.path];
+        const fullpath = [...path11, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -15130,17 +15195,17 @@ function formatError(error64, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error64, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error65, path10 = []) => {
+  const processError = (error65, path11 = []) => {
     var _a3;
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else {
-        const fullpath = [...path10, ...issue2.path];
+        const fullpath = [...path11, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -15179,8 +15244,8 @@ function treeifyError(error64, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path10) {
+  const path11 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path11) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -33212,13 +33277,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path10 = ref.slice(1).split("/").filter(Boolean);
-  if (path10.length === 0) {
+  const path11 = ref.slice(1).split("/").filter(Boolean);
+  if (path11.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path10[0] === defsKey) {
-    const key = path10[1] === void 0 ? void 0 : decodeJSONPointerSegment(path10[1]);
+  if (path11[0] === defsKey) {
+    const key = path11[1] === void 0 ? void 0 : decodeJSONPointerSegment(path11[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -34474,6 +34539,7 @@ var init_dist7 = __esm({
   "node_modules/@nanobpm/workflow/dist/index.js"() {
     init_declarative();
     init_layout();
+    init_envelope();
   }
 });
 
@@ -36661,6 +36727,123 @@ var init_wasm = __esm({
   }
 });
 
+// src/input.ts
+function inputForm(input2, hints = {}) {
+  const fields = {};
+  const required2 = [];
+  for (const f2 of input2.fields) {
+    const h2 = hints.fields?.[f2.name] ?? {};
+    const base = { title: h2.title ?? f2.name, description: h2.description };
+    let field;
+    if (f2.list) {
+      field = { type: "string", ...base, description: [h2.description, `A list of ${f2.type} values, separated by commas or new lines.`].filter(Boolean).join(" ") };
+      if (typeof h2.default === "string") field.default = h2.default;
+    } else if (f2.type === "boolean") {
+      field = { type: "boolean", ...base };
+      if (typeof h2.default === "boolean") field.default = h2.default;
+    } else if (f2.type === "integer" || f2.type === "number") {
+      field = { type: f2.type, ...base, minimum: h2.minimum, maximum: h2.maximum };
+      if (typeof h2.default === "number") field.default = h2.default;
+    } else {
+      field = { type: "string", ...base, enum: h2.enum, enumNames: h2.enumNames };
+      if (f2.type === "datetime") field.format = "date-time";
+      if (typeof h2.default === "string") field.default = h2.default;
+    }
+    fields[f2.name] = stripUndefined(field);
+    if (!f2.optional) required2.push(f2.name);
+  }
+  return stripUndefined({ title: hints.title, description: hints.description, fields, required: required2 });
+}
+function hintProblems(input2, hints) {
+  if (!hints) return [];
+  if (!input2) return ["startForm is exported but the flow declares no input \u2014 add { Start: { in: envelope(...) } } to defineFlow"];
+  const out = [];
+  const byName = new Map(input2.fields.map((f2) => [f2.name, f2]));
+  for (const [name2, h2] of Object.entries(hints.fields ?? {})) {
+    const f2 = byName.get(name2);
+    if (!f2) {
+      out.push(`startForm field "${name2}" is not in the input ${input2.name} (fields: ${input2.fields.map((x) => x.name).join(", ")})`);
+      continue;
+    }
+    if (h2.enum && (f2.type !== "string" || f2.list)) out.push(`startForm field "${name2}": enum needs a single string field, ${input2.name}.${name2} is ${describeType(f2)}`);
+    if (h2.default !== void 0 && validateOne(f2, h2.default)) out.push(`startForm field "${name2}": default ${JSON.stringify(h2.default)} ${validateOne(f2, h2.default)}`);
+  }
+  return out;
+}
+function validateOne(f2, v2) {
+  if (f2.list) return typeof v2 === "string" ? void 0 : "must be text (comma-separated values)";
+  return validateEnvelope({ name: "default", fields: [{ ...f2, optional: true }] }, { [f2.name]: v2 })[0]?.message;
+}
+function describeType(f2) {
+  return `${f2.list ? "list of " : ""}${f2.type}${f2.optional ? " (optional)" : ""}`;
+}
+function coerceInput(input2, raw) {
+  const out = { ...raw };
+  for (const f2 of input2.fields) {
+    const v2 = raw[f2.name];
+    if (typeof v2 === "string" && v2.trim() === "") {
+      delete out[f2.name];
+      continue;
+    }
+    if (f2.list) {
+      const items = typeof v2 === "string" ? v2.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) : v2;
+      out[f2.name] = Array.isArray(items) ? items.map((x) => scalar(f2.type, x)) : items;
+    } else if (v2 !== void 0) out[f2.name] = scalar(f2.type, v2);
+  }
+  return out;
+}
+function scalar(type, v2) {
+  if (typeof v2 !== "string") return v2;
+  const s = v2.trim();
+  if (type === "integer" || type === "number") return s !== "" && Number.isFinite(Number(s)) ? Number(s) : v2;
+  if (type === "boolean") {
+    if (/^(true|yes|y|on|1)$/i.test(s)) return true;
+    if (/^(false|no|n|off|0)$/i.test(s)) return false;
+  }
+  return type === "string" ? v2 : s;
+}
+function checkInput(input2, raw) {
+  const variables = coerceInput(input2, raw);
+  return { variables, problems: validateEnvelope(input2, variables) };
+}
+function formatInputProblems(flowId, problems) {
+  return `invalid input for ${flowId}: ${problems.map((p2) => p2.field ? `${p2.field} ${p2.message}` : p2.message).join("; ")}`;
+}
+function describeInput(input2) {
+  return input2.fields.map((f2) => `${f2.name}${f2.optional ? "?" : ""}: ${f2.list ? `${f2.type}[]` : f2.type}`).join(", ");
+}
+function stripUndefined(o) {
+  for (const k2 of Object.keys(o)) if (o[k2] === void 0) delete o[k2];
+  return o;
+}
+function parseStartArgs(args) {
+  const variables = {};
+  let title;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    let m2;
+    if (a.trim().startsWith("{")) {
+      try {
+        Object.assign(variables, JSON.parse(a));
+      } catch {
+        throw new Error(`variables must be JSON, got: ${a}`);
+      }
+    } else if (m2 = a.match(/^--([A-Za-z_][\w-]*)(?:=(.*))?$/s)) {
+      const value = m2[2] ?? (args[i + 1] !== void 0 && !args[i + 1].startsWith("--") ? args[++i] : true);
+      if (m2[1] === "title") title = String(value);
+      else variables[m2[1]] = value;
+    } else if (m2 = a.match(/^([A-Za-z_]\w*)=(.*)$/s)) variables[m2[1]] = m2[2];
+    else throw new Error(`don't know what to do with "${a}": pass --field value, field=value or a JSON object`);
+  }
+  return { variables, title };
+}
+var init_input = __esm({
+  "src/input.ts"() {
+    "use strict";
+    init_dist7();
+  }
+});
+
 // src/resolve-hook.ts
 import fs4 from "node:fs";
 import module from "node:module";
@@ -36684,17 +36867,85 @@ var init_resolve_hook = __esm({
   }
 });
 
-// src/compile.ts
+// src/typecheck.ts
 import fs5 from "node:fs";
 import path3 from "node:path";
+import { createRequire as createRequire2 } from "node:module";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+function typecheckKit() {
+  const here = path3.dirname(fileURLToPath2(import.meta.url));
+  for (const dir of [path3.join(here, "typecheck"), path3.join(here, "..", "dist", "typecheck")])
+    if (fs5.existsSync(path3.join(dir, "ts.cjs"))) return dir;
+  return void 0;
+}
+function loadTs(kit) {
+  return tsCache ??= createRequire2(path3.join(kit, "ts.cjs"))("./ts.cjs");
+}
+function typecheckFlows(files) {
+  const kit = typecheckKit();
+  if (!kit) return void 0;
+  const roots = files.filter((f2) => /\.(ts|mts)$/.test(f2)).map((f2) => path3.resolve(f2));
+  const out = new Map(roots.map((f2) => [f2, []]));
+  if (!roots.length) return out;
+  const ts = loadTs(kit);
+  const options = {
+    strict: true,
+    noEmit: true,
+    target: ts.ScriptTarget.ES2023,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    allowImportingTsExtensions: true,
+    resolveJsonModule: true,
+    skipLibCheck: true,
+    lib: ["lib.es2023.d.ts"],
+    types: ["node"],
+    typeRoots: [path3.join(kit, "node_modules", "@types")],
+    // `import … from "agent-graph-engine"` resolves to the kit, like the engine's resolve hook.
+    paths: { "agent-graph-engine": [path3.join(kit, "agent-graph-engine", "index.d.ts")] }
+  };
+  const program = ts.createProgram(roots, options);
+  const diags = [...program.getSyntacticDiagnostics(), ...program.getSemanticDiagnostics(), ...program.getGlobalDiagnostics()];
+  for (const d2 of diags) {
+    const message = ts.flattenDiagnosticMessageText(d2.messageText, "\n");
+    if (!d2.file) {
+      for (const list of out.values()) list.push({ severity: "error", message: `TS${d2.code}: ${message}`, file: "", line: 0, column: 0, code: d2.code });
+      continue;
+    }
+    const file2 = path3.resolve(d2.file.fileName);
+    if (file2.startsWith(kit) || file2.includes(`${path3.sep}node_modules${path3.sep}`)) continue;
+    const { line, character } = d2.file.getLineAndCharacterOfPosition(d2.start ?? 0);
+    const owners = out.has(file2) ? [file2] : [roots[0]];
+    const where = path3.relative(path3.dirname(path3.dirname(owners[0])), file2) || path3.basename(file2);
+    for (const o of owners)
+      out.get(o).push({
+        severity: d2.category === ts.DiagnosticCategory.Error ? "error" : "warning",
+        message: `${where}:${line + 1}:${character + 1} TS${d2.code}: ${message}`,
+        file: file2,
+        line: line + 1,
+        column: character + 1,
+        code: d2.code
+      });
+  }
+  return out;
+}
+var tsCache;
+var init_typecheck = __esm({
+  "src/typecheck.ts"() {
+    "use strict";
+  }
+});
+
+// src/compile.ts
+import fs6 from "node:fs";
+import path4 from "node:path";
 import { pathToFileURL } from "node:url";
 function flowsDir(project2) {
-  return path3.join(project2, "flows");
+  return path4.join(project2, "flows");
 }
 function listFlowFiles(project2) {
   const dir = flowsDir(project2);
-  if (!fs5.existsSync(dir)) return [];
-  return fs5.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path3.join(dir, f2));
+  if (!fs6.existsSync(dir)) return [];
+  return fs6.readdirSync(dir).filter((f2) => /\.flow\.(ts|mts|js|mjs)$/.test(f2)).sort().map((f2) => path4.join(dir, f2));
 }
 function isFlow(v2) {
   return v2 && typeof v2 === "object" && v2.kind === "declarative" && typeof v2.id === "string" && Array.isArray(v2.steps);
@@ -36706,15 +36957,15 @@ async function checkFile(file2, keyFor = (id) => id) {
   let mod;
   let stamp = 0;
   try {
-    stamp = fs5.statSync(file2).mtimeMs;
-    mod = await import(`${pathToFileURL(path3.resolve(file2)).href}?v=${stamp}`);
+    stamp = fs6.statSync(file2).mtimeMs;
+    mod = await import(`${pathToFileURL(path4.resolve(file2)).href}?v=${stamp}`);
   } catch (e) {
-    problems.push({ severity: "error", message: `cannot load ${path3.basename(file2)}: ${e?.message ?? e}` });
+    problems.push({ severity: "error", message: `cannot load ${path4.basename(file2)}: ${e?.message ?? e}` });
     return { file: file2, flows, problems };
   }
   const forms = mod.forms ?? {};
   const found2 = Object.values(mod).filter(isFlow);
-  if (!found2.length) problems.push({ severity: "error", message: `${path3.basename(file2)} exports no defineFlow(...) flow` });
+  if (!found2.length) problems.push({ severity: "error", message: `${path4.basename(file2)} exports no defineFlow(...) flow` });
   for (const authored of found2) {
     const flow = { ...authored, id: keyFor(authored.id) };
     let xml3;
@@ -36746,7 +36997,7 @@ async function checkFile(file2, keyFor = (id) => id) {
           message: `human("${h2.name}") uses form "${h2.form}" which is not in the exported forms \u2014 it will be asked as free text`
         });
     }
-    const projectDir = path3.dirname(path3.dirname(path3.resolve(file2)));
+    const projectDir = path4.dirname(path4.dirname(path4.resolve(file2)));
     for (const t of tasks) {
       const builtin = t.jobType in BUILTIN_JOB_TYPES;
       if (!builtin && !(mod.workers && typeof mod.workers[t.jobType] === "function"))
@@ -36760,18 +37011,21 @@ async function checkFile(file2, keyFor = (id) => id) {
       const use = mod.agents?.[t.name]?.use ?? (t.agent ? mod.defaultAgent : void 0);
       if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
         problems.push({ severity: "error", element: t.name, message: `agent profile "${use}" is unknown (known: ${Object.keys(allProfiles(mod.agentProfiles)).join(", ")}; add it to agentProfiles or ~/.agent-graph/agents.json)` });
-      if (t.prompt && !fs5.existsSync(path3.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
+      if (t.prompt && !fs6.existsSync(path4.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
     if (mod.workers) {
       for (const [type, h2] of Object.entries(mod.workers)) if (typeof h2 === "function") handlers[type] = h2;
     }
+    const input2 = authored.input ? { name: authored.input.name, fields: authored.input.fields.map((f2) => ({ name: f2.name, type: f2.type, optional: !!f2.optional, list: !!f2.list })) } : void 0;
+    const hints = mod.startForm;
+    for (const message of hintProblems(input2, hints)) problems.push({ severity: "error", element: "Start", message });
     try {
       newEngine().deploy(xml3);
     } catch (e) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml3, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : void 0, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml3, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : void 0, projectDir, scope: "project", description: mod.description, input: input2, startForm: input2 ? inputForm(input2, hints) : void 0 });
   }
   return { file: file2, flows, problems };
 }
@@ -36780,12 +37034,18 @@ async function checkProject(project2, keyFor) {
   for (const f2 of listFlowFiles(project2)) out.push(await checkFile(f2, keyFor));
   return out;
 }
+function addTypeProblems(results) {
+  const types2 = typecheckFlows(results.map((r2) => r2.file));
+  if (!types2) return false;
+  for (const r2 of results) r2.problems.push(...(types2.get(path4.resolve(r2.file)) ?? []).map(({ severity, message }) => ({ severity, message })));
+  return true;
+}
 function formatProblems(results) {
   const lines = [];
   for (const r2 of results) {
     const ids = r2.flows.map((f2) => f2.id).join(", ");
     const errs = r2.problems.filter((p2) => p2.severity === "error").length;
-    lines.push(`${errs ? "\u2717" : "\u2713"} ${path3.basename(r2.file)}${ids ? ` (${ids})` : ""}`);
+    lines.push(`${errs ? "\u2717" : "\u2713"} ${path4.basename(r2.file)}${ids ? ` (${ids})` : ""}`);
     for (const p2 of r2.problems) lines.push(`  ${p2.severity}${p2.element ? ` [${p2.element}]` : ""}: ${p2.message}`);
   }
   return lines.join("\n");
@@ -36797,7 +37057,9 @@ var init_compile2 = __esm({
     init_dist7();
     init_agents();
     init_wasm();
+    init_input();
     init_resolve_hook();
+    init_typecheck();
     BUILTIN_JOB_TYPES = {
       claude: "headless Claude Code agent (claude -p) \u2014 prompt from flows/prompts/<resourceId>",
       session: "claimed by the live Claude Code session through the MCP tools (agent_next_job)"
@@ -36835,8 +37097,8 @@ var init_client = __esm({
         return `${this.url}/?project=${encodeURIComponent(this.project)}${hash2 ? `#${hash2}` : ""}`;
       }
       /** Any engine route (the MCP App's ui_api proxy). */
-      call(path10, body2) {
-        return api(this.info, path10, body2);
+      call(path11, body2) {
+        return api(this.info, path11, body2);
       }
       /** Engine state: this project's flows and work (work elsewhere is marked); `all` for everything. */
       state(all = false) {
@@ -36884,14 +37146,15 @@ var init_client = __esm({
 });
 
 // src/summary.ts
-import path4 from "node:path";
+import path5 from "node:path";
 function summarize(state, project2) {
-  const here = project2 ? path4.resolve(project2) : state.project;
-  const where = (p2) => p2 && p2 !== here ? ` [${path4.basename(p2)}]` : "";
+  const here = project2 ? path5.resolve(project2) : state.project;
+  const where = (p2) => p2 && p2 !== here ? ` [${path5.basename(p2)}]` : "";
   const lines = [];
   lines.push(`project: ${here ?? "(all)"}`);
-  const own2 = state.flows.filter((f2) => f2.scope !== "global").map((f2) => f2.id);
-  const global2 = state.flows.filter((f2) => f2.scope === "global").map((f2) => f2.id);
+  const sig = (f2) => f2.input ? `${f2.id}(${f2.input.fields.map((x) => `${x.name}${x.optional ? "?" : ""}: ${x.type}${x.list ? "[]" : ""}`).join(", ")})` : f2.id;
+  const own2 = state.flows.filter((f2) => f2.scope !== "global").map(sig);
+  const global2 = state.flows.filter((f2) => f2.scope === "global").map(sig);
   lines.push(`project flows: ${own2.join(", ") || "(none \u2014 add flows/*.flow.ts)"}`);
   if (global2.length) lines.push(`global flows (${tilde(state.globalDir)}/flows): ${global2.join(", ")}`);
   for (const p2 of state.problems) for (const q of p2.problems) lines.push(`  ${q.severity} ${p2.file}: ${q.message}`);
@@ -36935,14 +37198,14 @@ var init_src = __esm({
 });
 
 // node_modules/@nanobpm/agentic/dist/session/acp/protocol.js
-function isRecord2(value) {
+function isRecord3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function optBool(record2, field) {
   return record2[field] === true;
 }
 function readPromptCapabilities(value) {
-  if (!isRecord2(value)) {
+  if (!isRecord3(value)) {
     return { image: false, audio: false, embeddedContext: false };
   }
   return {
@@ -36952,7 +37215,7 @@ function readPromptCapabilities(value) {
   };
 }
 function parseInitializeResult(value) {
-  if (!isRecord2(value)) {
+  if (!isRecord3(value)) {
     throw new AcpProtocolError(`initialize result must be an object, got ${typeof value}`);
   }
   const protocolVersion = value.protocolVersion;
@@ -36960,7 +37223,7 @@ function parseInitializeResult(value) {
     throw new AcpProtocolError(`initialize result "protocolVersion" must be an integer, got ${String(protocolVersion)}`);
   }
   const rawAgentCapabilities = value.agentCapabilities;
-  const caps = isRecord2(rawAgentCapabilities) ? rawAgentCapabilities : {};
+  const caps = isRecord3(rawAgentCapabilities) ? rawAgentCapabilities : {};
   return {
     protocolVersion,
     agentCapabilities: {
@@ -36971,7 +37234,7 @@ function parseInitializeResult(value) {
   };
 }
 function parseSessionId(value) {
-  if (!isRecord2(value)) {
+  if (!isRecord3(value)) {
     throw new AcpProtocolError(`session result must be an object, got ${typeof value}`);
   }
   const sessionId = value.sessionId;
@@ -36992,7 +37255,7 @@ function contentBlockText(value) {
     }
     return parts.length > 0 ? parts.join("") : null;
   }
-  if (!isRecord2(value))
+  if (!isRecord3(value))
     return null;
   const type = value.type;
   if (type === "text") {
@@ -37000,7 +37263,7 @@ function contentBlockText(value) {
   }
   if (type === "resource") {
     const resource = value.resource;
-    if (isRecord2(resource) && typeof resource.text === "string") {
+    if (isRecord3(resource) && typeof resource.text === "string") {
       return resource.text;
     }
     return null;
@@ -37036,7 +37299,7 @@ var init_protocol = __esm({
 
 // node_modules/@nanobpm/agentic/dist/session/acp/jsonrpc.js
 function toRpcError(error64) {
-  if (isRecord2(error64)) {
+  if (isRecord3(error64)) {
     const code = typeof error64.code === "number" ? error64.code : INTERNAL_ERROR;
     const message = typeof error64.message === "string" ? error64.message : "ACP request failed";
     return new AcpRpcError(code, message, error64.data);
@@ -37114,7 +37377,7 @@ var init_jsonrpc = __esm({
         this.#transport.close();
       }
       #dispatch(message) {
-        if (!isRecord2(message))
+        if (!isRecord3(message))
           return;
         const hasId = "id" in message && (typeof message.id === "number" || typeof message.id === "string");
         const isResponse = hasId && ("result" in message || "error" in message);
@@ -37213,7 +37476,7 @@ function classifyToolCallUpdate(update) {
   return { kind: "tool-result", callId, ok: status === "completed", result, ...hasArgs ? { args: update.rawInput } : {} };
 }
 function classifyUpdate(value) {
-  if (!isRecord2(value)) {
+  if (!isRecord3(value)) {
     return ignored("<none>", `update must be an object, got ${typeof value}`);
   }
   const sessionUpdate = value.sessionUpdate;
@@ -37240,11 +37503,11 @@ function classifyUsageUpdate(update) {
     return ignored("usage_update", `usage_update needs non-negative integer "used" and "size"`);
   }
   const cost = update.cost;
-  const validCost = isRecord2(cost) && typeof cost.amount === "number" && Number.isFinite(cost.amount) && typeof cost.currency === "string" ? { amount: cost.amount, currency: cost.currency } : void 0;
+  const validCost = isRecord3(cost) && typeof cost.amount === "number" && Number.isFinite(cost.amount) && typeof cost.currency === "string" ? { amount: cost.amount, currency: cost.currency } : void 0;
   return { kind: "context-usage", used, size, ...validCost ? { cost: validCost } : {} };
 }
 function parsePromptUsage(result) {
-  if (!isRecord2(result) || !isRecord2(result.usage))
+  if (!isRecord3(result) || !isRecord3(result.usage))
     return void 0;
   const u2 = result.usage;
   if (!nonNegInt(u2.inputTokens) || !nonNegInt(u2.outputTokens))
@@ -37277,14 +37540,14 @@ function sameMessage(a, b) {
   return a === b;
 }
 function readStopReason(result) {
-  if (isRecord2(result) && typeof result.stopReason === "string")
+  if (isRecord3(result) && typeof result.stopReason === "string")
     return result.stopReason;
   return null;
 }
 function defaultPermissionResponse(params) {
-  if (isRecord2(params) && Array.isArray(params.options)) {
+  if (isRecord3(params) && Array.isArray(params.options)) {
     for (const option of params.options) {
-      if (!isRecord2(option))
+      if (!isRecord3(option))
         continue;
       const kind = option.kind;
       if (typeof kind === "string" && kind.startsWith("allow") && typeof option.optionId === "string") {
@@ -37430,7 +37693,7 @@ var init_client2 = __esm({
         }
       }
       #ingest(params) {
-        if (!isRecord2(params))
+        if (!isRecord3(params))
           return;
         const sessionId = params.sessionId;
         if (this.#sessionId !== void 0 && typeof sessionId === "string" && sessionId !== this.#sessionId) {
@@ -37553,7 +37816,7 @@ function bool(body2, key) {
 function toRole(value) {
   return ROLES.find((role) => role === value) ?? "assistant";
 }
-function isRecord3(value) {
+function isRecord4(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 function decodePermissionOptions(value) {
@@ -37561,7 +37824,7 @@ function decodePermissionOptions(value) {
     return void 0;
   const options = [];
   for (const raw of value) {
-    if (!isRecord3(raw))
+    if (!isRecord4(raw))
       return void 0;
     const optionId = str(raw, "optionId");
     const name2 = str(raw, "name");
@@ -38272,12 +38535,12 @@ var init_notify = __esm({
 });
 
 // src/explorer-html.ts
-import fs6 from "node:fs";
+import fs7 from "node:fs";
 function explorerHtml() {
   if (cached2) return cached2;
   for (const rel of ["./explorer.html", "../dist/explorer.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs6.existsSync(u2)) return cached2 = fs6.readFileSync(u2, "utf8");
+    if (fs7.existsSync(u2)) return cached2 = fs7.readFileSync(u2, "utf8");
   }
   return "<!doctype html><title>Agent Graph Engine</title><p>Explorer not built \u2014 run <code>npm run build</code>. API: <a href=/api/state>/api/state</a>";
 }
@@ -38285,7 +38548,7 @@ function appHtml() {
   if (cachedApp) return cachedApp;
   for (const rel of ["./explorer-app.html", "../dist/explorer-app.html"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs6.existsSync(u2)) return cachedApp = fs6.readFileSync(u2, "utf8");
+    if (fs7.existsSync(u2)) return cachedApp = fs7.readFileSync(u2, "utf8");
   }
   return "<!doctype html><p>Explorer not built \u2014 run <code>npm run build</code>.";
 }
@@ -38297,7 +38560,7 @@ var init_explorer_html = __esm({
 });
 
 // src/explorer-api.ts
-import path5 from "node:path";
+import path6 from "node:path";
 function instanceFacts(events) {
   const out = /* @__PURE__ */ new Map();
   const jobs = /* @__PURE__ */ new Map();
@@ -38442,7 +38705,7 @@ function instanceView(host, f2, live, incidentOpen) {
     has_incident: incidentOpen,
     business_id: f2.businessId ?? meta3?.title ?? null,
     suspendedDate: null,
-    tags: [path5.basename(project2), ...meta3?.title ? [meta3.title] : []],
+    tags: [path6.basename(project2), ...meta3?.title ? [meta3.title] : []],
     parent_process_instance_key: f2.parentKey,
     parent_element_instance_key: f2.parentElementKey
   };
@@ -38459,7 +38722,7 @@ function listInstances(host, q) {
   const page = Math.max(0, Number(q.page ?? 0) || 0);
   const pageSize = Math.min(200, Math.max(1, Number(q.pageSize ?? 50)));
   const all = [...facts.values()].map((f2) => instanceView(host, f2, live.get(f2.key), openIncidents.has(f2.key))).filter(
-    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path5.resolve(q.project))
+    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path6.resolve(q.project))
   ).sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
   return { items: all.slice(page * pageSize, (page + 1) * pageSize), total: all.length, page, pageSize };
 }
@@ -38541,11 +38804,11 @@ var init_explorer_api = __esm({
 });
 
 // src/step-pool.ts
-import fs7 from "node:fs";
+import fs8 from "node:fs";
 import { Worker as Thread } from "node:worker_threads";
 function threadUrl() {
   const js = new URL("./step-thread.js", import.meta.url);
-  return fs7.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
+  return fs8.existsSync(js) ? js : new URL("./step-thread.ts", import.meta.url);
 }
 var GRACE_MS, StepPool;
 var init_step_pool = __esm({
@@ -38733,11 +38996,12 @@ var init_worker = __esm({
 var daemon_exports = {};
 __export(daemon_exports, {
   Host: () => Host,
+  InputError: () => InputError,
   serve: () => serve
 });
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 import http from "node:http";
-import path6 from "node:path";
+import path7 from "node:path";
 import crypto3 from "node:crypto";
 function agentMode() {
   const m2 = process.env.AGE_AGENT_MODE ?? "auto";
@@ -38785,11 +39049,11 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   const watch = () => {
     for (const root of [host.home, ...host.projects]) {
       const dir = flowsDir(root);
-      if (watched.has(dir) || !fs8.existsSync(dir)) continue;
+      if (watched.has(dir) || !fs9.existsSync(dir)) continue;
       try {
         watched.set(
           dir,
-          fs8.watch(dir, { recursive: true }, () => {
+          fs9.watch(dir, { recursive: true }, () => {
             clearTimeout(reloadTimer);
             reloadTimer = setTimeout(() => host.reload().catch(() => {
             }), 300);
@@ -38846,7 +39110,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       const b = await body(req);
       if (p2 === "/api/reload") return send(res, 200, await host.reload());
       if (p2 === "/api/projects") {
-        if (typeof b.path !== "string" || !path6.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
+        if (typeof b.path !== "string" || !path7.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
         if (host.addProject(b.path)) {
           await host.reload();
           watch();
@@ -38870,15 +39134,16 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       }
       return send(res, 404, { error: "not found" });
     } catch (e) {
+      if (e instanceof InputError) return send(res, 400, { error: e.message, problems: e.problems });
       return send(res, 400, { error: String(e?.message ?? e) });
     }
   });
-  const infoFile = path6.join(host.dir, "daemon.json");
+  const infoFile = path7.join(host.dir, "daemon.json");
   function shutdown() {
     host.stop();
     try {
-      const cur = JSON.parse(fs8.readFileSync(infoFile, "utf8"));
-      if (cur.pid === process.pid) fs8.unlinkSync(infoFile);
+      const cur = JSON.parse(fs9.readFileSync(infoFile, "utf8"));
+      if (cur.pid === process.pid) fs9.unlinkSync(infoFile);
     } catch {
     }
     server.close();
@@ -38898,10 +39163,10 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   server.on("close", () => v6.close());
   const info = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
   host.baseUrl = info.url;
-  fs8.writeFileSync(infoFile, JSON.stringify(info, null, 2));
+  fs9.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
-var WORKER, TICK_MS, MAX_CONCURRENT, STEP_THREADS, MIN, jobTimeoutMs, Host;
+var InputError, WORKER, TICK_MS, MAX_CONCURRENT, STEP_THREADS, MIN, jobTimeoutMs, Host;
 var init_daemon = __esm({
   "src/daemon.ts"() {
     "use strict";
@@ -38917,6 +39182,14 @@ var init_daemon = __esm({
     init_explorer_api();
     init_step_pool();
     init_worker();
+    init_input();
+    InputError = class extends Error {
+      problems;
+      constructor(message, problems) {
+        super(message);
+        this.problems = problems;
+      }
+    };
     WORKER = "age-daemon";
     TICK_MS = 500;
     MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
@@ -38926,7 +39199,7 @@ var init_daemon = __esm({
     Host = class {
       /** The global flow library (~/AgentGraph): its flows are offered in every project.
        *  Claude Desktop, which has no project, works there. */
-      home = path6.resolve(defaultHome());
+      home = path7.resolve(defaultHome());
       dir;
       /** Projects whose flows/ this engine loads (registered by clients as they connect). */
       projects = [];
@@ -38960,7 +39233,7 @@ var init_daemon = __esm({
       });
       constructor(dir = engineDir()) {
         this.dir = dir;
-        fs8.mkdirSync(path6.join(this.dir, "compiled"), { recursive: true });
+        fs9.mkdirSync(path7.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
         this.worker = new Worker(
           {
@@ -38983,13 +39256,13 @@ var init_daemon = __esm({
             onError: (job, err) => this.agentUnavailable(job, err)
           }
         );
-        const journal = path6.join(this.dir, "journal.json");
-        if (fs8.existsSync(journal)) {
-          this.engine.replayEvents(fs8.readFileSync(journal, "utf8"));
+        const journal = path7.join(this.dir, "journal.json");
+        if (fs9.existsSync(journal)) {
+          this.engine.replayEvents(fs9.readFileSync(journal, "utf8"));
           this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
         }
         this.deployed = this.readJson("deployed.json", {});
-        this.projects = this.readJson("projects.json", []).filter((p2) => fs8.existsSync(p2));
+        this.projects = this.readJson("projects.json", []).filter((p2) => fs9.existsSync(p2));
         this.instanceMeta = this.readJson("instances.json", {});
         this.announce();
         this.activity = this.readJson("activity.json", []);
@@ -38999,22 +39272,22 @@ var init_daemon = __esm({
       }
       readJson(name2, dflt) {
         try {
-          return JSON.parse(fs8.readFileSync(path6.join(this.dir, name2), "utf8"));
+          return JSON.parse(fs9.readFileSync(path7.join(this.dir, name2), "utf8"));
         } catch {
           return dflt;
         }
       }
       writeAtomic(name2, data) {
-        const p2 = path6.join(this.dir, name2);
-        fs8.writeFileSync(`${p2}.tmp`, data);
-        fs8.renameSync(`${p2}.tmp`, p2);
+        const p2 = path7.join(this.dir, name2);
+        fs9.writeFileSync(`${p2}.tmp`, data);
+        fs9.renameSync(`${p2}.tmp`, p2);
       }
       /** Desktop notification for each new incident or waiting user task. */
       announce() {
         try {
           const snap = this.snapshot();
           const link = (instanceKey, hash2) => this.baseUrl ? `${this.baseUrl}/?project=${encodeURIComponent(this.projectOf(instanceKey))}#${hash2}` : void 0;
-          const where = (instanceKey) => path6.basename(this.projectOf(instanceKey));
+          const where = (instanceKey) => path7.basename(this.projectOf(instanceKey));
           const notices = [
             ...(snap.incidents ?? []).map((i) => ({
               key: `incident:${i.key}`,
@@ -39077,7 +39350,7 @@ var init_daemon = __esm({
       /** Add a project (its flows/ are loaded and watched). Idempotent. The library itself
        *  is not a project: its flows are global. Returns whether it was new. */
       addProject(dir) {
-        const p2 = path6.resolve(dir);
+        const p2 = path7.resolve(dir);
         if (p2 === this.home || this.projects.includes(p2)) return false;
         this.projects.push(p2);
         this.touch();
@@ -39087,7 +39360,7 @@ var init_daemon = __esm({
       /** "~/…" for paths under the home dir, for display. */
       tilde(p2) {
         const h2 = process.env.HOME;
-        return h2 && (p2 === h2 || p2.startsWith(h2 + path6.sep)) ? `~${p2.slice(h2.length)}` : p2;
+        return h2 && (p2 === h2 || p2.startsWith(h2 + path7.sep)) ? `~${p2.slice(h2.length)}` : p2;
       }
       /** Compile every project's flows/ and the library's, and deploy every flow whose BPMN
        *  changed. Project flows deploy as "<projectSlug>.<id>", global ones as "<id>". */
@@ -39107,7 +39380,7 @@ var init_daemon = __esm({
           for (const f2 of r2.flows) {
             if (flows.has(f2.key)) continue;
             flows.set(f2.key, f2);
-            fs8.writeFileSync(path6.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
+            fs9.writeFileSync(path7.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
             const hash2 = crypto3.createHash("sha256").update(f2.xml).digest("hex");
             if (this.deployed[f2.key] !== hash2) {
               this.engine.deploy(f2.xml);
@@ -39127,19 +39400,19 @@ var init_daemon = __esm({
       /** The flow a name means in a project: the project's own, else the global one with
        *  that id. An exact key (e.g. "nanobpmn-1a2b.release") also works. */
       resolveFlow(ref, project2) {
-        if (project2 && path6.resolve(project2) !== this.home) {
+        if (project2 && path7.resolve(project2) !== this.home) {
           const own2 = this.flows.get(`${projectSlug(project2)}.${ref}`);
           if (own2) return own2;
         }
         const g = this.flows.get(ref);
-        return g && (g.scope === "global" || !project2 || path6.resolve(g.projectDir) === path6.resolve(project2)) ? g : void 0;
+        return g && (g.scope === "global" || !project2 || path7.resolve(g.projectDir) === path7.resolve(project2)) ? g : void 0;
       }
       /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
       flowsFor(project2) {
         const all = [...this.flows.values()];
         if (!project2) return all;
-        const p2 = path6.resolve(project2);
-        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path6.resolve(f2.projectDir) === p2);
+        const p2 = path7.resolve(project2);
+        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path7.resolve(f2.projectDir) === p2);
         const ids = new Set(own2.map((f2) => f2.id));
         return [...own2, ...all.filter((f2) => f2.scope === "global" && !ids.has(f2.id))];
       }
@@ -39153,14 +39426,19 @@ var init_daemon = __esm({
       /** Start a flow in a project (default: the library home). Global flows run in the
        *  project they were started from. */
       start(flowRef, variables = {}, title, project2, host) {
-        const where = path6.resolve(project2 ?? this.home);
+        const where = path7.resolve(project2 ?? this.home);
         if (where !== this.home) this.addProject(where);
         const flow = this.resolveFlow(flowRef, where);
         if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
+        if (flow.input) {
+          const checked = checkInput(flow.input, variables);
+          if (checked.problems.length) throw new InputError(formatInputProblems(flow.id, checked.problems), checked.problems);
+          variables = checked.variables;
+        }
         const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
         const key = String(s.created);
         this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title, host };
-        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path6.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
+        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path7.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
         this.persist();
         return key;
       }
@@ -39240,14 +39518,14 @@ var init_daemon = __esm({
         const flow = this.flows.get(job.bpmnProcessId);
         const task = flow?.tasks.find((t) => t.name === job.elementId);
         if (!flow || !task?.prompt) throw new Error(`no prompt bound to ${job.bpmnProcessId}/${job.elementId}`);
-        const promptFile = path6.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
+        const promptFile = path7.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
         const instanceKey = String(job.instanceKey);
         const agent = resolveAgent({ use: opts.use, flowDefault: flow.defaultAgent, host: this.instanceMeta[instanceKey]?.host, flowProfiles: flow.agentProfiles });
         if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
-        const instructions = fs8.readFileSync(promptFile, "utf8").trim();
+        const instructions = fs9.readFileSync(promptFile, "utf8").trim();
         const prompt = `${instructions}
 
 ## Context (process variables)
@@ -39330,10 +39608,10 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           activeElements: (i.activeElements ?? []).map((a) => a.elementId)
         }));
         return {
-          project: project2 ? path6.resolve(project2) : void 0,
+          project: project2 ? path7.resolve(project2) : void 0,
           home: this.home,
           globalDir: this.home,
-          projects: this.projects.map((p2) => ({ path: p2, name: path6.basename(p2), slug: projectSlug(p2) })),
+          projects: this.projects.map((p2) => ({ path: p2, name: path7.basename(p2), slug: projectSlug(p2) })),
           now: snap.now,
           eventCount: snap.eventCount,
           flows: this.flowsFor(project2).map((f2) => ({
@@ -39341,12 +39619,14 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             key: f2.key,
             scope: f2.scope,
             project: f2.scope === "project" ? f2.projectDir : void 0,
-            file: f2.scope === "project" ? path6.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
+            file: f2.scope === "project" ? path7.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
             description: f2.description,
             humans: f2.humans,
-            tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent }))
+            tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent })),
+            input: f2.input,
+            startForm: f2.startForm
           })),
-          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path6.resolve(project2)) : this.problems,
+          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path7.resolve(project2)) : this.problems,
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
           agentMode: this.agentMode,
@@ -39406,7 +39686,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
        *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
       claimJobs(type, max = 1, project2) {
         const types2 = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
-        const where = project2 ? path6.resolve(project2) : void 0;
+        const where = project2 ? path7.resolve(project2) : void 0;
         const open2 = (this.snapshot().jobs ?? []).filter((j2) => j2.state === "Created");
         const jobs = [];
         for (const t of types2) {
@@ -39423,7 +39703,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
         return jobs.map((j2) => {
           const flow = this.flows.get(j2.bpmnProcessId);
           const task = flow?.tasks.find((t) => t.name === j2.elementId);
-          const promptFile = task?.prompt ? path6.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
+          const promptFile = task?.prompt ? path7.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
           return {
             key: j2.key,
             flowId: flow?.id ?? j2.bpmnProcessId,
@@ -39431,7 +39711,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
-            prompt: promptFile && fs8.existsSync(promptFile) ? fs8.readFileSync(promptFile, "utf8") : void 0,
+            prompt: promptFile && fs9.existsSync(promptFile) ? fs9.readFileSync(promptFile, "utf8") : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
@@ -39910,8 +40190,8 @@ var init_parseUtil = __esm({
     init_errors3();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path10, errorMaps, issueData } = params;
-      const fullPath = [...path10, ...issueData.path || []];
+      const { data, path: path11, errorMaps, issueData } = params;
+      const fullPath = [...path11, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -40195,11 +40475,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path10, key) {
+      constructor(parent, value, path11, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path10;
+        this._path = path11;
         this._key = key;
       }
       get path() {
@@ -43655,11 +43935,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path10) {
-  if (path10.length === 0) {
+function getDotPath(path11) {
+  if (path11.length === 0) {
     return "object root";
   }
-  return path10.reduce((acc, seg, index) => {
+  return path11.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -51136,8 +51416,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path10) {
-      let input2 = path10;
+    function removeDotSegments(path11) {
+      let input2 = path11;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -51211,11 +51491,11 @@ var require_utils = __commonJS({
       }
       return output2.join("");
     }
-    function removeDotSegmentsRelative(path10) {
-      if (path10 === "" || path10[0] === "/") {
-        return removeDotSegments(path10);
+    function removeDotSegmentsRelative(path11) {
+      if (path11 === "" || path11[0] === "/") {
+        return removeDotSegments(path11);
       }
-      const segments = path10.split("/");
+      const segments = path11.split("/");
       const last = segments.length - 1;
       const output2 = [];
       let trailingDirectory = false;
@@ -51578,8 +51858,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
+        const path11 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -55116,12 +55396,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name2}"`);
       return f2;
     };
-    function addFormats(ajv, list, fs11, exportName) {
+    function addFormats(ajv, list, fs12, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f2 of list)
-        ajv.addFormat(f2, fs11[f2]);
+        ajv.addFormat(f2, fs12[f2]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -59319,16 +59599,16 @@ __export(mcp_exports, {
   runMcp: () => runMcp,
   runMcpHttp: () => runMcpHttp
 });
-import fs9 from "node:fs";
-import path7 from "node:path";
+import fs10 from "node:fs";
+import path8 from "node:path";
 function ensureModuleType(dir) {
-  const f2 = path7.join(dir, "package.json");
-  if (!fs9.existsSync(f2)) fs9.writeFileSync(f2, '{ "type": "module" }\n');
+  const f2 = path8.join(dir, "package.json");
+  if (!fs10.existsSync(f2)) fs10.writeFileSync(f2, '{ "type": "module" }\n');
 }
 function guideText() {
-  for (const rel of ["./guide.md", "../skills/agent-graph/SKILL.md"]) {
+  for (const rel of ["./guide.md", "../skills/agent-graph-authoring/SKILL.md"]) {
     const u2 = new URL(rel, import.meta.url);
-    if (fs9.existsSync(u2)) return fs9.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
+    if (fs10.existsSync(u2)) return fs10.readFileSync(u2, "utf8").replace(/^---[\s\S]*?---\n/, "");
   }
   return "guide not found";
 }
@@ -59351,12 +59631,13 @@ function createServer2(project2) {
     "flow_check",
     {
       title: "Compile and lint flows",
-      description: "Compile every flows/*.flow.ts in the project to BPMN (with diagram layout) and lint it: missing handlers, forms or prompt files, unknown job types, and whatever the engine rejects. Run after every edit to a flow. The daemon deploys flows that pass automatically.",
+      description: "Type-check every flows/*.flow.ts in the project (TypeScript, strict \u2014 type errors come with file:line:col), compile it to BPMN (with diagram layout) and lint it: missing handlers, forms or prompt files, unknown job types, start-form hints, and whatever the engine rejects. Run after every edit to a flow and fix every error until it reports none.",
       inputSchema: {}
     },
     guard(async () => {
       const r2 = await checkProject(project2);
-      if (!r2.length) return text(`No flows yet. Create ${path7.join(project2, "flows")}/<name>.flow.ts (see the agent-graph skill).`);
+      addTypeProblems(r2);
+      if (!r2.length) return text(`No flows yet. Create ${path8.join(project2, "flows")}/<name>.flow.ts (see the agent-graph-authoring skill or flow_guide).`);
       const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
@@ -59386,7 +59667,7 @@ ${guideText()}`))
     "flow_write",
     {
       title: "Write a flow",
-      description: "Create or replace flows/<name>.flow.ts (TypeScript, see flow_guide) and any prompt files for its agent steps (flows/prompts/<file>), then compile + lint it. If it passes it is deployed at once. Fix every reported error and write again.",
+      description: "Create or replace flows/<name>.flow.ts (TypeScript, see flow_guide) and any prompt files for its agent steps (flows/prompts/<file>), then type-check, compile and lint it. If it passes it is deployed at once. Fix every reported error and write again.",
       inputSchema: {
         name: external_exports.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('File name without extension, e.g. "release-notes"'),
         source: external_exports.string().describe("The full TypeScript source of the flow file"),
@@ -59395,12 +59676,13 @@ ${guideText()}`))
     },
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
-      fs9.mkdirSync(path7.join(dir, "prompts"), { recursive: true });
+      fs10.mkdirSync(path8.join(dir, "prompts"), { recursive: true });
       ensureModuleType(dir);
-      for (const [f2, body2] of Object.entries(prompts ?? {})) fs9.writeFileSync(path7.join(dir, "prompts", f2), body2);
-      const file2 = path7.join(dir, `${name2}.flow.ts`);
-      fs9.writeFileSync(file2, source);
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs10.writeFileSync(path8.join(dir, "prompts", f2), body2);
+      const file2 = path8.join(dir, `${name2}.flow.ts`);
+      fs10.writeFileSync(file2, source);
       const r2 = await checkFile(file2);
+      addTypeProblems([r2]);
       const bad = r2.problems.some((p2) => p2.severity === "error");
       let tail = "";
       if (!bad) {
@@ -59410,7 +59692,7 @@ ${guideText()}`))
 Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r2])}
-written ${path7.relative(project2, file2)}${tail}`, bad);
+written ${path8.relative(project2, file2)}${tail}`, bad);
     })
   );
   server.registerTool(
@@ -59422,7 +59704,7 @@ written ${path7.relative(project2, file2)}${tail}`, bad);
     },
     guard(async () => {
       const home = defaultHome();
-      const places = [[project2, "this project"], ...path7.resolve(home) !== path7.resolve(project2) ? [[home, "global (library)"]] : []];
+      const places = [[project2, "this project"], ...path8.resolve(home) !== path8.resolve(project2) ? [[home, "global (library)"]] : []];
       const out = [];
       for (const [dir, label] of places) {
         out.push(`## ${label} (${flowsDir(dir)})`);
@@ -59430,7 +59712,7 @@ written ${path7.relative(project2, file2)}${tail}`, bad);
         if (!files.length) out.push("(none)");
         for (const f2 of files) {
           const r2 = await checkFile(f2);
-          const name2 = path7.basename(f2).replace(/\.flow\.\w+$/, "");
+          const name2 = path8.basename(f2).replace(/\.flow\.\w+$/, "");
           const errs = r2.problems.filter((p2) => p2.severity === "error").length;
           for (const fl of r2.flows) {
             const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h2) => `${h2.name}(human)`), ...Object.keys(fl.handlers).map((h2) => h2.split(":").pop())];
@@ -59452,24 +59734,24 @@ written ${path7.relative(project2, file2)}${tail}`, bad);
     },
     guard(async ({ name: name2, overwrite }) => {
       const home = defaultHome();
-      if (path7.resolve(home) === path7.resolve(project2)) return text("This project is the library already.", true);
-      const src = listFlowFiles(home).find((f2) => path7.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
+      if (path8.resolve(home) === path8.resolve(project2)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f2) => path8.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
       if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
-      const dst = path7.join(flowsDir(project2), path7.basename(src));
-      if (fs9.existsSync(dst) && !overwrite) return text(`${path7.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
-      fs9.mkdirSync(path7.join(flowsDir(project2), "prompts"), { recursive: true });
+      const dst = path8.join(flowsDir(project2), path8.basename(src));
+      if (fs10.existsSync(dst) && !overwrite) return text(`${path8.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs10.mkdirSync(path8.join(flowsDir(project2), "prompts"), { recursive: true });
       ensureModuleType(flowsDir(project2));
-      fs9.copyFileSync(src, dst);
-      const copied = [path7.relative(project2, dst)];
+      fs10.copyFileSync(src, dst);
+      const copied = [path8.relative(project2, dst)];
       const r0 = await checkFile(src);
       for (const fl of r0.flows)
         for (const t of fl.tasks)
           if (t.prompt) {
-            const p2 = path7.join(flowsDir(home), "prompts", t.prompt.resourceId);
-            const q = path7.join(flowsDir(project2), "prompts", t.prompt.resourceId);
-            if (fs9.existsSync(p2) && (overwrite || !fs9.existsSync(q))) {
-              fs9.copyFileSync(p2, q);
-              copied.push(path7.relative(project2, q));
+            const p2 = path8.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path8.join(flowsDir(project2), "prompts", t.prompt.resourceId);
+            if (fs10.existsSync(p2) && (overwrite || !fs10.existsSync(q))) {
+              fs10.copyFileSync(p2, q);
+              copied.push(path8.relative(project2, q));
             }
           }
       const r2 = await checkFile(dst);
@@ -59489,13 +59771,13 @@ Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
     },
     guard(async ({ name: name2 }) => {
       const files = listFlowFiles(project2);
-      if (!name2) return text(files.length ? files.map((f3) => path7.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
-      const f2 = files.find((x) => path7.basename(x).replace(/\.flow\.\w+$/, "") === name2);
+      if (!name2) return text(files.length ? files.map((f3) => path8.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
+      const f2 = files.find((x) => path8.basename(x).replace(/\.flow\.\w+$/, "") === name2);
       if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
-      const pdir = path7.join(flowsDir(project2), "prompts");
-      const prompts = fs9.existsSync(pdir) ? fs9.readdirSync(pdir).map((p2) => `--- prompts/${p2}
-${fs9.readFileSync(path7.join(pdir, p2), "utf8")}`) : [];
-      return text([`--- ${path7.basename(f2)}`, fs9.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+      const pdir = path8.join(flowsDir(project2), "prompts");
+      const prompts = fs10.existsSync(pdir) ? fs10.readdirSync(pdir).map((p2) => `--- prompts/${p2}
+${fs10.readFileSync(path8.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path8.basename(f2)}`, fs10.readFileSync(f2, "utf8"), ...prompts].join("\n"));
     })
   );
   K3(
@@ -59562,7 +59844,7 @@ explorer: ${c.explorerUrl()}`);
     "flow_start",
     {
       title: "Start a flow",
-      description: "Start an instance of a flow in this project: one of its own flows/, or a global one from ~/AgentGraph/flows (it runs here, in this project). Returns the instance key; the engine runs it in the background (it keeps running after this session ends).",
+      description: `Start an instance of a flow in this project: one of its own flows/, or a global one from ~/AgentGraph/flows (it runs here, in this project). Returns the instance key; the engine runs it in the background (it keeps running after this session ends). A flow with an input lists it in flow_status as id(field: type, optional?: type): pass those fields as variables. The engine converts text ("42" \u2192 42, "yes" \u2192 true, "a, b" \u2192 a list) and refuses missing or wrong fields, naming each one \u2014 ask the user for what you can't infer.`,
       inputSchema: {
         flowId: external_exports.string(),
         variables: external_exports.record(external_exports.string(), external_exports.any()).optional().describe("Initial process variables"),
@@ -59728,6 +60010,7 @@ Or answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`
     })
   );
   const flowPrompts = /* @__PURE__ */ new Map();
+  const promptSigs = /* @__PURE__ */ new Map();
   server.syncFlowPrompts = async () => {
     const seen = /* @__PURE__ */ new Set();
     for (const f2 of listFlowFiles(project2)) {
@@ -59740,7 +60023,11 @@ Or answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`
       for (const fl of r2.flows) {
         const name2 = `start-${fl.id}`;
         seen.add(name2);
-        if (flowPrompts.has(name2)) continue;
+        const sig = JSON.stringify(fl.input ?? null) + (fl.description ?? "");
+        const known = flowPrompts.get(name2);
+        if (known && promptSigs.get(name2) === sig) continue;
+        if (known) known.remove(), flowPrompts.delete(name2);
+        promptSigs.set(name2, sig);
         const steps = [...fl.tasks.map((t) => t.name), ...fl.humans.map((h2) => h2.name)].join(", ");
         flowPrompts.set(
           name2,
@@ -59749,21 +60036,28 @@ Or answer in the explorer: ${c.explorerUrl(`task=${taskKey}`)}`
             {
               title: `Start flow: ${fl.id}`,
               description: fl.description || `Start the ${fl.id} flow (steps: ${steps})`,
-              argsSchema: { inputs: external_exports.string().optional().describe("What to run it on: plain words or JSON variables") }
+              argsSchema: fl.input ? inputArgs(fl.input, fl.startForm) : { inputs: external_exports.string().optional().describe("What to run it on: plain words or JSON variables") }
             },
-            ({ inputs }) => ({
-              messages: [
-                {
-                  role: "user",
-                  content: {
-                    type: "text",
-                    text: `Start the Agent Graph flow "${fl.id}"${fl.description ? ` (${fl.description})` : ""}.${inputs ? `
-Inputs: ${inputs}` : ""}
-Work out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask me only for what's missing and can't be inferred), call flow_start with a short title, then show_explorer for the new instance. If agent steps come to this session (session_job_next), do them.`
+            (args) => {
+              const given = Object.entries(args).filter(([, v2]) => v2 !== void 0 && v2 !== "");
+              const what = fl.input ? `${given.length ? `
+Inputs: ${given.map(([k2, v2]) => `${k2}=${JSON.stringify(v2)}`).join(", ")}` : ""}
+Its input is ${describeInput(fl.input)}. Pass these as flow_start variables; fill in what's missing from context or ask me. The engine converts text to these types and names any field it refuses.` : `${args.inputs ? `
+Inputs: ${args.inputs}` : ""}
+Work out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask me only for what's missing and can't be inferred).`;
+              return {
+                messages: [
+                  {
+                    role: "user",
+                    content: {
+                      type: "text",
+                      text: `Start the Agent Graph flow "${fl.id}"${fl.description ? ` (${fl.description})` : ""}.${what}
+Call flow_start with a short title, then show_explorer for the new instance. If agent steps come to this session (session_job_next), do them.`
+                    }
                   }
-                }
-              ]
-            })
+                ]
+              };
+            }
           )
         );
       }
@@ -59772,13 +60066,22 @@ Work out the start variables the flow reads (flow_read "${fl.id}" if unsure; ask
   };
   return server;
 }
+function inputArgs(input2, form) {
+  const out = {};
+  for (const f2 of input2.fields) {
+    const ff = form?.fields[f2.name] ?? {};
+    const desc = [ff.title && ff.title !== f2.name ? ff.title : "", ff.description, `(${describeType(f2)}${ff.enum ? `: one of ${ff.enum.join(", ")}` : ""})`].filter(Boolean).join(" ");
+    out[f2.name] = f2.optional ? external_exports.string().optional().describe(desc) : external_exports.string().describe(desc);
+  }
+  return out;
+}
 function watchFlowPrompts(server, project2) {
   const sync = () => server.syncFlowPrompts().catch(() => {
   });
   let t;
   try {
-    fs9.mkdirSync(flowsDir(project2), { recursive: true });
-    fs9.watch(flowsDir(project2), () => {
+    fs10.mkdirSync(flowsDir(project2), { recursive: true });
+    fs10.watch(flowsDir(project2), () => {
       clearTimeout(t);
       t = setTimeout(sync, 300);
     }).unref();
@@ -59826,6 +60129,7 @@ var init_mcp2 = __esm({
     init_stdio2();
     init_zod();
     init_compile2();
+    init_input();
     init_explorer_html();
     init_paths();
     init_client();
@@ -59846,8 +60150,8 @@ var hooks_exports = {};
 __export(hooks_exports, {
   runHook: () => runHook
 });
-import fs10 from "node:fs";
-import path8 from "node:path";
+import fs11 from "node:fs";
+import path9 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
   let s = "";
@@ -59864,7 +60168,7 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   const c = await EngineClient.find(project2);
   if (!c) return;
   const s = await c.state();
-  const here = (x) => !x.project || x.project === path8.resolve(project2);
+  const here = (x) => !x.project || x.project === path9.resolve(project2);
   const tasks = s.userTasks.filter(here);
   const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created" && here(j2));
   const incidents = s.incidents.filter(here);
@@ -59876,21 +60180,21 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
     ...event === "SessionStart" ? elsewhere.map((x) => `e${x.key}`) : []
   ].sort();
   if (!keys.length) return;
-  const seenFile = path8.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
+  const seenFile = path9.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
-      seen = JSON.parse(fs10.readFileSync(seenFile, "utf8"));
+      seen = JSON.parse(fs11.readFileSync(seenFile, "utf8"));
     } catch {
     }
     if (keys.every((k2) => seen.includes(k2))) return;
   }
-  fs10.writeFileSync(seenFile, JSON.stringify(keys));
+  fs11.writeFileSync(seenFile, JSON.stringify(keys));
   const lines = ["Agent Graph Engine \u2014 work waiting in this project's flows:"];
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);
   if (elsewhere.length) {
-    const names = [...new Set(elsewhere.map((x) => path8.basename(x.project)))];
+    const names = [...new Set(elsewhere.map((x) => path9.basename(x.project)))];
     lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) \u2014 flow_status lists them`);
   }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
@@ -59913,15 +60217,19 @@ init_compile2();
 init_paths();
 init_client();
 init_summary();
+init_input();
 import { spawn as spawn5 } from "node:child_process";
-import path9 from "node:path";
+import path10 from "node:path";
 var HELP = `age \u2014 Agent Graph Engine
 
-  age check                     compile + lint flows/*.flow.ts (writes nothing)
+  age check [file] [--json]     type-check, compile and lint flows/*.flow.ts (or one file);
+                                exit code 1 on errors. Writes nothing. --no-types skips tsc
   age up                        start the engine (one per user) if needed, print its URL
   age down                      stop the engine
   age status                    flows here; runs, open tasks, incidents in every project
-  age start <flow> [json]       start an instance with variables
+  age start <flow> [--field value \u2026] [json] [--title t]
+                                start an instance: input fields as flags (or name=value),
+                                and/or a JSON object; the engine converts and checks them
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
@@ -59943,7 +60251,7 @@ function arg(name2) {
   return v2;
 }
 var projectOpt = arg("--project");
-var project = projectOpt ? path9.resolve(projectOpt) : resolveProject();
+var project = projectOpt ? path10.resolve(projectOpt) : resolveProject();
 var [cmd, ...rest] = process.argv.slice(2);
 function parseVars(s) {
   if (!s) return {};
@@ -59956,9 +60264,14 @@ function parseVars(s) {
 async function main() {
   switch (cmd) {
     case "check": {
-      const r2 = await checkProject(project);
-      if (!r2.length) console.log(`no flows in ${path9.join(project, "flows")}`);
-      else console.log(formatProblems(r2));
+      const json5 = rest.includes("--json");
+      const file2 = rest.find((a) => !a.startsWith("--"));
+      const r2 = file2 ? [await checkFile(path10.resolve(file2))] : await checkProject(project);
+      const typed = rest.includes("--no-types") || addTypeProblems(r2);
+      if (json5)
+        console.log(JSON.stringify({ ok: !r2.some((x) => x.problems.some((p2) => p2.severity === "error")), typesChecked: typed && !rest.includes("--no-types"), files: r2.map((x) => ({ file: x.file, flows: x.flows.map((f2) => ({ id: f2.id, input: f2.input })), problems: x.problems })) }, null, 2));
+      else if (!r2.length) console.log(`no flows in ${path10.join(project, "flows")}`);
+      else console.log(formatProblems(r2) + (typed ? "" : "\n(type check skipped: dist/typecheck missing \u2014 rebuild the plugin)"));
       process.exitCode = r2.some((x) => x.problems.some((p2) => p2.severity === "error")) ? 1 : 0;
       return;
     }
@@ -60013,7 +60326,9 @@ explorer: ${c.explorerUrl()}`);
     }
     case "start": {
       const c = await EngineClient.connect(project);
-      const r2 = await c.start(rest[0], parseVars(rest[1]));
+      if (!rest[0]) throw new Error("usage: age start <flow> [--field value \u2026] [json]");
+      const { variables, title } = parseStartArgs(rest.slice(1));
+      const r2 = await c.start(rest[0], variables, title, "cli");
       console.log(`started instance ${r2.instanceKey} \u2014 ${c.explorerUrl(`instance=${r2.instanceKey}`)}`);
       return;
     }

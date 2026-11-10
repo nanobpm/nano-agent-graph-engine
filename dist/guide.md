@@ -1,45 +1,56 @@
 ---
-name: agent-graph
-description: Build and run durable workflows ("flows") in this project with the Agent Graph Engine — multi-step processes that mix shell scripts, headless Claude agents, work for this session, timers and human approvals, and that survive restarts. Use when the user wants to automate a repeatable multi-step process, a pipeline with review/approval steps, or something that waits (for time, a person, or an event); or asks about running flows, waiting tasks or incidents.
+name: agent-graph-authoring
+description: Write, change and debug Agent Graph flows — TypeScript files (flows/<name>.flow.ts) built with defineFlow that compile to BPMN; their typed input and start form, steps (code, agents, people, timers, parallel), forms and agent options — and check them in a loop with `age check` / flow_check until they type-check, compile and lint clean. Use whenever creating or editing a flow file.
 ---
 
-# Agent Graph Engine
+# Writing Agent Graph flows
 
-A flow is a TypeScript file in `flows/<name>.flow.ts` written with `defineFlow`. It
-compiles to BPMN (with a generated diagram) and runs in the user's engine — one for
-every project, with its event log in `~/.agent-graph/` — so instances survive restarts and
-keep running after this session ends. The engine starts on demand and redeploys flows
-when files change. `flow_status` and the explorer show runs in every project.
+A flow file is TypeScript in `flows/<name>.flow.ts`. It imports from
+`agent-graph-engine`, exports one or more `defineFlow(...)` flows, and is compiled to
+BPMN with a generated diagram. The engine redeploys it when the file changes. For
+running flows, answering tasks and fixing incidents, see the `agent-graph` skill.
 
-## Tools
+## The check loop: run it after every edit
 
-| Tool | Use |
-|---|---|
-| `flow_write` / `flow_read` | Write (or read) `flows/<name>.flow.ts` + prompt files and compile/lint it in one go — use these when you have no file access (Claude Desktop chat). |
-| `flow_list` / `flow_import` | List this project's flows and the global ones (`~/AgentGraph/flows`, where Claude Desktop keeps flows; startable in any project, where they run). Import copies a global flow here to customize it. |
-| `flow_check` | Compile + lint all flows. **Run after every edit**; fix every error. Deploys flows that pass. |
-| `show_explorer` | Show the live explorer inline (diagram with where runs are, task inbox with forms the user can fill in, incidents). |
-| `flow_start` | Start an instance (`flowId`, `variables`, optional `title`). |
-| `flow_status` | Overview, or one instance in detail (`instanceKey`). Gives the explorer URL. |
-| `task_list` / `task_ask` | Open user tasks. `task_ask` shows the form to the user in a dialog and completes the task with their answer. |
-| `task_complete` | Complete a task with an answer the user gave you in chat (when dialogs aren't available). |
-| `session_job_next` / `session_job_complete` / `session_job_fail` | Do work a flow assigned to *this* session. |
-| `flow_operate` | `retry` an incident after fixing its cause, `cancel` an instance, send a `message`. |
+```
+age check [flows/<name>.flow.ts] [--json]     # or the MCP tool flow_check; flow_write runs it too
+```
 
-Never answer a user task yourself: it is the person's decision. Use `task_ask`.
+It does three things:
 
-## Writing a flow
+- **Type-checks** the file (TypeScript strict mode, against the real `agent-graph-engine` and `@nanobpm/workflow` types and Node's). Errors come as `flows/x.flow.ts:12:5 TS2322: …`.
+- **Compiles** each flow to BPMN.
+- **Lints** it: missing `run` handlers, forms, prompt files and agent profiles, job types no worker serves, start-form hints that don't match the input, and whatever the engine refuses when it deploys the BPMN.
+
+Exit code 1 means errors; warnings don't fail. `--json` gives `{ ok, files: [{ file, flows: [{ id, input }], problems: [{ severity, element?, message }] }] }`.
+
+**Loop: edit → `age check` → fix every error → repeat until it reports `✓`.** Don't start runs of a flow that doesn't check clean. The engine still deploys a file with type errors (it strips types), so it would fail or carry wrong data at run time.
+Find the CLI at `<plugin>/dist/cli.js`. Without a shell (Claude Desktop), use `flow_write`, which writes the file and checks it, then `flow_check`.
+
+## A flow
 
 ```ts
 // flows/triage.flow.ts
-import { defineFlow, defineForms, defineAgents, sh, claude } from "agent-graph-engine";
+import { defineFlow, defineForms, defineAgents, defineStartForm, envelope, sh } from "agent-graph-engine";
 
-export const description = "Triage new GitHub issues";   // shown in the explorer
+export const description = "Triage a GitHub issue";      // shown in the explorer and to agents
+
+// The input: what a run is started with. Typed, checked when a run starts, and it
+// becomes the start form (explorer, /flows), the MCP prompt arguments and CLI flags.
+const Input = envelope("TriageInput", {
+  issue: "integer",
+  repo: "string",
+  labels: { type: "string", list: true, optional: true },
+});
+export const startForm = defineStartForm(Input, {          // optional display hints
+  title: "Triage an issue",
+  fields: { issue: { title: "Issue number" }, repo: { default: "nanobpm/nano-ide" } },
+});
 
 export const forms = defineForms({
   "triage-review": {
     title: "Confirm triage for #{{issue}}",
-    description: "{{summary}}",                          // {{var}} = instance variable
+    description: "{{summary}}",                            // {{var}} = instance variable
     fields: {
       action: { type: "string", enum: ["label", "close", "skip"] },
       comment: { type: "string", title: "Comment" },
@@ -49,21 +60,22 @@ export const forms = defineForms({
 });
 
 export const agents = defineAgents({
-  // options for the agent task "summarize" below
-  summarize: { schema: { type: "object", properties: { summary: { type: "string" }, labels: { type: "array", items: { type: "string" } } }, required: ["summary"] },
-               allowedTools: ["Bash(gh issue view:*)"], model: "sonnet" },
+  summarize: {                                             // options for the agent task below
+    schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
+    allowedTools: ["Bash(gh issue view:*)"],
+    model: "sonnet",
+  },
 });
 
-export const triage = defineFlow("triage", (w) => {
-  // run: code in this file (any Node). Return an object → merged into the variables.
+// Contracts are keyed by step name; `Start` is the flow's input. A step with an `in`
+// envelope gets typed job.variables.
+export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: Input } }, (w) => {
   w.run("fetch", async (job) => {
-    const r = await sh('gh issue view "$N" --json title,body', { env: { N: String(job.variables.issue) } });
-    return { issueJson: r.stdout };
+    const { issue, repo } = job.variables;                 // number, string
+    const r = await sh(`gh issue view ${issue} -R ${repo} --json title,body`);
+    return { issueJson: r.stdout };                        // merged into the variables
   });
-  // Agent task: headless `claude -p` with the prompt in flows/prompts/summarize.md;
-  // the instance variables are appended as JSON context. Result object → variables.
   w.task("summarize", { jobType: "claude", prompt: { resourceId: "summarize.md" } });
-  // Human step: waits for the user (task_ask / explorer).
   w.human("review", { form: "triage-review" });
   w.switch("action", {
     label: (b) => b.run("label", async (job) => { await sh(`gh issue edit ${job.variables.issue} --add-label triaged`); }),
@@ -73,38 +85,52 @@ export const triage = defineFlow("triage", (w) => {
 });
 ```
 
-### Steps
+## Input
 
-- `w.run(name, async (job) => vars)` — inline code. `job.variables` holds the instance variables. Throwing fails the job (3 tries with backoff, then an **incident**).
-- `w.task(name, { jobType: "claude", prompt: { resourceId } })` — an agent step; prompt file in `flows/prompts/`. Runs as headless `claude -p` when the Claude Code CLI is installed and logged in; otherwise (e.g. Claude Desktop chat) it is handed to you — pick it up with `session_job_next`, do it, return the result with `session_job_complete`. Options per step via `export const agents` (`schema`, `allowedTools`, `model`, `system`, and `use`: which agent CLI runs it — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})` / `~/.agent-graph/agents.json`; `export const defaultAgent` sets the flow default). Use different profiles to split work across subscriptions or have one model critique another. The transcript of each run shows in the explorer. Headless runs never prompt: list the tools it needs in `allowedTools`. Ask for JSON (or give `schema`) so the answer becomes variables.
-- `w.task(name, { jobType: "session", agent: true })` — work for the live Claude Code session: you pick it up with `session_job_next`.
-- Inside `run` you can also call `await claude(prompt, opts)` directly.
-- `w.human(name, { form })` — user task; form from `export const forms` (fields: string/enum, boolean, number/integer).
-- `w.switch("var", { value: (b) => …, default: (b) => … })`, `w.branch("<FEEL condition>", { then, else })`.
-- `w.loop((b) => { …; b.break(); … b.continue(); })` — repeat (e.g. draft → review → redo).
-- `w.parallel([(b) => …, (b) => …])` — fixed branches, all run, joined before continuing.
-- `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` — fan out one branch per list item (e.g. one agent per file); results collected in order. Options: `sequential`, `completionCondition`.
-  Headless agent branches run concurrently (up to 4). If agent steps come to you instead, claim them as a batch with `session_job_next` `max` and hand them to subagents if you have them.
-- `w.timer(name, { after: "PT1H" })` — durable wait (ISO 8601 duration).
-- `w.signal(name, { correlationKey: "orderId" })` — wait for a message (`flow_operate` `message`).
+- **Declare it** with `envelope(name, fields)` as `{ Start: { in: Input } }` in the contracts. Field types: `"string"`, `"integer"`, `"number"`, `"boolean"`, `"datetime"` (ISO 8601). A field can also be `{ type, optional: true, list: true }`.
+- **Everything is derived from it**: the start form, the `flow_status` signature `triage(issue: integer, repo: string, labels?: string[])`, the MCP prompt `/start-triage` with one argument per field, and `age start triage --issue 7 --repo x`.
+- **Checked at start**: `/api/start` converts text to the declared types and refuses missing or wrong fields, naming each one.
+- **Display hints** go in `defineStartForm(Input, { title, description, fields: { f: { title, description, enum, default, minimum, maximum } } })`. Field names are type-checked against the input.
+- **Typing step variables**: to type a step's `job.variables`, give the step its own contract, e.g. `fetch: { in: Input }` (or a narrower envelope), plus an `out` envelope to type what it returns. Variables are `envelope & JsonObject`: a misspelled name isn't a type error, it is just untyped, so check names against the envelope.
+- **No input declared**: the flow takes free-form JSON variables, and the start form is a JSON box.
 
-Step names are BPMN ids: letters, digits, `_`, `-`; don't start them with `Gw_`, `Loop_`, `Sub_`, `Msg_`, `f_`, and don't use `Start`/`End`.
+## Steps
 
-Variables are JSON; keep them small (paths and ids, not file contents). Code runs in the
-engine, which serves every project: `sh()` and agent steps run in the run's project, but
-plain `fs` calls don't — use `projectPath("file")` (from `agent-graph-engine`) or absolute
-paths. Put reusable logic in normal modules and import them. Steps time out (25 min,
-agent steps 55): `sh()` and `claude()` stop then; pass `jobSignal()` to `fetch()` and other
-long calls in a handler. Each step runs on its own thread: module-level variables in the
-flow file aren't shared between steps, so pass data in variables or files.
+- **`w.run(name, async (job) => vars, opts?)`** runs inline code. `job.variables` holds the instance variables; return an object (or nothing).
+  - Throwing fails the job: it is tried 3 times with backoff, then becomes an **incident**.
+  - `opts`: `{ timeoutMs }`.
+- **`w.task(name, { jobType: "claude", prompt: { resourceId } })`** is an agent step. The prompt file goes in `flows/prompts/`.
+  - **Where it runs**: as a headless agent CLI when one is installed; otherwise it is handed to the chat session (`session_job_next`).
+  - **Per-step options** go in `export const agents = defineAgents({...})`:
+    - `schema`: a JSON schema for the answer, which becomes variables. Also ask for JSON in the prompt.
+    - `allowedTools`: headless runs never prompt, so list every tool the step needs.
+    - `model`, `system`.
+    - `context`: which variables to pass (default: all).
+    - `use`: which agent runs it — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})` or `~/.agent-graph/agents.json`.
+  - **Flow default**: `export const defaultAgent = "…"`.
+- **`w.task(name, { jobType: "session", agent: true })`** is work for the live Claude Code session.
+- Inside `run`, `await claude(prompt, opts)` calls an agent directly.
+- **`w.human(name, { form })`** is a user task. The form comes from `export const forms = defineForms({...})`. Fields can be string (optionally `enum`/`enumNames`, `format: "date-time"`), boolean, or number/integer (`minimum`, `maximum`), plus `required: [...]`. `{{var}}` in the title and description is filled from the variables.
+- **Choices**: `w.switch("var", { value: (b) => …, default: (b) => … })`, or `w.branch("<FEEL condition>", { then, else })`.
+- **Repeats**: `w.loop((b) => { …; b.break(); … b.continue(); })`, e.g. draft → review → redo.
+- **Fixed branches**: `w.parallel([(b) => …, (b) => …])` runs every branch and joins them before continuing.
+- **Fan-out**: `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` runs one branch per list item, with results collected in order. Options: `sequential`, `completionCondition`. Up to 4 headless agent branches run at once.
+- **Waits**:
+  - `w.timer(name, { after: "PT1H" })` waits for a duration.
+  - `w.startOn({ cycle: "R/PT24H" })` starts the flow on a timer.
+  - `w.signal(name, { correlationKey: "orderId" })` waits for a message (`flow_operate` `message`).
 
-## Workflow
+## Rules that bite
 
-1. Sketch the steps with the user (who decides where?).
-2. Write `flows/<name>.flow.ts` (+ prompts), run `flow_check` until clean.
-3. `flow_start`; then `show_explorer` (or share the explorer URL).
-4. When a user task is waiting (the hook or `flow_status` tells you), call `task_ask` or `show_explorer` with the task. When agent steps wait for you, do them via `session_job_next` — keep going until the flow waits on the user, a timer, or is done.
-5. Fixing a flow that doesn't work: read it (`flow_read` or the file), change it, write it back (`flow_write` or edit + `flow_check`). Code changes (`run` handlers, prompts) apply to runs already in progress — then `flow_operate` `retry` the incident and the *same* run continues. Changes to the steps themselves (adding/removing/reordering) deploy a new version: running instances keep the old shape, so cancel and start a new run.
-6. On an incident: read it with `flow_status`, fix the cause (often the flow code — it reloads on save), then `flow_operate` `retry`.
+- **Step names** are BPMN ids: letters, digits, `_` and `-`. Don't start them with `Gw_`, `Loop_`, `Sub_`, `Msg_` or `f_`, and don't use `Start`/`End` as step names (`Start` is only a contract key).
+- **Variables are JSON**: keep them small (paths and ids, not file contents). Return values must be JSON-typed. A `{}` or `unknown` where JSON is expected is a type error: convert it with `String(…)`/`Number(…)`, or declare an `out` envelope.
+- **File paths**: the engine serves every project. `sh()` and agent steps run in the run's project, but plain `fs` calls don't, so use `projectPath("file")` or absolute paths.
+- **Threads**: each step runs on its own thread, so module-level state isn't shared between steps. Pass data in variables or files. Put reusable logic in normal modules and import them (they are type-checked too).
+- **Timeouts**: steps time out after 25 min (agent steps after 55). `sh()` and `claude()` stop then; pass `jobSignal()` to `fetch()` and other long calls.
+- **Unknown options**: an option the types don't know (for example `{ retries: 0 }`) is a type error, because the engine ignores it.
 
-CLI equivalent: `node <plugin>/dist/cli.js check|up|status|start|tasks|complete|down`.
+## Changing a flow
+
+- **Code changes** (`run` handlers, prompts, forms) apply to runs already in progress. Fix the code, check it, then `flow_operate` `retry` the incident.
+- **Step changes** (added, removed or reordered steps) deploy a new version. Running instances keep the old shape.
+- **Without file access**: read with `flow_read` and write with `flow_write`. Both check the flow.

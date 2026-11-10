@@ -8,8 +8,10 @@ export function summarize(state: any, project?: string): string {
   const where = (p?: string) => (p && p !== here ? ` [${path.basename(p)}]` : "");
   const lines: string[] = [];
   lines.push(`project: ${here ?? "(all)"}`);
-  const own = state.flows.filter((f: any) => f.scope !== "global").map((f: any) => f.id);
-  const global = state.flows.filter((f: any) => f.scope === "global").map((f: any) => f.id);
+  // A flow with an input shows it: review(pr: integer, note?: string)
+  const sig = (f: any) => (f.input ? `${f.id}(${f.input.fields.map((x: any) => `${x.name}${x.optional ? "?" : ""}: ${x.type}${x.list ? "[]" : ""}`).join(", ")})` : f.id);
+  const own = state.flows.filter((f: any) => f.scope !== "global").map(sig);
+  const global = state.flows.filter((f: any) => f.scope === "global").map(sig);
   lines.push(`project flows: ${own.join(", ") || "(none — add flows/*.flow.ts)"}`);
   if (global.length) lines.push(`global flows (${tilde(state.globalDir)}/flows): ${global.join(", ")}`);
   for (const p of state.problems) for (const q of p.problems) lines.push(`  ${q.severity} ${p.file}: ${q.message}`);

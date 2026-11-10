@@ -17,6 +17,16 @@ import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
 import { StepPool } from "./step-pool.ts";
 import { parseLimits, Worker, type ActivatedJob, type JobResult } from "./worker.ts";
+import { checkInput, formatInputProblems, type InputProblem } from "./input.ts";
+
+/** Start variables that don't match the flow's input. */
+export class InputError extends Error {
+  readonly problems: InputProblem[];
+  constructor(message: string, problems: InputProblem[]) {
+    super(message);
+    this.problems = problems;
+  }
+}
 
 const WORKER = "age-daemon";
 const TICK_MS = 500;
@@ -295,6 +305,12 @@ export class Host {
     if (where !== this.home) this.addProject(where);
     const flow = this.resolveFlow(flowRef, where);
     if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
+    if (flow.input) {
+      // Text from forms, CLI flags and prompt arguments becomes the declared types.
+      const checked = checkInput(flow.input, variables);
+      if (checked.problems.length) throw new InputError(formatInputProblems(flow.id, checked.problems), checked.problems);
+      variables = checked.variables;
+    }
     const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
     const key = String(s.created);
     this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: new Date().toISOString(), title, host };
@@ -490,6 +506,8 @@ export class Host {
         description: f.description,
         humans: f.humans,
         tasks: f.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent })),
+        input: f.input,
+        startForm: f.startForm,
       })),
       problems: project ? this.problems.filter((p) => !p.project || p.project === path.resolve(project)) : this.problems,
       instances,
@@ -796,6 +814,7 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       }
       return send(res, 404, { error: "not found" });
     } catch (e: any) {
+      if (e instanceof InputError) return send(res, 400, { error: e.message, problems: e.problems });
       return send(res, 400, { error: String(e?.message ?? e) });
     }
   });
