@@ -244,6 +244,45 @@ registerNodeKind("continue", {
   }
 });
 
+// node_modules/@nanobpm/workflow/dist/nodes/end.js
+registerNodeKind("end", {
+  build: (api) => (name, opts) => {
+    if (name !== void 0 && typeof name === "object") {
+      opts = name;
+      name = void 0;
+    }
+    if (opts !== void 0 && (opts === null || typeof opts !== "object")) {
+      throw new Error(`end() options must be an object like { terminate: true }`);
+    }
+    const terminate = opts?.terminate === void 0 ? false : opts.terminate;
+    if (typeof terminate !== "boolean")
+      throw new Error(`end() { terminate } must be true or false`);
+    if (name !== void 0) {
+      if (typeof name !== "string")
+        throw new Error(`end() name must be a string`);
+      api.claim(name);
+      api.out.push({ kind: "end", name, terminate });
+    } else {
+      api.out.push({ kind: "end", terminate });
+    }
+    return api.self();
+  },
+  emit: (node, incoming, _loop, api) => {
+    let id = node.name ?? `End_${api.nextGw()}`;
+    while (node.name === void 0 && id === api.flowId)
+      id = `End_${api.nextGw()}`;
+    api.addNode({
+      id,
+      render: (inc) => node.terminate ? `    <bpmn:endEvent id="${escapeXml(id)}">
+` + inc.map((f) => `      <bpmn:incoming>${escapeXml(f)}</bpmn:incoming>
+`).join("") + `      <bpmn:terminateEventDefinition />
+    </bpmn:endEvent>` : `    <bpmn:endEvent id="${escapeXml(id)}">` + inc.map((f) => `<bpmn:incoming>${escapeXml(f)}</bpmn:incoming>`).join("") + `</bpmn:endEvent>`
+    });
+    api.connect(incoming, id);
+    return [];
+  }
+});
+
 // node_modules/@nanobpm/workflow/dist/io-mapping.js
 function isNonBlankString(v) {
   return typeof v === "string" && v.trim() !== "";
@@ -447,9 +486,11 @@ registerNodeKind("forEach", {
     const startId = `${subId}_start`;
     api.addPlainStart(startId);
     const innerOut = api.emitList(node.body, [api.newEdge(startId)], null);
-    const endId = `${subId}_end`;
-    api.addPlainEnd(endId);
-    api.connect(innerOut, endId);
+    if (innerOut.length > 0) {
+      const endId = `${subId}_end`;
+      api.addPlainEnd(endId);
+      api.connect(innerOut, endId);
+    }
     api.popScope();
     return [api.newEdge(subId)];
   }
@@ -530,6 +571,23 @@ registerNodeKind("loop", {
 });
 
 // node_modules/@nanobpm/workflow/dist/nodes/parallel.js
+function hasPlainEnd(list) {
+  let found = false;
+  const visit = (nodes) => {
+    for (const n of nodes) {
+      if (found)
+        return;
+      if (n.kind === "end" && !n.terminate)
+        found = true;
+      else if (n.kind === "boundary" && !n.interrupting)
+        continue;
+      else if (n.kind !== "forEach")
+        requireNodeKind(n.kind).walk?.(n, visit);
+    }
+  };
+  visit(list);
+  return found;
+}
 registerNodeKind("parallel", {
   build: (api) => (branches) => {
     if (!Array.isArray(branches) || branches.length < 2) {
@@ -539,7 +597,11 @@ registerNodeKind("parallel", {
       if (typeof fn !== "function")
         throw new Error(`parallel() branches must all be blocks (b) => {\u2026}`);
     }
-    api.out.push({ kind: "parallel", branches: branches.map((fn) => api.childScoped(fn)) });
+    const bodies = branches.map((fn) => api.childScoped(fn));
+    if (bodies.some(hasPlainEnd)) {
+      throw new Error(`parallel(): a branch can't end() on its own \u2014 the join would wait for it forever. Use end({ terminate: true }) to end the whole instance, or let the branch reach the join`);
+    }
+    api.out.push({ kind: "parallel", branches: bodies });
     return api.self();
   },
   walk: (node, recurse) => {
@@ -555,6 +617,9 @@ registerNodeKind("parallel", {
     for (const branch of node.branches) {
       const e = api.newEdge(splitId);
       const branchOut = api.emitList(branch, [e], loop);
+      if (branchOut.length === 0) {
+        throw new Error(`parallel(): every path of a branch ends, so it never reaches the join \u2014 the steps after parallel() could run before it terminates. Make the end conditional, or move it after parallel()`);
+      }
       api.connect(branchOut, joinId);
     }
     return [api.newEdge(joinId)];
@@ -781,7 +846,7 @@ registerNodeKind("timer", {
 });
 
 // node_modules/@nanobpm/workflow/dist/declarative.js
-var RESERVED_PREFIXES = /^(Gw_|Loop_|Sub_|Msg_|f_)/;
+var RESERVED_PREFIXES = /^(Gw_|Loop_|Sub_|Msg_|f_|End_)/;
 var TIMER_START_KEYS = ["cycle", "after", "at"];
 function timerStartValue(spec, key) {
   switch (key) {
@@ -799,7 +864,7 @@ function claimName(ctx, id, name) {
     throw new Error(`step name "${name}" is reserved (collides with a generated BPMN id) in flow "${id}"`);
   }
   if (RESERVED_PREFIXES.test(name)) {
-    throw new Error(`step name "${name}" uses a reserved prefix (Gw_/Loop_/Sub_/Msg_/f_ are generated ids) in flow "${id}"`);
+    throw new Error(`step name "${name}" uses a reserved prefix (Gw_/Loop_/Sub_/Msg_/f_/End_ are generated ids) in flow "${id}"`);
   }
   if (ctx.seen.has(name))
     throw new Error(`duplicate step name "${name}" in flow "${id}"`);

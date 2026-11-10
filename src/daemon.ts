@@ -12,7 +12,7 @@ import { parseJson, runAgentCli } from "./agent-run.ts";
 import { AgentRecorder } from "./agent-record.ts";
 import { Notifier, notify, notifyMode, revealPath, type Notice } from "./notify.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
-import { acquireEngineLock, defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
+import { acquireEngineLock, defaultHome, engineDir, findDaemon, projectSlug, promptFile, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
 import * as explorer from "./explorer-api.ts";
 import { StepPool } from "./step-pool.ts";
@@ -407,6 +407,7 @@ export class Host {
       this.engine.tickNow(Date.now());
       const after = this.snapshot();
       if (after.eventCount !== before.eventCount) this.touch();
+      this.worker.reap(new Set((after.jobs ?? []).filter((j: any) => j.state === "Created" || j.state === "Activated").map((j: any) => String(j.key))));
       for (const type of this.servedTypes()) {
         const free = this.worker.free(type);
         if (free <= 0) continue;
@@ -471,7 +472,7 @@ export class Host {
     const flow = this.flows.get(job.bpmnProcessId);
     const task = flow?.tasks.find((t) => t.name === job.elementId);
     if (!flow || !task?.prompt) throw new Error(`no prompt bound to ${job.bpmnProcessId}/${job.elementId}`);
-    const promptFile = path.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
+    const promptPath = promptFile(flow.projectDir, task.prompt.resourceId);
     const opts = flow.agents[task.name] ?? {};
     const instanceKey = String(job.instanceKey);
     const meta = this.instanceMeta[instanceKey];
@@ -480,7 +481,7 @@ export class Host {
     const vars = job.variables ?? {};
     const ctx = opts.context ? Object.fromEntries(opts.context.map((k) => [k, vars[k]])) : vars;
     // {{name}} in the prompt file is replaced by that variable (text as is, else JSON).
-    const instructions = fillVars(fs.readFileSync(promptFile, "utf8").trim(), vars);
+    const instructions = fillVars(fs.readFileSync(promptPath, "utf8").trim(), vars);
     const prompt =
       instructions +
       // `context: []`: the prompt carries everything it needs; no variables appended.
@@ -493,7 +494,7 @@ export class Host {
       ? new AgentRecorder(
           this.engine,
           { key: String(job.key), elementInstanceKey: String(job.elementInstanceKey), jobLeaseToken: lease },
-          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `flows/prompts/${task.prompt.resourceId}:\n${instructions}`].filter(Boolean).join("\n\n") },
+          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `${path.relative(flow.projectDir, promptPath)}:\n${instructions}`].filter(Boolean).join("\n\n") },
           (message) => this.log({ kind: "error", instanceKey, elementId: job.elementId, message }),
           () => this.touch(),
         )
@@ -507,6 +508,8 @@ export class Host {
       system: opts.system,
       model,
       cwd,
+      // {{name}} placeholders in values are filled from the instance variables.
+      env: opts.env ? Object.fromEntries(Object.entries(opts.env).map(([k, v]) => [k, fillVars(String(v), vars)])) : undefined,
       schema: opts.schema,
       allowedTools: opts.allowedTools,
       permissionMode: opts.permissionMode,
@@ -666,7 +669,7 @@ export class Host {
     return jobs.map((j: any) => {
       const flow = this.flows.get(j.bpmnProcessId);
       const task = flow?.tasks.find((t) => t.name === j.elementId);
-      const promptFile = task?.prompt ? path.join(flow!.projectDir, "flows", "prompts", task.prompt.resourceId) : undefined;
+      const promptPath = task?.prompt ? promptFile(flow!.projectDir, task.prompt.resourceId) : undefined;
       return {
         key: j.key,
         flowId: flow?.id ?? j.bpmnProcessId,
@@ -674,7 +677,7 @@ export class Host {
         elementId: j.elementId,
         instanceKey: j.instanceKey,
         variables: j.variables,
-        prompt: promptFile && fs.existsSync(promptFile) ? fillVars(fs.readFileSync(promptFile, "utf8"), j.variables ?? {}) : undefined,
+        prompt: promptPath && fs.existsSync(promptPath) ? fillVars(fs.readFileSync(promptPath, "utf8"), j.variables ?? {}) : undefined,
         cwd: flow?.agents[j.elementId]?.cwd ? path.resolve(this.projectOf(String(j.instanceKey)), fillVars(flow.agents[j.elementId].cwd!, j.variables ?? {})) : undefined,
         outputSchema: flow?.agents[j.elementId]?.schema,
       };

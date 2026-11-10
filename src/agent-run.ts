@@ -26,6 +26,8 @@ export interface AgentRun {
   system?: string;
   model?: string;
   cwd: string;
+  /** Extra environment for the agent process (on top of the profile's). */
+  env?: Record<string, string>;
   schema?: Record<string, unknown>;
   allowedTools?: string[];
   permissionMode?: string;
@@ -57,7 +59,7 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     command,
     args,
     cwd: r.cwd,
-    env: { ...(process.env as Record<string, string>), ...env },
+    env: { ...(process.env as Record<string, string>), ...env, ...r.env },
     onStderr: (c) => (stderr = (stderr + c).slice(-4000)),
   });
   const exited = new Promise<never>((_, reject) => {
@@ -149,7 +151,7 @@ async function runClaude(r: AgentRun): Promise<AgentOutcome> {
   if (r.schema) args.push("--json-schema", JSON.stringify(r.schema));
   r.onTurn({ role: "USER", text: r.prompt });
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd: r.cwd, env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"], signal: r.signal });
+    const child = spawn(command, args, { cwd: r.cwd, env: { ...process.env, ...env, ...r.env }, stdio: ["pipe", "pipe", "pipe"], signal: r.signal });
     let buf = "";
     let stderr = "";
     let final: any;

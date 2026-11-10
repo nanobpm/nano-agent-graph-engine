@@ -30,3 +30,6 @@ export declare function acquireEngineLock(dir?: string): () => void;
  *  timers and long agent jobs keep running), and make sure it knows `project`. */
 export declare function ensureDaemon(project: string): Promise<DaemonInfo>;
 export declare function api<T = any>(info: DaemonInfo, p: string, body?: unknown): Promise<T>;
+/** A prompt's file for a `prompt: { resourceId }` binding: flows/prompts/<id>, or, for ids
+ *  that carry their folder as nano-workforce's do ("prompts/fix-ci.md"), flows/<id>. */
+export declare function promptFile(projectDir: string, resourceId: string): string;

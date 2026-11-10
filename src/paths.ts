@@ -177,3 +177,12 @@ export async function api<T = any>(info: DaemonInfo, p: string, body?: unknown):
   if (!r.ok) throw new Error((data as any)?.error ?? `HTTP ${r.status}`);
   return data as T;
 }
+
+/** A prompt's file for a `prompt: { resourceId }` binding: flows/prompts/<id>, or, for ids
+ *  that carry their folder as nano-workforce's do ("prompts/fix-ci.md"), flows/<id>. */
+export function promptFile(projectDir: string, resourceId: string): string {
+  const inPrompts = path.join(projectDir, "flows", "prompts", resourceId);
+  if (fs.existsSync(inPrompts)) return inPrompts;
+  const inFlows = path.join(projectDir, "flows", resourceId);
+  return fs.existsSync(inFlows) ? inFlows : inPrompts;
+}

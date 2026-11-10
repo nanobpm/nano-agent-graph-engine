@@ -101,3 +101,19 @@ test("parseLimits", () => {
   assert.deepEqual(parseLimits("claude=2, shell=1,bad,x="), { claude: 2, shell: 1 });
   assert.deepEqual(parseLimits(undefined), {});
 });
+
+test("reap: a running job the engine dropped (step cancelled) is aborted and not reported back", async () => {
+  const { port, calls } = fakePort();
+  const events: string[] = [];
+  const w = new Worker(port, { ...opts, timeoutMs: () => 10_000, log: (e) => events.push(e.kind) });
+  let aborted = false;
+  const p1 = w.run(job("1"), (_j, signal) => new Promise((_, reject) => signal.addEventListener("abort", () => ((aborted = true), reject(new Error("killed"))))));
+  const p2 = w.run(job("2"), async () => new Promise((r) => setTimeout(() => r({ variables: { two: true } }), 50)));
+  await new Promise((r) => setTimeout(r, 10)); // both handlers are running
+  w.reap(new Set(["2"])); // the engine still has job 2, not job 1
+  await Promise.all([p1, p2]);
+  assert.equal(aborted, true);
+  assert.deepEqual(calls, [{ op: "complete", key: "2", variables: { two: true } }]);
+  assert.ok(events.includes("cancel"));
+  assert.equal(w.running.size, 0);
+});

@@ -30,7 +30,7 @@ export interface JobPort {
 }
 
 export interface WorkerEvent {
-  kind: "job" | "done" | "retry" | "incident";
+  kind: "job" | "done" | "retry" | "incident" | "cancel";
   instanceKey: string;
   elementId: string;
   message: string;
@@ -125,6 +125,11 @@ export class Worker {
     } catch (e: any) {
       // Stopping: leave the job activated; the next engine start hands it out again.
       if (this.stopping) return;
+      // The engine dropped the job (its step was cancelled): nothing to report back.
+      if (this.cancelled.delete(key)) {
+        this.opts.log?.({ kind: "cancel", instanceKey: job.instanceKey, elementId: job.elementId, message: `${job.elementId} cancelled — its step was ended by the process; stopped the running work` });
+        return;
+      }
       const err = e instanceof Error ? e : new Error(String(e));
       if (this.opts.onError?.(job, err)) return;
       const msg = String(err.message).slice(0, 4000);
@@ -144,7 +149,20 @@ export class Worker {
     } finally {
       clearTimeout(timer);
       this.running.delete(key);
+      this.cancelled.delete(key);
       this.opts.settled?.();
+    }
+  }
+
+  private readonly cancelled = new Set<string>();
+
+  /** Abort running jobs the engine no longer has (a boundary timer, terminate end or
+   *  cancel ended their step), so an agent CLI or shell command doesn't run on. */
+  reap(liveKeys: Set<string>) {
+    for (const [key, r] of this.running) {
+      if (liveKeys.has(key) || this.cancelled.has(key)) continue;
+      this.cancelled.add(key);
+      r.abort.abort();
     }
   }
 

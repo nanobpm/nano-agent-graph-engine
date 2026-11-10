@@ -74,6 +74,14 @@ test("claude stream-json: turns with usage, model and cost", async () => {
   assert.equal(turns[1].metrics.inputTokens, 100);
 });
 
+test("env: extra environment reaches the agent process", async () => {
+  const log = path.join(process.env.AGE_STATE_DIR!, "claude-env.log");
+  process.env.FAKE_CLAUDE_LOG = log;
+  await runAgentCli({ name: "claude", profile: { protocol: "claude", command: fakeClaude }, prompt: "p", cwd: os.tmpdir(), env: { AGENT_WORKSPACE: "/tmp/ws-1" }, onTurn: () => {} });
+  delete process.env.FAKE_CLAUDE_LOG;
+  assert.equal(JSON.parse(fs.readFileSync(log, "utf8").trim()).workspace, "/tmp/ws-1");
+});
+
 test("profile resolution: run > your step > your flow > your rank > author (if installed) > your default > host > installed", () => {
   const sh = { protocol: "acp" as const, command: "/bin/sh" }; // "installed"
   const file = {
@@ -145,4 +153,14 @@ test("launch: model as flag or env", () => {
   assert.deepEqual(launch("o", { protocol: "acp", command: "/bin/sh", modelEnv: { OPENCODE_CONFIG_CONTENT: '{"model":"{model}"}' } }, "a/b").env, {
     OPENCODE_CONFIG_CONTENT: '{"model":"a/b"}',
   });
+});
+
+test("promptFile: flows/prompts/<id>, or flows/<id> for ids that carry their folder (nano-workforce style)", async () => {
+  const { promptFile } = await import("../src/paths.ts");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "age-prompts-"));
+  fs.mkdirSync(path.join(dir, "flows", "prompts"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "flows", "prompts", "fix-ci.md"), "x");
+  assert.equal(promptFile(dir, "fix-ci.md"), path.join(dir, "flows", "prompts", "fix-ci.md"));
+  assert.equal(promptFile(dir, "prompts/fix-ci.md"), path.join(dir, "flows", "prompts", "fix-ci.md"));
+  assert.equal(promptFile(dir, "missing.md"), path.join(dir, "flows", "prompts", "missing.md"));
 });

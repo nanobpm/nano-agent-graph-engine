@@ -306,6 +306,51 @@ var init_continue = __esm({
   }
 });
 
+// node_modules/@nanobpm/workflow/dist/nodes/end.js
+var init_end = __esm({
+  "node_modules/@nanobpm/workflow/dist/nodes/end.js"() {
+    init_xml();
+    init_registry();
+    registerNodeKind("end", {
+      build: (api2) => (name2, opts) => {
+        if (name2 !== void 0 && typeof name2 === "object") {
+          opts = name2;
+          name2 = void 0;
+        }
+        if (opts !== void 0 && (opts === null || typeof opts !== "object")) {
+          throw new Error(`end() options must be an object like { terminate: true }`);
+        }
+        const terminate = opts?.terminate === void 0 ? false : opts.terminate;
+        if (typeof terminate !== "boolean")
+          throw new Error(`end() { terminate } must be true or false`);
+        if (name2 !== void 0) {
+          if (typeof name2 !== "string")
+            throw new Error(`end() name must be a string`);
+          api2.claim(name2);
+          api2.out.push({ kind: "end", name: name2, terminate });
+        } else {
+          api2.out.push({ kind: "end", terminate });
+        }
+        return api2.self();
+      },
+      emit: (node2, incoming, _loop, api2) => {
+        let id = node2.name ?? `End_${api2.nextGw()}`;
+        while (node2.name === void 0 && id === api2.flowId)
+          id = `End_${api2.nextGw()}`;
+        api2.addNode({
+          id,
+          render: (inc) => node2.terminate ? `    <bpmn:endEvent id="${escapeXml(id)}">
+` + inc.map((f2) => `      <bpmn:incoming>${escapeXml(f2)}</bpmn:incoming>
+`).join("") + `      <bpmn:terminateEventDefinition />
+    </bpmn:endEvent>` : `    <bpmn:endEvent id="${escapeXml(id)}">` + inc.map((f2) => `<bpmn:incoming>${escapeXml(f2)}</bpmn:incoming>`).join("") + `</bpmn:endEvent>`
+        });
+        api2.connect(incoming, id);
+        return [];
+      }
+    });
+  }
+});
+
 // node_modules/@nanobpm/workflow/dist/io-mapping.js
 function isNonBlankString(v2) {
   return typeof v2 === "string" && v2.trim() !== "";
@@ -526,9 +571,11 @@ var init_forEach = __esm({
         const startId = `${subId}_start`;
         api2.addPlainStart(startId);
         const innerOut = api2.emitList(node2.body, [api2.newEdge(startId)], null);
-        const endId = `${subId}_end`;
-        api2.addPlainEnd(endId);
-        api2.connect(innerOut, endId);
+        if (innerOut.length > 0) {
+          const endId = `${subId}_end`;
+          api2.addPlainEnd(endId);
+          api2.connect(innerOut, endId);
+        }
         api2.popScope();
         return [api2.newEdge(subId)];
       }
@@ -624,6 +671,23 @@ var init_loop = __esm({
 });
 
 // node_modules/@nanobpm/workflow/dist/nodes/parallel.js
+function hasPlainEnd(list) {
+  let found2 = false;
+  const visit2 = (nodes) => {
+    for (const n of nodes) {
+      if (found2)
+        return;
+      if (n.kind === "end" && !n.terminate)
+        found2 = true;
+      else if (n.kind === "boundary" && !n.interrupting)
+        continue;
+      else if (n.kind !== "forEach")
+        requireNodeKind(n.kind).walk?.(n, visit2);
+    }
+  };
+  visit2(list);
+  return found2;
+}
 var init_parallel = __esm({
   "node_modules/@nanobpm/workflow/dist/nodes/parallel.js"() {
     init_registry();
@@ -636,7 +700,11 @@ var init_parallel = __esm({
           if (typeof fn !== "function")
             throw new Error(`parallel() branches must all be blocks (b) => {\u2026}`);
         }
-        api2.out.push({ kind: "parallel", branches: branches.map((fn) => api2.childScoped(fn)) });
+        const bodies = branches.map((fn) => api2.childScoped(fn));
+        if (bodies.some(hasPlainEnd)) {
+          throw new Error(`parallel(): a branch can't end() on its own \u2014 the join would wait for it forever. Use end({ terminate: true }) to end the whole instance, or let the branch reach the join`);
+        }
+        api2.out.push({ kind: "parallel", branches: bodies });
         return api2.self();
       },
       walk: (node2, recurse) => {
@@ -652,6 +720,9 @@ var init_parallel = __esm({
         for (const branch of node2.branches) {
           const e = api2.newEdge(splitId);
           const branchOut = api2.emitList(branch, [e], loop);
+          if (branchOut.length === 0) {
+            throw new Error(`parallel(): every path of a branch ends, so it never reaches the join \u2014 the steps after parallel() could run before it terminates. Make the end conditional, or move it after parallel()`);
+          }
           api2.connect(branchOut, joinId);
         }
         return [api2.newEdge(joinId)];
@@ -917,6 +988,7 @@ var init_nodes = __esm({
     init_branch();
     init_break();
     init_continue();
+    init_end();
     init_forEach();
     init_human();
     init_loop();
@@ -1161,8 +1233,12 @@ ${props.join("\n")}
       }
       emitList(list, incoming, loop) {
         let cur = incoming;
-        for (const node2 of list)
+        list.forEach((node2, i) => {
+          if (i > 0 && cur.length === 0) {
+            throw new Error(`flow "${this.flow.id}": the "${node2.kind}" step after ${list[i - 1].kind === "end" ? "end()" : `a "${list[i - 1].kind}" step whose paths all end`} is unreachable \u2014 nothing can follow end() in the same block`);
+          }
           cur = this.emitNode(node2, cur, loop);
+        });
         return cur;
       }
       /** Emit one node by DISPATCHING to its registered `emit` handler — no central
@@ -1214,11 +1290,13 @@ ${ext}      ${outgoingOnly(outg)}
         });
         const s0 = this.newEdge("Start");
         const finalDanglers = this.emitList(this.flow.steps, [s0], null);
-        this.nodes.push({
-          id: "End",
-          render: (inc) => `    <bpmn:endEvent id="End">${incomingOnly(inc)}</bpmn:endEvent>`
-        });
-        this.connect(finalDanglers, "End");
+        if (finalDanglers.length > 0) {
+          this.nodes.push({
+            id: "End",
+            render: (inc) => `    <bpmn:endEvent id="End">${incomingOnly(inc)}</bpmn:endEvent>`
+          });
+          this.connect(finalDanglers, "End");
+        }
         this.live = this.edges.filter((e) => e.to !== void 0);
         const bodyXml = this.renderScope(void 0);
         const messageXml = this.emitMessages();
@@ -34688,6 +34766,12 @@ async function api(info, p2, body2) {
   if (!r2.ok) throw new Error(data?.error ?? `HTTP ${r2.status}`);
   return data;
 }
+function promptFile(projectDir, resourceId) {
+  const inPrompts = path.join(projectDir, "flows", "prompts", resourceId);
+  if (fs.existsSync(inPrompts)) return inPrompts;
+  const inFlows = path.join(projectDir, "flows", resourceId);
+  return fs.existsSync(inFlows) ? inFlows : inPrompts;
+}
 var init_paths = __esm({
   "src/paths.ts"() {
     "use strict";
@@ -37092,7 +37176,7 @@ async function checkFile(file2, keyFor = (id) => id) {
       const use = mod.agents?.[t.name]?.use ?? (t.agent ? mod.defaultAgent : void 0);
       if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
         problems.push({ severity: "warning", element: t.name, message: `the flow suggests agent profile "${use}", which isn't known here \u2014 the step will run on your assignment or default (age agent show ${authored.id})` });
-      if (t.prompt && !fs6.existsSync(path4.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
+      if (t.prompt && !fs6.existsSync(promptFile(projectDir, t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
     if (mod.workers) {
@@ -37141,6 +37225,7 @@ var init_compile2 = __esm({
     init_input();
     init_resolve_hook();
     init_typecheck();
+    init_paths();
     BUILTIN_JOB_TYPES = {
       claude: 'agent step (legacy name) \u2014 prefer the nano-workforce form jobType: "senior:<task>"',
       session: "claimed by the live Claude Code session through the MCP tools (agent_next_job)"
@@ -38252,7 +38337,7 @@ async function runAcp(r2) {
     command,
     args,
     cwd: r2.cwd,
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...env, ...r2.env },
     onStderr: (c) => stderr = (stderr + c).slice(-4e3)
   });
   const exited = new Promise((_2, reject) => {
@@ -38341,7 +38426,7 @@ async function runClaude(r2) {
   if (r2.schema) args.push("--json-schema", JSON.stringify(r2.schema));
   r2.onTurn({ role: "USER", text: r2.prompt });
   return new Promise((resolve, reject) => {
-    const child = spawn3(command, args, { cwd: r2.cwd, env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"], signal: r2.signal });
+    const child = spawn3(command, args, { cwd: r2.cwd, env: { ...process.env, ...env, ...r2.env }, stdio: ["pipe", "pipe", "pipe"], signal: r2.signal });
     let buf = "";
     let stderr = "";
     let final;
@@ -39099,6 +39184,10 @@ var init_worker = __esm({
           this.opts.log?.({ kind: "done", instanceKey: job.instanceKey, elementId: job.elementId, message: `completed ${job.elementId}`, costUsd: r2.costUsd });
         } catch (e) {
           if (this.stopping) return;
+          if (this.cancelled.delete(key)) {
+            this.opts.log?.({ kind: "cancel", instanceKey: job.instanceKey, elementId: job.elementId, message: `${job.elementId} cancelled \u2014 its step was ended by the process; stopped the running work` });
+            return;
+          }
           const err = e instanceof Error ? e : new Error(String(e));
           if (this.opts.onError?.(job, err)) return;
           const msg = String(err.message).slice(0, 4e3);
@@ -39117,7 +39206,18 @@ var init_worker = __esm({
         } finally {
           clearTimeout(timer);
           this.running.delete(key);
+          this.cancelled.delete(key);
           this.opts.settled?.();
+        }
+      }
+      cancelled = /* @__PURE__ */ new Set();
+      /** Abort running jobs the engine no longer has (a boundary timer, terminate end or
+       *  cancel ended their step), so an agent CLI or shell command doesn't run on. */
+      reap(liveKeys) {
+        for (const [key, r2] of this.running) {
+          if (liveKeys.has(key) || this.cancelled.has(key)) continue;
+          this.cancelled.add(key);
+          r2.abort.abort();
         }
       }
       /** Abort every running job (shutdown). */
@@ -39675,6 +39775,7 @@ var init_daemon = __esm({
           this.engine.tickNow(Date.now());
           const after = this.snapshot();
           if (after.eventCount !== before.eventCount) this.touch();
+          this.worker.reap(new Set((after.jobs ?? []).filter((j2) => j2.state === "Created" || j2.state === "Activated").map((j2) => String(j2.key))));
           for (const type of this.servedTypes()) {
             const free = this.worker.free(type);
             if (free <= 0) continue;
@@ -39732,7 +39833,7 @@ var init_daemon = __esm({
         const flow = this.flows.get(job.bpmnProcessId);
         const task = flow?.tasks.find((t) => t.name === job.elementId);
         if (!flow || !task?.prompt) throw new Error(`no prompt bound to ${job.bpmnProcessId}/${job.elementId}`);
-        const promptFile = path8.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
+        const promptPath = promptFile(flow.projectDir, task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
         const instanceKey = String(job.instanceKey);
         const meta3 = this.instanceMeta[instanceKey];
@@ -39740,7 +39841,7 @@ var init_daemon = __esm({
         if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
-        const instructions = fillVars(fs9.readFileSync(promptFile, "utf8").trim(), vars);
+        const instructions = fillVars(fs9.readFileSync(promptPath, "utf8").trim(), vars);
         const prompt = instructions + // `context: []`: the prompt carries everything it needs; no variables appended.
         (Object.keys(ctx).length || !opts.context ? `
 
@@ -39758,7 +39859,7 @@ ${vars.appendPrompt}
         const rec = lease ? new AgentRecorder(
           this.engine,
           { key: String(job.key), elementInstanceKey: String(job.elementInstanceKey), jobLeaseToken: lease },
-          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `flows/prompts/${task.prompt.resourceId}:
+          { model: model ?? "default", provider: agent.name, systemPrompt: [opts.system, `${path8.relative(flow.projectDir, promptPath)}:
 ${instructions}`].filter(Boolean).join("\n\n") },
           (message) => this.log({ kind: "error", instanceKey, elementId: job.elementId, message }),
           () => this.touch()
@@ -39772,6 +39873,8 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           system: opts.system,
           model,
           cwd,
+          // {{name}} placeholders in values are filled from the instance variables.
+          env: opts.env ? Object.fromEntries(Object.entries(opts.env).map(([k2, v2]) => [k2, fillVars(String(v2), vars)])) : void 0,
           schema: opts.schema,
           allowedTools: opts.allowedTools,
           permissionMode: opts.permissionMode,
@@ -39920,7 +40023,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
         return jobs.map((j2) => {
           const flow = this.flows.get(j2.bpmnProcessId);
           const task = flow?.tasks.find((t) => t.name === j2.elementId);
-          const promptFile = task?.prompt ? path8.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
+          const promptPath = task?.prompt ? promptFile(flow.projectDir, task.prompt.resourceId) : void 0;
           return {
             key: j2.key,
             flowId: flow?.id ?? j2.bpmnProcessId,
@@ -39928,7 +40031,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
-            prompt: promptFile && fs9.existsSync(promptFile) ? fillVars(fs9.readFileSync(promptFile, "utf8"), j2.variables ?? {}) : void 0,
+            prompt: promptPath && fs9.existsSync(promptPath) ? fillVars(fs9.readFileSync(promptPath, "utf8"), j2.variables ?? {}) : void 0,
             cwd: flow?.agents[j2.elementId]?.cwd ? path8.resolve(this.projectOf(String(j2.instanceKey)), fillVars(flow.agents[j2.elementId].cwd, j2.variables ?? {})) : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };

@@ -9,6 +9,7 @@ import { newEngine } from "./wasm.ts";
 import { hintProblems, inputForm, type FlowInput, type StartFormHints } from "./input.ts";
 import { installResolveHook } from "./resolve-hook.ts";
 import { typecheckFlows } from "./typecheck.ts";
+import { promptFile } from "./paths.ts";
 
 export { installResolveHook };
 
@@ -168,7 +169,7 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
       // The author's CLI is a suggestion: someone without it runs the step on their own.
       if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
         problems.push({ severity: "warning", element: t.name, message: `the flow suggests agent profile "${use}", which isn't known here — the step will run on your assignment or default (age agent show ${authored.id})` });
-      if (t.prompt && !fs.existsSync(path.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
+      if (t.prompt && !fs.existsSync(promptFile(projectDir, t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
     if (mod.workers) {
