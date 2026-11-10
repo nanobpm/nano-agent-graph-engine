@@ -166,7 +166,7 @@ export const bad = defineFlow("bad", (w) => {
 
 test("Claude Desktop chat: no project, no claude CLI, author + run through MCP only", async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "age-home-"));
-  const env = { PATH: "/usr/bin:/bin", HOME: home, AGE_AGENT_MODE: "session" } as Record<string, string>;
+  const env = { PATH: "/usr/bin:/bin", HOME: home, AGE_AGENT_MODE: "session", AGE_NOTIFY: "off" } as Record<string, string>;
   const client = new Client({ name: "desktop-like", version: "0" }, { capabilities: {} });
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: "/" }));
   const call = async (name: string, args: Record<string, unknown> = {}) => {
@@ -245,7 +245,7 @@ test("flow_list shows project + library; flow_import copies a library flow with 
   fs.cpSync(path.join(root, "examples/demo/flows"), path.join(home, "AgentGraph/flows"), { recursive: true });
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "age-proj-"));
   fs.mkdirSync(path.join(project, "flows"));
-  const env = { PATH: process.env.PATH!, HOME: home, AGE_PROJECT: project, AGE_AGENT_MODE: "session" } as Record<string, string>;
+  const env = { PATH: process.env.PATH!, HOME: home, AGE_PROJECT: project, AGE_AGENT_MODE: "session", AGE_NOTIFY: "off" } as Record<string, string>;
   const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
   const call = async (name: string, args: Record<string, unknown> = {}) => {
@@ -288,7 +288,7 @@ test("flow_list shows project + library; flow_import copies a library flow with 
 
 test("edit loop: a bug raises an incident, flow_write fixes the code, retry continues the same run", async () => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "age-fix-"));
-  const env = { PATH: process.env.PATH!, HOME: project, AGE_PROJECT: project, AGE_AGENT_MODE: "session", AGE_BACKOFF_MS: "50" } as Record<string, string>;
+  const env = { PATH: process.env.PATH!, HOME: project, AGE_PROJECT: project, AGE_AGENT_MODE: "session", AGE_NOTIFY: "off", AGE_BACKOFF_MS: "50" } as Record<string, string>;
   const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
   const call = async (name: string, args: Record<string, unknown> = {}) => {
@@ -335,7 +335,7 @@ export const f = defineFlow("${id}", (w) => {
     return dir;
   });
   const connect = async (project: string) => {
-    const env = { PATH: process.env.PATH!, HOME: home, AGE_PROJECT: project, AGE_AGENT_MODE: "session" } as Record<string, string>;
+    const env = { PATH: process.env.PATH!, HOME: home, AGE_PROJECT: project, AGE_AGENT_MODE: "session", AGE_NOTIFY: "off" } as Record<string, string>;
     const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
     const call = async (name: string, args: Record<string, unknown> = {}) => {
@@ -395,9 +395,13 @@ test("task_ask: a client that declares elicitation but never shows it gets the q
     };
     return { client, call, asked: () => asked };
   };
+  // Start from a neutral client: a run started from "opencode" would run its agent step
+  // with the real opencode CLI (the host's agent) instead of the fake one.
+  const starter = await dial("tester", {}, async () => ({ action: "decline" }));
   const a = await dial("opencode", {}, async () => ({ action: "accept", content: {} }));
   try {
-    await a.call("flow_start", { flowId: "changelog", variables: { commits: 5 } });
+    await starter.call("flow_start", { flowId: "changelog", variables: { commits: 5 } });
+    await starter.client.close();
     const task = await until(async () => {
       const t = await a.call("task_list");
       return t.startsWith("[") ? JSON.parse(t)[0] : undefined;
