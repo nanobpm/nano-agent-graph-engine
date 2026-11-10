@@ -38682,6 +38682,12 @@ var init_explorer_html = __esm({
 
 // src/explorer-api.ts
 import path7 from "node:path";
+function closeTerminated(el, at) {
+  if (!el || el.exitedAt != null) return;
+  el.exitedAt = at;
+  el.durationMs = at - el.enteredAt;
+  el.terminated = true;
+}
 function instanceFacts(events) {
   const out = /* @__PURE__ */ new Map();
   const jobs = /* @__PURE__ */ new Map();
@@ -38730,9 +38736,14 @@ function instanceFacts(events) {
         if (el) {
           el.exitedAt = e.now;
           el.durationMs = e.now - el.enteredAt;
+          if (e.type === "ElementTerminated") el.terminated = true;
         }
         break;
       }
+      case "TimerCanceled":
+      case "JobCanceled":
+        closeTerminated(f2.elements.get(String(e.element_instance_key)), e.now);
+        break;
       case "JobCreated": {
         const el = elementByKey.get(String(e.element_instance_key));
         if (!el) break;
@@ -38795,11 +38806,13 @@ function instanceFacts(events) {
       case "ProcessInstanceCompleted":
         f2.outcome = "completed";
         f2.endedAt = e.now;
+        for (const el of f2.elements.values()) closeTerminated(el, e.now);
         break;
       default:
         if (/^ProcessInstance(Terminated|Cancel)/.test(e.type)) {
           f2.outcome = "terminated";
           f2.endedAt = e.now;
+          for (const el of f2.elements.values()) closeTerminated(el, e.now);
         }
     }
   }

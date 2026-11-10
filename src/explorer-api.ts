@@ -45,6 +45,18 @@ interface TraceElement {
   durationMs: number | null;
   incidents: number;
   job: TraceJob | null;
+  /** Ended by cancellation (a terminate end, an interrupting event, a cancel), not by completing. */
+  terminated?: boolean;
+}
+
+/** Close an element that never logged its own exit: the engine records a
+ *  TimerCanceled/JobCanceled, or just the instance's end, when a terminate end
+ *  event (or a cancel) takes down a still-waiting element. */
+function closeTerminated(el: TraceElement | undefined, at: number) {
+  if (!el || el.exitedAt != null) return;
+  el.exitedAt = at;
+  el.durationMs = at - el.enteredAt;
+  el.terminated = true;
 }
 
 interface TraceIncident {
@@ -107,9 +119,14 @@ export function instanceFacts(events: Ev[]): Map<string, Facts> {
         if (el) {
           el.exitedAt = e.now;
           el.durationMs = e.now - el.enteredAt;
+          if (e.type === "ElementTerminated") el.terminated = true;
         }
         break;
       }
+      case "TimerCanceled":
+      case "JobCanceled":
+        closeTerminated(f.elements.get(String(e.element_instance_key)), e.now);
+        break;
       case "JobCreated": {
         const el = elementByKey.get(String(e.element_instance_key));
         if (!el) break;
@@ -172,11 +189,13 @@ export function instanceFacts(events: Ev[]): Map<string, Facts> {
       case "ProcessInstanceCompleted":
         f.outcome = "completed";
         f.endedAt = e.now;
+        for (const el of f.elements.values()) closeTerminated(el, e.now);
         break;
       default:
         if (/^ProcessInstance(Terminated|Cancel)/.test(e.type)) {
           f.outcome = "terminated";
           f.endedAt = e.now;
+          for (const el of f.elements.values()) closeTerminated(el, e.now);
         }
     }
   }
