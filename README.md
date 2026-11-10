@@ -158,8 +158,10 @@ claude --plugin-dir ~/workspace/agent-graph-engine
 `.ts` and run with Node's built-in type stripping).
 
 On macOS, also install `terminal-notifier` (`brew install terminal-notifier`) for
-[notifications](#notifications) that open the run in the explorer when clicked. Without it they still appear, but
-clicking one opens Script Editor.
+[notifications](#notifications) that open the run in the explorer when clicked, then allow its notifications: run
+`terminal-notifier -title Test -message Hello` once and accept the prompt, or turn on **Allow notifications** for
+**terminal-notifier** in System Settings → Notifications. Without it, notifications still appear, but clicking one
+opens Script Editor.
 
 The plugin provides:
 
@@ -289,7 +291,7 @@ The engine runs in the background, so a run can stop long after you've left the 
 
 `AGE_NOTIFY=off` turns them off, and `AGE_NOTIFY=incidents` or `AGE_NOTIFY=tasks` limits them to one kind. Set it in the environment the engine starts from. A missing or failing notifier is logged once in the activity log and never affects runs.
 
-If no notifications appear on macOS, check System Settings → Notifications for **terminal-notifier** (and **Script Editor**, which is what `osascript` notifications show up as). macOS asks for permission the first time; if that prompt was dismissed, notifications stay off for that app. When `terminal-notifier` is refused, the engine logs `terminal-notifier failed (exit 3): Notifications are turned off…` and falls back to `osascript`. To be asked again, run `tccutil reset UserNotification fr.julienxx.oss.terminal-notifier`.
+If no notifications appear on macOS, check System Settings → Notifications for **terminal-notifier** (and **Script Editor**, which is what `osascript` notifications show up as). macOS asks for permission the first time; if that prompt was dismissed, notifications stay off for that app, and `terminal-notifier` prints "Notifications are turned off for this application" and exits with code 3. The engine then logs `terminal-notifier failed (exit 3): …` in the activity log and falls back to `osascript`. To fix it, open System Settings → Notifications, select **terminal-notifier** and turn on **Allow notifications** (choose **Alerts** to keep them on screen until dismissed). The `tccutil reset UserNotification …` command that `terminal-notifier` suggests fails on recent macOS, so use System Settings. No restart is needed afterwards.
 
 ## Parallelism and fan-out
 
