@@ -88,11 +88,13 @@ export function notify(n: Notice, log: (m: string) => void = () => {}) {
     let out = "";
     let child;
     try {
-      child = spawn(cmd.cmd, cmd.args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+      child = spawn(cmd.cmd, cmd.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     } catch (e: any) {
       return log(`notification failed (${cmd.cmd}): ${e?.message ?? e}`);
     }
+    let err = "";
     child.stdout?.on("data", (d) => (out += d));
+    child.stderr?.on("data", (d) => (err += d));
     child.on("error", (e: any) => {
       if (!warned.has(cmd.cmd)) log(`notifications: ${cmd.cmd} unavailable (${e.code ?? e.message}); set AGE_NOTIFY=off to silence`);
       warned.add(cmd.cmd);
@@ -100,10 +102,21 @@ export function notify(n: Notice, log: (m: string) => void = () => {}) {
     child.on("close", (code) => {
       if (cmd.openOnAction && out.trim() === cmd.openOnAction && n.url) openUrl(n.url);
       // An older notify-send without --action/--wait exits non-zero at once: plain notice.
-      else if (code !== 0 && fallback) run(fallback);
+      else if (code !== 0) {
+        // e.g. terminal-notifier with notifications turned off for it in System Settings.
+        const why = `${cmd.cmd.split("/").pop()} failed (exit ${code})${err.trim() ? `: ${err.trim().split("\n")[0]}` : ""}`;
+        if (!warned.has(why)) log(`notifications: ${why}${fallback ? "; falling back" : ""}`);
+        warned.add(why);
+        if (fallback) run(fallback);
+      }
     });
   };
-  run(c, c.openOnAction ? { cmd: c.cmd, args: c.args.filter((a) => a !== "--wait" && !a.startsWith("--action")) } : undefined);
+  const fallback = c.openOnAction
+    ? { cmd: c.cmd, args: c.args.filter((a) => a !== "--wait" && !a.startsWith("--action")) }
+    : c.cmd.endsWith("terminal-notifier")
+      ? notifyCommand(n, "darwin", false) // osascript: no click-through, but it shows
+      : undefined;
+  run(c, fallback);
 }
 const warned = new Set<string>();
 

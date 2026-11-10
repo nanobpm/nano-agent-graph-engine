@@ -287,7 +287,9 @@ The engine runs in the background, so a run can stop long after you've left the 
 | Linux | `notify-send` (libnotify, any freedesktop notification daemon) | with libnotify 0.7.9+ (`--action`); the URL is also in the text |
 | Windows 10/11 | a PowerShell toast (no install) | yes |
 
-`AGE_NOTIFY=off` turns them off, and `AGE_NOTIFY=incidents` or `AGE_NOTIFY=tasks` limits them to one kind. Set it in the environment the engine starts from. A missing notifier is logged once in the activity log and never affects runs.
+`AGE_NOTIFY=off` turns them off, and `AGE_NOTIFY=incidents` or `AGE_NOTIFY=tasks` limits them to one kind. Set it in the environment the engine starts from. A missing or failing notifier is logged once in the activity log and never affects runs.
+
+If no notifications appear on macOS, check System Settings → Notifications for **terminal-notifier** (and **Script Editor**, which is what `osascript` notifications show up as). macOS asks for permission the first time; if that prompt was dismissed, notifications stay off for that app. When `terminal-notifier` is refused, the engine logs `terminal-notifier failed (exit 3): Notifications are turned off…` and falls back to `osascript`. To be asked again, run `tccutil reset UserNotification fr.julienxx.oss.terminal-notifier`.
 
 ## Parallelism and fan-out
 

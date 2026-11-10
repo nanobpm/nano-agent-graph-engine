@@ -38198,25 +38198,33 @@ function notify(n, log = () => {
 }) {
   const c = notifyCommand(n);
   if (!c) return;
-  const run = (cmd2, fallback) => {
+  const run = (cmd2, fallback2) => {
     let out = "";
     let child;
     try {
-      child = spawn4(cmd2.cmd, cmd2.args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+      child = spawn4(cmd2.cmd, cmd2.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     } catch (e) {
       return log(`notification failed (${cmd2.cmd}): ${e?.message ?? e}`);
     }
+    let err = "";
     child.stdout?.on("data", (d2) => out += d2);
+    child.stderr?.on("data", (d2) => err += d2);
     child.on("error", (e) => {
       if (!warned.has(cmd2.cmd)) log(`notifications: ${cmd2.cmd} unavailable (${e.code ?? e.message}); set AGE_NOTIFY=off to silence`);
       warned.add(cmd2.cmd);
     });
     child.on("close", (code) => {
       if (cmd2.openOnAction && out.trim() === cmd2.openOnAction && n.url) openUrl(n.url);
-      else if (code !== 0 && fallback) run(fallback);
+      else if (code !== 0) {
+        const why = `${cmd2.cmd.split("/").pop()} failed (exit ${code})${err.trim() ? `: ${err.trim().split("\n")[0]}` : ""}`;
+        if (!warned.has(why)) log(`notifications: ${why}${fallback2 ? "; falling back" : ""}`);
+        warned.add(why);
+        if (fallback2) run(fallback2);
+      }
     });
   };
-  run(c, c.openOnAction ? { cmd: c.cmd, args: c.args.filter((a) => a !== "--wait" && !a.startsWith("--action")) } : void 0);
+  const fallback = c.openOnAction ? { cmd: c.cmd, args: c.args.filter((a) => a !== "--wait" && !a.startsWith("--action")) } : c.cmd.endsWith("terminal-notifier") ? notifyCommand(n, "darwin", false) : void 0;
+  run(c, fallback);
 }
 function notifyMode(env = process.env.AGE_NOTIFY) {
   const v2 = (env ?? "").toLowerCase();
