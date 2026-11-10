@@ -425,7 +425,17 @@ function TaskForm({ task, onDone }: { task: any; onDone: () => void }) {
               />
             ) : f.enum ? (
               <select className={inputClass} value={String(values[name] ?? "")} onChange={(e) => setValues({ ...values, [name]: e.target.value })}>
-                {!required.has(name) && <option value="" />}
+                {/* A required choice without a default starts on a placeholder: otherwise the
+                    browser shows the first option while the value is still empty. */}
+                {required.has(name) ? (
+                  values[name] === undefined || values[name] === "" ? (
+                    <option value="" disabled>
+                      Choose…
+                    </option>
+                  ) : null
+                ) : (
+                  <option value="" />
+                )}
                 {f.enum.map((v: string, i: number) => (
                   <option key={v} value={v}>
                     {f.enumNames?.[i] ?? v}
@@ -637,7 +647,7 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.9.2" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.9.3" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
     const p = r?.structuredContent?.project;
     if (typeof p === "string" && p !== scope) setScope(p);
