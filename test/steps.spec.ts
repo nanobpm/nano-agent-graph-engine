@@ -16,7 +16,7 @@ fs.writeFileSync(
   `import { defineFlow, sh, projectPath } from "agent-graph-engine";
 export const t = defineFlow("t", (w) => {
   w.run("add", async (job) => ({ sum: job.variables.a + job.variables.b }));
-  w.run("spin", async (job) => { const end = Date.now() + job.variables.ms; while (Date.now() < end); return { spun: true }; });
+  w.run("spin", async (job) => { const end = Date.now() + job.variables.ms; const start = Date.now(); while (Date.now() < end); return { spun: true, start, end: Date.now() }; });
   w.run("hang", () => { for (;;); });
   w.run("exit", () => process.exit(3));
   w.run("throw", () => { throw new Error("nope"); });
@@ -55,9 +55,10 @@ test("step threads", async (t) => {
   });
 
   await t.test("two computing steps run in parallel", async () => {
-    const t0 = Date.now();
-    await Promise.all([pool.run(req("spin", { ms: 400 }), never), pool.run(req("spin", { ms: 400 }), never)]);
-    assert.ok(Date.now() - t0 < 750, `took ${Date.now() - t0} ms`);
+    // Overlap of the two busy loops, not wall-clock time (CI runners are slow and shared).
+    const [a, b] = (await Promise.all([pool.run(req("spin", { ms: 400 }), never), pool.run(req("spin", { ms: 400 }), never)])) as any[];
+    const overlap = Math.min(a.end, b.end) - Math.max(a.start, b.start);
+    assert.ok(overlap > 200, `the steps overlapped ${overlap} ms`);
   });
 
   await t.test("a step stuck in a synchronous loop is terminated after abort", async () => {
