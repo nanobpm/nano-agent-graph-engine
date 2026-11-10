@@ -8,6 +8,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+process.env.AGE_NOTIFY ??= "off"; // engines started by tests: no desktop notifications
 
 const require = createRequire((process.env.PLAYWRIGHT_FROM ?? "/tmp/bh") + "/package.json");
 const { chromium } = require("playwright");

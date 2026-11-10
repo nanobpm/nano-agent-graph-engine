@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+process.env.AGE_NOTIFY ??= "off"; // engines started by tests: no desktop notifications
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fakeAcp = path.join(root, "test/fixtures/fake-acp.mjs");

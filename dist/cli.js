@@ -2100,21 +2100,21 @@ function Parser(options) {
     rootTagFound = false;
     leftoverXml = "";
   }
-  this["parse"] = function(xml2) {
-    if (typeof xml2 !== "string") {
+  this["parse"] = function(xml3) {
+    if (typeof xml3 !== "string") {
       throw error("required args <xml=string>");
     }
     if (streaming) {
       throw error("parse during stream; call end() first");
     }
     resetState();
-    parse3(xml2);
+    parse3(xml3);
     getContext = noopGetContext;
     parseStop = false;
     return returnError;
   };
-  this["write"] = function(xml2) {
-    if (typeof xml2 !== "string") {
+  this["write"] = function(xml3) {
+    if (typeof xml3 !== "string") {
       throw error("required args <xml=string>");
     }
     if (!streaming) {
@@ -2122,7 +2122,7 @@ function Parser(options) {
       streaming = true;
     }
     if (!returnError) {
-      leftoverXml = parse3(leftoverXml + xml2, true) || "";
+      leftoverXml = parse3(leftoverXml + xml3, true) || "";
     }
     return this;
   };
@@ -2142,7 +2142,7 @@ function Parser(options) {
   this["stop"] = function() {
     parseStop = true;
   };
-  function parse3(xml2, streaming2 = false) {
+  function parse3(xml3, streaming2 = false) {
     var elNameCache = null;
     var nsChanges, nsSnapshot, anonymousNsCount = 0, tagStart = false, tagEnd = false, i = 0, j2 = 0, x, y, q, w2, v2, xmlns, elementName, _elementName, elementProxy;
     var attrsString = "", attrsStart = 0, cachedAttrs;
@@ -2325,7 +2325,7 @@ function Parser(options) {
       var match;
       var data;
       while (i >= startOfLine) {
-        match = splitsRe.exec(xml2);
+        match = splitsRe.exec(xml3);
         if (!match) {
           break;
         }
@@ -2338,12 +2338,12 @@ function Parser(options) {
       }
       if (i == -1) {
         column = endOfLine;
-        data = xml2.substring(j2);
+        data = xml3.substring(j2);
       } else if (j2 === 0) {
-        data = xml2.substring(j2, i);
+        data = xml3.substring(j2, i);
       } else {
         column = i - startOfLine;
-        data = j2 == -1 ? xml2.substring(i) : xml2.substring(i, j2 + 1);
+        data = j2 == -1 ? xml3.substring(i) : xml3.substring(i, j2 + 1);
       }
       return {
         "data": data,
@@ -2370,14 +2370,14 @@ function Parser(options) {
       });
     }
     while (j2 !== -1) {
-      if (xml2.charCodeAt(j2) === 60) {
+      if (xml3.charCodeAt(j2) === 60) {
         i = j2;
       } else {
-        i = xml2.indexOf("<", j2);
+        i = xml3.indexOf("<", j2);
       }
       if (i === -1) {
         if (streaming2) {
-          return xml2.substring(j2);
+          return xml3.substring(j2);
         }
         if (nodeStack.length) {
           return handleError2("unexpected end of file");
@@ -2385,8 +2385,8 @@ function Parser(options) {
         if (!rootTagFound) {
           return handleError2("missing start tag");
         }
-        if (j2 < xml2.length) {
-          if (xml2.substring(j2).trim()) {
+        if (j2 < xml3.length) {
+          if (xml3.substring(j2).trim()) {
             handleWarning(NON_WHITESPACE_OUTSIDE_ROOT_NODE);
           }
         }
@@ -2398,13 +2398,13 @@ function Parser(options) {
       if (j2 !== i) {
         if (nodeStack.length) {
           if (onText) {
-            onText(xml2.substring(j2, i), decodeEntities, getContext);
+            onText(xml3.substring(j2, i), decodeEntities, getContext);
             if (parseStop) {
               return;
             }
           }
         } else {
-          if (xml2.substring(j2, i).trim()) {
+          if (xml3.substring(j2, i).trim()) {
             handleWarning(NON_WHITESPACE_OUTSIDE_ROOT_NODE);
             if (parseStop) {
               return;
@@ -2412,19 +2412,19 @@ function Parser(options) {
           }
         }
       }
-      w2 = xml2.charCodeAt(i + 1);
+      w2 = xml3.charCodeAt(i + 1);
       if (w2 === 33) {
-        q = xml2.charCodeAt(i + 2);
-        if (q === 91 && xml2.substr(i + 3, 6) === "CDATA[") {
-          j2 = xml2.indexOf("]]>", i);
+        q = xml3.charCodeAt(i + 2);
+        if (q === 91 && xml3.substr(i + 3, 6) === "CDATA[") {
+          j2 = xml3.indexOf("]]>", i);
           if (j2 === -1) {
             if (streaming2) {
-              return xml2.substring(i);
+              return xml3.substring(i);
             }
             return handleError2("unclosed cdata");
           }
           if (onCDATA) {
-            onCDATA(xml2.substring(i + 9, j2), getContext);
+            onCDATA(xml3.substring(i + 9, j2), getContext);
             if (parseStop) {
               return;
             }
@@ -2432,16 +2432,16 @@ function Parser(options) {
           j2 += 3;
           continue;
         }
-        if (q === 45 && xml2.charCodeAt(i + 3) === 45) {
-          j2 = xml2.indexOf("-->", i);
+        if (q === 45 && xml3.charCodeAt(i + 3) === 45) {
+          j2 = xml3.indexOf("-->", i);
           if (j2 === -1) {
             if (streaming2) {
-              return xml2.substring(i);
+              return xml3.substring(i);
             }
             return handleError2("unclosed comment");
           }
           if (onComment) {
-            onComment(xml2.substring(i + 4, j2), decodeEntities, getContext);
+            onComment(xml3.substring(i + 4, j2), decodeEntities, getContext);
             if (parseStop) {
               return;
             }
@@ -2451,15 +2451,15 @@ function Parser(options) {
         }
       }
       if (w2 === 63) {
-        j2 = xml2.indexOf("?>", i);
+        j2 = xml3.indexOf("?>", i);
         if (j2 === -1) {
           if (streaming2) {
-            return xml2.substring(i);
+            return xml3.substring(i);
           }
           return handleError2("unclosed question");
         }
         if (onQuestion) {
-          onQuestion(xml2.substring(i, j2 + 2), getContext);
+          onQuestion(xml3.substring(i, j2 + 2), getContext);
           if (parseStop) {
             return;
           }
@@ -2468,19 +2468,19 @@ function Parser(options) {
         continue;
       }
       for (x = i + 1; ; x++) {
-        v2 = xml2.charCodeAt(x);
+        v2 = xml3.charCodeAt(x);
         if (isNaN(v2)) {
           if (streaming2) {
-            return xml2.substring(i);
+            return xml3.substring(i);
           }
           j2 = -1;
           return handleError2("unclosed tag");
         }
         if (v2 === 34) {
-          q = xml2.indexOf('"', x + 1);
+          q = xml3.indexOf('"', x + 1);
           x = q !== -1 ? q : x;
         } else if (v2 === 39) {
-          q = xml2.indexOf("'", x + 1);
+          q = xml3.indexOf("'", x + 1);
           x = q !== -1 ? q : x;
         } else if (v2 === 62) {
           j2 = x;
@@ -2489,7 +2489,7 @@ function Parser(options) {
       }
       if (w2 === 33) {
         if (onAttention) {
-          onAttention(xml2.substring(i, j2 + 1), decodeEntities, getContext);
+          onAttention(xml3.substring(i, j2 + 1), decodeEntities, getContext);
           if (parseStop) {
             return;
           }
@@ -2506,23 +2506,23 @@ function Parser(options) {
         }
         x = elementName = nodeStack.pop();
         q = i + 2 + x.length;
-        if (xml2.substring(i + 2, q) !== x) {
+        if (xml3.substring(i + 2, q) !== x) {
           return handleError2("closing tag mismatch");
         }
         for (; q < j2; q++) {
-          w2 = xml2.charCodeAt(q);
+          w2 = xml3.charCodeAt(q);
           if (w2 === 32 || w2 > 8 && w2 < 14) {
             continue;
           }
           return handleError2("close tag");
         }
       } else {
-        if (xml2.charCodeAt(j2 - 1) === 47) {
-          x = elementName = xml2.substring(i + 1, j2 - 1);
+        if (xml3.charCodeAt(j2 - 1) === 47) {
+          x = elementName = xml3.substring(i + 1, j2 - 1);
           tagStart = true;
           tagEnd = true;
         } else {
-          x = elementName = xml2.substring(i + 1, j2);
+          x = elementName = xml3.substring(i + 1, j2);
           tagStart = true;
           tagEnd = false;
         }
@@ -3244,7 +3244,7 @@ var init_dist4 = __esm({
         this.element.$body = this.body;
       }
     };
-    Reader.prototype.fromXML = function(xml2, options, done) {
+    Reader.prototype.fromXML = function(xml3, options, done) {
       var rootHandler = options.rootHandler;
       if (options instanceof ElementHandler) {
         rootHandler = options;
@@ -3381,7 +3381,7 @@ var init_dist4 = __esm({
       return new Promise(function(resolve, reject) {
         var err;
         try {
-          parser.parse(xml2);
+          parser.parse(xml3);
           resolveReferences();
         } catch (e) {
           err = e;
@@ -7879,7 +7879,7 @@ function validateInputVisuals(definitions, root) {
     );
   }
 }
-function validateParseWarnings(warnings, xml2) {
+function validateParseWarnings(warnings, xml3) {
   const invalidProcessRef = warnings.find((warning) => warning.property === "bpmn:processRef");
   if (invalidProcessRef) {
     throw new LayoutError(
@@ -7890,7 +7890,7 @@ function validateParseWarnings(warnings, xml2) {
   }
   const unknownType2 = warnings.find((warning) => warning.message.includes("unknown type"));
   if (unknownType2) {
-    const elementId = /<bpmn:[^ >]+[^>]*\sid="([^"]+)"/.exec(xml2)?.[1] || "unknown";
+    const elementId = /<bpmn:[^ >]+[^>]*\sid="([^"]+)"/.exec(xml3)?.[1] || "unknown";
     throw new LayoutError(
       "UNSUPPORTED_ELEMENT",
       elementId,
@@ -13202,8 +13202,8 @@ function getExpectedDiElements(root) {
   }
   return elements;
 }
-function layoutProcess(xml2) {
-  return new Layouter().layoutProcess(xml2);
+function layoutProcess(xml3) {
+  return new Layouter().layoutProcess(xml3);
 }
 var DiFactory, DEFAULT_TASK_HEIGHT, DEFAULT_TASK_WIDTH, LayoutError, LayoutWarning, HORIZONTAL_GAP, VERTICAL_GAP, OUTER_MARGIN, SUB_PROCESS_PADDING, ROUTING_MARGIN, MESSAGE_FLOW_BEND_PENALTY, PARTICIPANT_HEADER_WIDTH, LANE_CONTENT_PADDING, ANNOTATION_MIN_WIDTH, ANNOTATION_MAX_WIDTH, ANNOTATION_WIDTH_STEP, ANNOTATION_CHARACTER_WIDTH, ANNOTATION_LINE_HEIGHT, ANNOTATION_PADDING, GROUP_PADDING, EXTERNAL_LABEL_WIDTH, EXTERNAL_LABEL_LINE_HEIGHT, EXTERNAL_LABEL_HORIZONTAL_PADDING, EXTERNAL_LABEL_CHARACTER_WIDTH, EXTERNAL_LABEL_UPPERCASE_WIDTH, EXTERNAL_LABEL_WIDE_CHARACTER_WIDTH, EXTERNAL_LABEL_SPACE_WIDTH, EXTERNAL_LABEL_CLEARANCE, FLOW_LABEL_INDENT, MIN_PARTICIPANT_WIDTH, MIN_PARTICIPANT_HEIGHT, MIN_SUB_PROCESS_WIDTH, MIN_SUB_PROCESS_HEIGHT, SEMANTIC_BAND_HEIGHT, MIN_LANE_CONTENT_WIDTH, MIN_LANE_HEIGHT, BOUNDARY_EVENT_SPACING, ANNOTATION_MIN_HEIGHT, ANNOTATION_TARGET_ASPECT_RATIO, ANNOTATION_ASPECT_RATIO_PENALTY_SCALE, MAX_ARTIFACT_SEARCH_OFFSET, MAX_ARTIFACT_GAP_STEPS, NON_STRAIGHT_ARTIFACT_ASSOCIATION_PENALTY, BOUNDARY_EVENT_ARTIFACT_CLEARANCE, EXPANDED_SUBPROCESS_ANNOTATION_CLEARANCE, EXPANDED_SUBPROCESS_LABEL_HEIGHT, EXPANDED_SUBPROCESS_LABEL_PADDING, MAX_LABEL_SEARCH_STEPS, MESSAGE_FLOW_SIDE_OFFSET, MESSAGE_FLOW_CHANNEL_SPACING, MESSAGE_FLOW_CHANNEL_WIDTH_DIVISOR, MAX_EXHAUSTIVE_PARTICIPANT_COUNT, MESSAGE_FLOW_OBSTACLE_INSET, MAX_ROUTE_SEARCH_ATTEMPTS, MAX_LOCAL_U_CHANNEL_ATTEMPTS, ROUTE_OBSTACLE_INSET, VISIBILITY_GRAPH_TURN_PENALTY, SEGMENT_INTERSECTION_EPSILON, EDGE_PRIORITY, CLEAR_DOCK_X_FRACTIONS, Layouter;
 var init_dist6 = __esm({
@@ -13341,11 +13341,11 @@ var init_dist6 = __esm({
         this.expandedIds = /* @__PURE__ */ new Set();
         this.warnings = [];
       }
-      async layoutProcess(xml2) {
+      async layoutProcess(xml3) {
         this.warnings = [];
-        const parsed = await this.moddle.fromXML(xml2);
+        const parsed = await this.moddle.fromXML(xml3);
         const definitions = parsed.rootElement;
-        validateParseWarnings(parsed.warnings || [], xml2);
+        validateParseWarnings(parsed.warnings || [], xml3);
         const root = this.selectRoot(definitions);
         if (!root) {
           return {
@@ -35555,12 +35555,12 @@ var init_nanobpmn_engine = __esm({
        * @param {string} xml
        * @returns {string}
        */
-      deploy(xml2) {
+      deploy(xml3) {
         let deferred3_0;
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(xml2, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr0 = passStringToWasm0(xml3, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_deploy(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -35592,12 +35592,12 @@ var init_nanobpmn_engine = __esm({
        * @param {string} xml
        * @returns {string}
        */
-      deployDecision(xml2) {
+      deployDecision(xml3) {
         let deferred3_0;
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(xml2, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr0 = passStringToWasm0(xml3, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_deployDecision(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -36717,9 +36717,9 @@ async function checkFile(file2, keyFor = (id) => id) {
   if (!found2.length) problems.push({ severity: "error", message: `${path3.basename(file2)} exports no defineFlow(...) flow` });
   for (const authored of found2) {
     const flow = { ...authored, id: keyFor(authored.id) };
-    let xml2;
+    let xml3;
     try {
-      xml2 = await declarativeToLayoutedBpmn(flow);
+      xml3 = await declarativeToLayoutedBpmn(flow);
     } catch (e) {
       problems.push({ severity: "error", message: `flow "${authored.id}": compile failed: ${e?.message ?? e}` });
       continue;
@@ -36767,11 +36767,11 @@ async function checkFile(file2, keyFor = (id) => id) {
       for (const [type, h2] of Object.entries(mod.workers)) if (typeof h2 === "function") handlers[type] = h2;
     }
     try {
-      newEngine().deploy(xml2);
+      newEngine().deploy(xml3);
     } catch (e) {
       problems.push({ severity: "error", message: `flow "${authored.id}": engine rejected the BPMN: ${e?.message ?? e}` });
     }
-    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml2, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : void 0, projectDir, scope: "project", description: mod.description });
+    flows.push({ id: authored.id, key: flow.id, file: file2, stamp, xml: xml3, handlers, humans, tasks, forms, agents: mod.agents ?? {}, agentProfiles: mod.agentProfiles ?? {}, defaultAgent: typeof mod.defaultAgent === "string" ? mod.defaultAgent : void 0, projectDir, scope: "project", description: mod.description });
   }
   return { file: file2, flows, problems };
 }
@@ -38148,6 +38148,119 @@ var init_agent_record = __esm({
   }
 });
 
+// src/notify.ts
+import { spawn as spawn4, spawnSync } from "node:child_process";
+function onPath(cmd2) {
+  const r2 = spawnSync(process.platform === "win32" ? "where" : "which", [cmd2], { stdio: "ignore" });
+  return r2.status === 0;
+}
+function notifyCommand(n, platform = process.platform, terminalNotifier) {
+  const body2 = n.body.length > 240 ? `${n.body.slice(0, 237)}\u2026` : n.body;
+  if (platform === "darwin") {
+    terminalNotifier ??= hasTerminalNotifier ??= onPath("terminal-notifier");
+    if (terminalNotifier) {
+      return {
+        cmd: "terminal-notifier",
+        args: ["-title", "Agent Graph", "-subtitle", n.title, "-message", body2, "-group", n.key, ...n.url ? ["-open", n.url] : []]
+      };
+    }
+    return { cmd: "osascript", args: ["-e", `display notification ${appleString(body2)} with title "Agent Graph" subtitle ${appleString(n.title)}`] };
+  }
+  if (platform === "win32") {
+    const launch2 = n.url ? ` activationType="protocol" launch="${xml2(n.url)}"` : "";
+    const toast = `<toast${launch2}><visual><binding template="ToastGeneric"><text>${xml2(`Agent Graph: ${n.title}`)}</text><text>${xml2(body2)}</text></binding></visual></toast>`;
+    const ps = [
+      "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null",
+      "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null",
+      "$x = New-Object Windows.Data.Xml.Dom.XmlDocument",
+      `$x.LoadXml('${toast.replace(/'/g, "''")}')`,
+      "$id = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe'",
+      "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($id).Show([Windows.UI.Notifications.ToastNotification]::new($x))"
+    ].join("\n");
+    return { cmd: "powershell.exe", args: ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(ps, "utf16le").toString("base64")] };
+  }
+  const base = ["-a", "Agent Graph", `Agent Graph: ${n.title}`, n.url ? `${body2}
+${n.url}` : body2];
+  if (n.url) return { cmd: "notify-send", args: ["--action=open=Open", "--wait", ...base], openOnAction: "open" };
+  return { cmd: "notify-send", args: base };
+}
+function openUrl(url2, platform = process.platform) {
+  const [cmd2, args] = platform === "darwin" ? ["open", [url2]] : platform === "win32" ? ["cmd", ["/c", "start", "", url2]] : ["xdg-open", [url2]];
+  try {
+    spawn4(cmd2, args, { stdio: "ignore", detached: true }).on("error", () => {
+    }).unref();
+  } catch {
+  }
+}
+function notify(n, log = () => {
+}) {
+  const c = notifyCommand(n);
+  if (!c) return;
+  const run = (cmd2, fallback) => {
+    let out = "";
+    let child;
+    try {
+      child = spawn4(cmd2.cmd, cmd2.args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+    } catch (e) {
+      return log(`notification failed (${cmd2.cmd}): ${e?.message ?? e}`);
+    }
+    child.stdout?.on("data", (d2) => out += d2);
+    child.on("error", (e) => {
+      if (!warned.has(cmd2.cmd)) log(`notifications: ${cmd2.cmd} unavailable (${e.code ?? e.message}); set AGE_NOTIFY=off to silence`);
+      warned.add(cmd2.cmd);
+    });
+    child.on("close", (code) => {
+      if (cmd2.openOnAction && out.trim() === cmd2.openOnAction && n.url) openUrl(n.url);
+      else if (code !== 0 && fallback) run(fallback);
+    });
+  };
+  run(c, c.openOnAction ? { cmd: c.cmd, args: c.args.filter((a) => a !== "--wait" && !a.startsWith("--action")) } : void 0);
+}
+function notifyMode(env = process.env.AGE_NOTIFY) {
+  const v2 = (env ?? "").toLowerCase();
+  if (["off", "0", "false", "no"].includes(v2)) return "off";
+  if (v2 === "tasks" || v2 === "incidents") return v2;
+  return "all";
+}
+var xml2, appleString, hasTerminalNotifier, warned, Notifier;
+var init_notify = __esm({
+  "src/notify.ts"() {
+    "use strict";
+    xml2 = (s) => s.replace(/[<>&'"]/g, (c) => `&#${c.charCodeAt(0)};`);
+    appleString = (s) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    warned = /* @__PURE__ */ new Set();
+    Notifier = class {
+      seen = /* @__PURE__ */ new Set();
+      primed = false;
+      mode;
+      show;
+      constructor(mode, show) {
+        this.mode = mode;
+        this.show = show;
+      }
+      update(notices) {
+        const fresh = notices.filter((n) => !this.seen.has(n.key));
+        for (const n of fresh) this.seen.add(n.key);
+        const live = new Set(notices.map((n) => n.key));
+        for (const k2 of this.seen) if (!live.has(k2)) this.seen.delete(k2);
+        if (!this.primed) {
+          this.primed = true;
+          return;
+        }
+        const wanted = fresh.filter((n) => this.mode === "all" || n.key.startsWith(this.mode === "tasks" ? "task:" : "incident:"));
+        if (this.mode === "off" || !wanted.length) return;
+        if (wanted.length > 3) {
+          const inc = wanted.filter((n) => n.key.startsWith("incident:")).length;
+          const parts = [inc && `${inc} incident${inc > 1 ? "s" : ""}`, wanted.length - inc && `${wanted.length - inc} task${wanted.length - inc > 1 ? "s" : ""} waiting`].filter(Boolean);
+          this.show({ key: "burst", title: parts.join(", "), body: wanted.map((n) => n.title).slice(0, 5).join("; "), url: wanted[0].url?.replace(/#.*$/, "") });
+          return;
+        }
+        for (const n of wanted) this.show(n);
+      }
+    };
+  }
+});
+
 // src/explorer-html.ts
 import fs6 from "node:fs";
 function explorerHtml() {
@@ -38774,6 +38887,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   v6.listen(addr.port, "::1");
   server.on("close", () => v6.close());
   const info = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  host.baseUrl = info.url;
   fs8.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }
@@ -38786,6 +38900,7 @@ var init_daemon = __esm({
     init_agents();
     init_agent_run();
     init_agent_record();
+    init_notify();
     init_wasm();
     init_paths();
     init_explorer_html();
@@ -38827,6 +38942,12 @@ var init_daemon = __esm({
       leases = {};
       /** Threads that run flow code (`run` steps and custom workers). */
       steps = STEP_THREADS ? new StepPool(MAX_CONCURRENT, (m2) => this.log({ kind: "daemon", message: m2 })) : void 0;
+      /** The engine's URL, for explorer links in notifications (set once listening). */
+      baseUrl = "";
+      notifier = new Notifier(notifyMode(), (n) => {
+        this.log({ kind: "daemon", message: `notify: ${n.title}` });
+        notify(n, (m2) => this.log({ kind: "daemon", message: m2 }));
+      });
       constructor(dir = engineDir()) {
         this.dir = dir;
         fs8.mkdirSync(path6.join(this.dir, "compiled"), { recursive: true });
@@ -38860,6 +38981,7 @@ var init_daemon = __esm({
         this.deployed = this.readJson("deployed.json", {});
         this.projects = this.readJson("projects.json", []).filter((p2) => fs8.existsSync(p2));
         this.instanceMeta = this.readJson("instances.json", {});
+        this.announce();
         this.activity = this.readJson("activity.json", []);
         this.leases = this.readJson("leases.json", {});
         this.engine.tickNow(Date.now());
@@ -38877,10 +38999,39 @@ var init_daemon = __esm({
         fs8.writeFileSync(`${p2}.tmp`, data);
         fs8.renameSync(`${p2}.tmp`, p2);
       }
+      /** Desktop notification for each new incident or waiting user task. */
+      announce() {
+        try {
+          const snap = this.snapshot();
+          const link = (instanceKey, hash2) => this.baseUrl ? `${this.baseUrl}/?project=${encodeURIComponent(this.projectOf(instanceKey))}#${hash2}` : void 0;
+          const where = (instanceKey) => path6.basename(this.projectOf(instanceKey));
+          const notices = [
+            ...(snap.incidents ?? []).map((i) => ({
+              key: `incident:${i.key}`,
+              title: `Incident in ${this.instanceMeta[i.instanceKey]?.flowId ?? "a flow"} (${where(i.instanceKey)})`,
+              body: `${i.elementId}: ${String(i.reason ?? "").split("\n")[0]}`,
+              url: link(i.instanceKey, `instance=${i.instanceKey}`)
+            })),
+            ...(snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => {
+              const v2 = this.userTaskView(t, snap);
+              return {
+                key: `task:${t.key}`,
+                title: `${v2.flowId ?? "A flow"} is waiting for you (${where(t.instanceKey)})`,
+                body: v2.form?.title ?? v2.title ?? t.elementId,
+                url: link(t.instanceKey, `task=${t.key}`)
+              };
+            })
+          ];
+          this.notifier.update(notices);
+        } catch (e) {
+          this.log({ kind: "error", message: `notify: ${e?.message ?? e}` });
+        }
+      }
       /** Write the event log and side tables. The journal is the source of truth. */
       persist() {
         if (!this.dirty) return;
         this.dirty = false;
+        this.announce();
         this.writeAtomic("journal.json", this.engine.events());
         this.writeAtomic("deployed.json", JSON.stringify(this.deployed));
         this.writeAtomic("instances.json", JSON.stringify(this.instanceMeta));
@@ -59752,7 +59903,7 @@ init_compile2();
 init_paths();
 init_client();
 init_summary();
-import { spawn as spawn4 } from "node:child_process";
+import { spawn as spawn5 } from "node:child_process";
 import path9 from "node:path";
 var HELP = `age \u2014 Agent Graph Engine
 
@@ -59889,7 +60040,7 @@ main().catch((e) => {
 function openBrowser(url2) {
   if (process.env.AGE_NO_BROWSER) return;
   const [command, args] = process.platform === "darwin" ? ["open", [url2]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url2]] : ["xdg-open", [url2]];
-  const child = spawn4(command, args, { stdio: "ignore", detached: true });
+  const child = spawn5(command, args, { stdio: "ignore", detached: true });
   child.on("error", () => {
   });
   child.unref();

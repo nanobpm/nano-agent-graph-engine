@@ -3,6 +3,7 @@
 // reaches the engine only through the server's app-only ui_api tool.
 // usage: PLAYWRIGHT_FROM=/tmp/bh node test/app-host-e2e.mjs [hostUrl] [outPrefix]
 import { createRequire } from "node:module";
+process.env.AGE_NOTIFY ??= "off"; // engines started by tests: no desktop notifications
 const req = createRequire((process.env.PLAYWRIGHT_FROM ?? "/tmp/bh") + "/package.json");
 const { chromium } = req("playwright");
 

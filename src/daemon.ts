@@ -10,6 +10,7 @@ import { jobSignal, runInProject } from "./index.ts";
 import { anyAgentInstalled, resolveAgent } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
 import { AgentRecorder } from "./agent-record.ts";
+import { Notifier, notify, notifyMode, type Notice } from "./notify.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
 import { acquireEngineLock, defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
@@ -65,6 +66,13 @@ export class Host {
   /** Threads that run flow code (`run` steps and custom workers). */
   private steps = STEP_THREADS ? new StepPool(MAX_CONCURRENT, (m) => this.log({ kind: "daemon", message: m })) : undefined;
 
+  /** The engine's URL, for explorer links in notifications (set once listening). */
+  baseUrl = "";
+  private notifier = new Notifier(notifyMode(), (n) => {
+    this.log({ kind: "daemon", message: `notify: ${n.title}` });
+    notify(n, (m) => this.log({ kind: "daemon", message: m }));
+  });
+
   constructor(dir = engineDir()) {
     this.dir = dir;
     fs.mkdirSync(path.join(this.dir, "compiled"), { recursive: true });
@@ -98,6 +106,7 @@ export class Host {
     this.deployed = this.readJson("deployed.json", {});
     this.projects = this.readJson<string[]>("projects.json", []).filter((p) => fs.existsSync(p));
     this.instanceMeta = this.readJson("instances.json", {});
+    this.announce(); // primes: what already exists isn't news
     this.activity = this.readJson("activity.json", []);
     this.leases = this.readJson("leases.json", {});
     this.engine.tickNow(Date.now());
@@ -118,10 +127,43 @@ export class Host {
     fs.renameSync(`${p}.tmp`, p);
   }
 
+  /** Desktop notification for each new incident or waiting user task. */
+  announce() {
+    try {
+      const snap = this.snapshot();
+      const link = (instanceKey: string, hash: string) =>
+        this.baseUrl ? `${this.baseUrl}/?project=${encodeURIComponent(this.projectOf(instanceKey))}#${hash}` : undefined;
+      const where = (instanceKey: string) => path.basename(this.projectOf(instanceKey));
+      const notices: Notice[] = [
+        ...(snap.incidents ?? []).map((i: any) => ({
+          key: `incident:${i.key}`,
+          title: `Incident in ${this.instanceMeta[i.instanceKey]?.flowId ?? "a flow"} (${where(i.instanceKey)})`,
+          body: `${i.elementId}: ${String(i.reason ?? "").split("\n")[0]}`,
+          url: link(i.instanceKey, `instance=${i.instanceKey}`),
+        })),
+        ...(snap.userTasks ?? [])
+          .filter((t: any) => t.state === "Created")
+          .map((t: any) => {
+            const v = this.userTaskView(t, snap) as any;
+            return {
+              key: `task:${t.key}`,
+              title: `${v.flowId ?? "A flow"} is waiting for you (${where(t.instanceKey)})`,
+              body: v.form?.title ?? v.title ?? t.elementId,
+              url: link(t.instanceKey, `task=${t.key}`),
+            };
+          }),
+      ];
+      this.notifier.update(notices);
+    } catch (e: any) {
+      this.log({ kind: "error", message: `notify: ${e?.message ?? e}` });
+    }
+  }
+
   /** Write the event log and side tables. The journal is the source of truth. */
   persist() {
     if (!this.dirty) return;
     this.dirty = false;
+    this.announce();
     this.writeAtomic("journal.json", this.engine.events());
     this.writeAtomic("deployed.json", JSON.stringify(this.deployed));
     this.writeAtomic("instances.json", JSON.stringify(this.instanceMeta));
@@ -787,6 +829,7 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   v6.listen(addr.port, "::1");
   server.on("close", () => v6.close());
   const info: DaemonInfo = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: new Date().toISOString() };
+  host.baseUrl = info.url;
   fs.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
 }

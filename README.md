@@ -273,6 +273,18 @@ Each agent step is recorded in the engine as an **AgentInstance** with its **his
 
 The explorer shows an agent badge on the step; click it for the transcript, with a timeline, metrics and a run picker when a step ran several times. The data comes from `GET /api/explorer/instances/<key>/agents` and `GET /api/explorer/agents/<key>/history`. Recording is best-effort: a failure is logged and never fails the step.
 
+## Notifications
+
+The engine runs in the background, so a run can stop long after you've left the session. When an incident is raised, or a user task starts waiting for you, the engine shows a desktop notification with the flow and project. Clicking it opens that run or task in the explorer, where available. Each incident or task is announced once. Anything already waiting when the engine starts is not announced again. More than three at once are combined into one notification.
+
+| Platform | Uses | Click opens the explorer |
+|---|---|---|
+| macOS | `terminal-notifier` if installed (`brew install terminal-notifier`), else `osascript` | only with `terminal-notifier` |
+| Linux | `notify-send` (libnotify, any freedesktop notification daemon) | with libnotify 0.7.9+ (`--action`); the URL is also in the text |
+| Windows 10/11 | a PowerShell toast (no install) | yes |
+
+`AGE_NOTIFY=off` turns them off, and `AGE_NOTIFY=incidents` or `AGE_NOTIFY=tasks` limits them to one kind. Set it in the environment the engine starts from. A missing notifier is logged once in the activity log and never affects runs.
+
 ## Parallelism and fan-out
 
 Flows fan out with `w.parallel([...])`, a fixed set of branches, and

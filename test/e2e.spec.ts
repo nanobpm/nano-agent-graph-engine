@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { ElicitRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+process.env.AGE_NOTIFY ??= "off"; // engines started by tests: no desktop notifications
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const built = fs.existsSync(path.join(root, "dist/cli.js"));
