@@ -34691,15 +34691,22 @@ __export(agents_exports, {
   agentsFile: () => agentsFile,
   allProfiles: () => allProfiles,
   anyAgentInstalled: () => anyAgentInstalled,
+  assignAgent: () => assignAgent,
   commandOf: () => commandOf,
   launch: () => launch,
+  rankOf: () => rankOf,
   readAgentsFile: () => readAgentsFile,
   resolveAgent: () => resolveAgent,
+  takeRunAgents: () => takeRunAgents,
   which: () => which,
   writeAgentsFile: () => writeAgentsFile
 });
 import fs2 from "node:fs";
 import path2 from "node:path";
+function rankOf(jobType2) {
+  const m2 = /^([a-z][a-z0-9-]*):([^:]+)$/.exec(jobType2);
+  return m2?.[1];
+}
 function agentsFile() {
   return path2.join(engineDir(), "agents.json");
 }
@@ -34714,11 +34721,11 @@ function writeAgentsFile(f2) {
   fs2.mkdirSync(path2.dirname(agentsFile()), { recursive: true });
   fs2.writeFileSync(agentsFile(), JSON.stringify(f2, null, 2) + "\n");
 }
-function allProfiles(flowProfiles = {}) {
+function allProfiles(flowProfiles = {}, file2 = readAgentsFile()) {
   const out = {};
   for (const [n, p2] of Object.entries(BUILTIN_PROFILES)) out[n] = { ...p2, source: "built-in" };
   for (const [n, p2] of Object.entries(flowProfiles)) out[n] = { ...p2, source: "flow" };
-  for (const [n, p2] of Object.entries(readAgentsFile().profiles ?? {})) out[n] = { ...p2, source: "agents.json" };
+  for (const [n, p2] of Object.entries(file2.profiles ?? {})) out[n] = { ...p2, source: "agents.json" };
   return out;
 }
 function which(command) {
@@ -34738,18 +34745,76 @@ function which(command) {
   return hit;
 }
 function resolveAgent(opts) {
-  const profiles = allProfiles(opts.flowProfiles);
-  const pick3 = (name2, reason, mustExist) => {
+  const file2 = opts.file ?? readAgentsFile();
+  const profiles = allProfiles(opts.flowProfiles, file2);
+  const fa = opts.flowId && file2.flows?.[opts.flowId] || {};
+  const sa = opts.step && fa.steps?.[opts.step] || {};
+  const ro = opts.step && opts.run?.[opts.step] || {};
+  const rall = opts.run?.["*"] ?? {};
+  const userModel = ro.model ?? rall.model ?? sa.model ?? fa.model;
+  let skipped;
+  const pick3 = (name2, reason, mode, model) => {
     if (!name2) return void 0;
     const profile = profiles[name2];
     if (!profile) {
-      if (mustExist) throw new Error(`unknown agent profile "${name2}" (known: ${Object.keys(profiles).join(", ")})`);
+      if (mode === "user") throw new Error(`unknown agent profile "${name2}" (${reason}; known: ${Object.keys(profiles).join(", ")})`);
+      if (mode === "author") skipped ??= `${name2} (unknown here)`;
       return void 0;
     }
-    if (!mustExist && !which(commandOf(name2, profile))) return void 0;
-    return { name: name2, profile, reason };
+    if (mode !== "user" && !which(commandOf(name2, profile))) {
+      if (mode === "author") skipped ??= `${name2} (not installed)`;
+      return void 0;
+    }
+    return { name: name2, profile, model: userModel ?? model ?? profile.model, reason };
   };
-  return pick3(opts.use, "step", true) ?? pick3(opts.flowDefault, "flow default", true) ?? pick3(readAgentsFile().default, "agents.json default", true) ?? pick3(opts.host && HOST_PROFILE[opts.host], "host", false) ?? ["claude", "opencode", "nano-coder"].map((n) => pick3(n, "installed", false)).find(Boolean);
+  const rank = opts.jobType ? rankOf(opts.jobType) : void 0;
+  const r2 = pick3(ro.use, "run override", "user", ro.model) ?? pick3(rall.use, "run override", "user", rall.model) ?? pick3(sa.use, "your step assignment", "user", sa.model) ?? pick3(fa.use, "your flow assignment", "user", fa.model) ?? pick3(rank && file2.ranks?.[rank], `your rank ${rank}`, "user") ?? pick3(opts.use, "author (step)", "author", opts.model) ?? pick3(opts.flowDefault, "author (flow default)", "author", opts.use ? void 0 : opts.model) ?? pick3(file2.default, "your default", "user") ?? pick3(opts.host && HOST_PROFILE[opts.host], "host", "auto") ?? ["claude", "opencode", "nano-coder"].map((n) => pick3(n, "installed", "auto")).find(Boolean);
+  return r2 && skipped ? { ...r2, skipped } : r2;
+}
+function takeRunAgents(args) {
+  const agents = {};
+  const rest2 = [];
+  for (let i = 0; i < args.length; i++) {
+    const m2 = /^--(agent|model)(?:=(.*))?$/.exec(args[i]);
+    if (!m2) {
+      rest2.push(args[i]);
+      continue;
+    }
+    const v2 = m2[2] ?? args[++i];
+    if (!v2) throw new Error(`--${m2[1]} needs a value: --${m2[1]} <${m2[1] === "agent" ? "profile" : "model"}> or --${m2[1]} <step>=<value>`);
+    const eq = v2.indexOf("=");
+    const [step, val] = eq > 0 ? [v2.slice(0, eq), v2.slice(eq + 1)] : ["*", v2];
+    (agents[step] ??= {})[m2[1] === "agent" ? "use" : "model"] = val;
+  }
+  return { agents: Object.keys(agents).length ? agents : void 0, rest: rest2 };
+}
+function assignAgent(a) {
+  const file2 = readAgentsFile();
+  const known = allProfiles({}, file2);
+  if (a.use && !known[a.use]) throw new Error(`unknown agent profile "${a.use}" (known: ${Object.keys(known).join(", ")})`);
+  if (a.rank) {
+    if (!/^[a-z][a-z0-9-]*$/.test(a.rank)) throw new Error(`bad rank "${a.rank}"`);
+    file2.ranks ??= {};
+    if (a.use) file2.ranks[a.rank] = a.use;
+    else delete file2.ranks[a.rank];
+  } else {
+    if (!a.flowId) throw new Error("assign needs a flowId (or a rank)");
+    file2.flows ??= {};
+    const fa = file2.flows[a.flowId] ??= {};
+    const target = a.step && a.step !== "*" ? (fa.steps ??= {})[a.step] ??= {} : fa;
+    for (const k2 of ["use", "model"]) {
+      const v2 = a[k2];
+      if (v2 === null || v2 === "") delete target[k2];
+      else if (v2 !== void 0) target[k2] = v2;
+    }
+    if (fa.steps) {
+      for (const [k2, v2] of Object.entries(fa.steps)) if (!v2.use && !v2.model) delete fa.steps[k2];
+    }
+    if (fa.steps && !Object.keys(fa.steps).length) delete fa.steps;
+    if (!fa.use && !fa.model && !fa.steps) delete file2.flows[a.flowId];
+  }
+  writeAgentsFile(file2);
+  return file2;
 }
 function commandOf(name2, p2) {
   if (name2 === "claude" && p2.command === "claude" && process.env.AGE_CLAUDE_CMD) return process.env.AGE_CLAUDE_CMD;
@@ -36986,8 +37051,11 @@ async function checkFile(file2, keyFor = (id) => id) {
     const tasks = [];
     walkNodes(flow.steps, (n) => {
       if (n.kind === "human") humans.push({ name: n.name, form: n.form });
-      if (n.kind === "task")
-        tasks.push({ name: n.name, jobType: n.jobType ?? `${flow.id}:${n.name}`, agent: !!n.agent || !!n.prompt, prompt: n.prompt });
+      if (n.kind === "task") {
+        const jobType2 = n.jobType ?? `${flow.id}:${n.name}`;
+        const agent = (n.agent ?? !!n.prompt) && jobType2 !== "session" && typeof mod.workers?.[jobType2] !== "function";
+        tasks.push({ name: n.name, jobType: jobType2, agent, rank: agent && n.jobType ? rankOf(n.jobType) : void 0, prompt: n.prompt });
+      }
     });
     for (const h2 of humans) {
       if (!forms[h2.form])
@@ -36999,18 +37067,20 @@ async function checkFile(file2, keyFor = (id) => id) {
     }
     const projectDir = path4.dirname(path4.dirname(path4.resolve(file2)));
     for (const t of tasks) {
-      const builtin = t.jobType in BUILTIN_JOB_TYPES;
+      const builtin = t.agent || t.jobType in BUILTIN_JOB_TYPES;
       if (!builtin && !(mod.workers && typeof mod.workers[t.jobType] === "function"))
         problems.push({
           severity: "warning",
           element: t.name,
           message: `task("${t.name}") has job type "${t.jobType}" that no worker serves (built-ins: ${Object.keys(BUILTIN_JOB_TYPES).join(", ")}; or export workers = { "${t.jobType}": handler })`
         });
-      if (t.jobType === "claude" && !t.prompt)
-        problems.push({ severity: "error", element: t.name, message: `task("${t.name}") with jobType "claude" needs { prompt: { resourceId } }` });
+      if (t.agent && !t.prompt)
+        problems.push({ severity: "error", element: t.name, message: `agent task("${t.name}") needs { prompt: { resourceId } } (or a worker: export workers = { "${t.jobType}": handler })` });
+      if (t.agent && !t.rank && t.jobType !== "claude" && !t.jobType.startsWith(`${authored.id}:`))
+        problems.push({ severity: "warning", element: t.name, message: `agent job type "${t.jobType}" isn't the nano-workforce form <rank>:<task> (e.g. "senior:${t.name}")` });
       const use = mod.agents?.[t.name]?.use ?? (t.agent ? mod.defaultAgent : void 0);
       if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
-        problems.push({ severity: "error", element: t.name, message: `agent profile "${use}" is unknown (known: ${Object.keys(allProfiles(mod.agentProfiles)).join(", ")}; add it to agentProfiles or ~/.agent-graph/agents.json)` });
+        problems.push({ severity: "warning", element: t.name, message: `the flow suggests agent profile "${use}", which isn't known here \u2014 the step will run on your assignment or default (age agent show ${authored.id})` });
       if (t.prompt && !fs6.existsSync(path4.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }
@@ -37061,7 +37131,7 @@ var init_compile2 = __esm({
     init_resolve_hook();
     init_typecheck();
     BUILTIN_JOB_TYPES = {
-      claude: "headless Claude Code agent (claude -p) \u2014 prompt from flows/prompts/<resourceId>",
+      claude: 'agent step (legacy name) \u2014 prefer the nano-workforce form jobType: "senior:<task>"',
       session: "claimed by the live Claude Code session through the MCP tools (agent_next_job)"
     };
   }
@@ -37113,8 +37183,16 @@ var init_client = __esm({
       }
       /** `host`: the app starting the run (an MCP clientInfo name such as "claude-code" or
        *  "opencode"); its CLI runs the run's agent steps when nothing else is configured. */
-      start(flowId, variables = {}, title, host) {
-        return this.call("/api/start", { flowId, variables, title, project: this.project, host });
+      start(flowId, variables = {}, title, host, agents) {
+        return this.call("/api/start", { flowId, variables, title, project: this.project, host, agents });
+      }
+      /** A flow's agent steps: the author's suggestion, your assignment, what runs them now. */
+      agentPlan(flowId, host) {
+        return this.call(`/api/flows/${encodeURIComponent(flowId)}/agents?project=${encodeURIComponent(this.project)}${host ? `&host=${encodeURIComponent(host)}` : ""}`);
+      }
+      /** Assign a CLI and/or model to a flow, one of its steps, or a rank; null clears. */
+      assignAgent(a) {
+        return this.call("/api/agents/assign", a);
       }
       completeTask(key, variables = {}) {
         return this.call(`/api/user-tasks/${encodeURIComponent(key)}/complete`, { variables });
@@ -37146,6 +37224,11 @@ var init_client = __esm({
 });
 
 // src/summary.ts
+var summary_exports = {};
+__export(summary_exports, {
+  formatAgentPlan: () => formatAgentPlan,
+  summarize: () => summarize
+});
 import path5 from "node:path";
 function summarize(state, project2) {
   const here = project2 ? path5.resolve(project2) : state.project;
@@ -37174,6 +37257,24 @@ function summarize(state, project2) {
 function tilde(p2 = "") {
   const h2 = process.env.HOME;
   return h2 && p2.startsWith(h2) ? `~${p2.slice(h2.length)}` : p2;
+}
+function formatAgentPlan(plan) {
+  const lines = [`Agent steps of ${plan.flowId}:`];
+  if (!plan.steps.length) lines.push("  (none)");
+  for (const s of plan.steps) {
+    const r2 = s.resolved;
+    const runs = r2.error ? `ERROR ${r2.error}` : r2.use ? `${r2.use}${r2.model ? ` (${r2.model})` : ""}` : "chat assistant";
+    const why = r2.error ? "" : ` \u2014 ${r2.reason}${r2.skipped ? `; flow suggests ${r2.skipped}` : ""}`;
+    lines.push(`  ${s.step.padEnd(18)} ${s.jobType.padEnd(24)} \u2192 ${runs}${why}`);
+  }
+  const mine = [];
+  if (plan.flow.use || plan.flow.model) mine.push(`flow: ${[plan.flow.use, plan.flow.model && `model ${plan.flow.model}`].filter(Boolean).join(", ")}`);
+  for (const [rank, use] of Object.entries(plan.ranks ?? {})) mine.push(`rank ${rank}: ${use}`);
+  if (plan.default) mine.push(`default: ${plan.default}`);
+  if (mine.length) lines.push(`Your settings: ${mine.join("; ")}`);
+  const inst = plan.profiles.filter((p2) => p2.installed).map((p2) => p2.name);
+  lines.push(`Installed agent CLIs: ${inst.join(", ") || "none"}`);
+  return lines.join("\n");
 }
 var init_summary = __esm({
   "src/summary.ts"() {
@@ -38928,10 +39029,13 @@ var init_worker = __esm({
       /** How many more jobs of `type` may start now. */
       free(type) {
         const all = this.opts.maxConcurrent - this.running.size;
-        const cap = this.opts.perType?.[type];
+        const own2 = this.opts.perType?.[type];
+        const cls = own2 === void 0 ? this.opts.classOf?.(type) : void 0;
+        const cap = own2 ?? (cls !== void 0 ? this.opts.perType?.[cls] : void 0);
         if (cap === void 0) return Math.max(0, all);
+        const same = (t) => own2 !== void 0 ? t === type : this.opts.classOf?.(t) === cls;
         let ofType = 0;
-        for (const r2 of this.running.values()) if (r2.type === type) ofType++;
+        for (const r2 of this.running.values()) if (same(r2.type)) ofType++;
         return Math.max(0, Math.min(all, cap - ofType));
       }
       backingOff(key, now = Date.now()) {
@@ -39079,6 +39183,10 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         const f2 = host.flows.get(decodeURIComponent(mm[1]));
         return f2 ? send(res, 200, f2.xml, "application/xml") : send(res, 404, { error: "no such flow" });
       }
+      if (req.method === "GET" && (mm = m2(/^\/api\/flows\/([^/]+)\/agents$/))) {
+        const q = url2.searchParams;
+        return send(res, 200, host.agentPlan(decodeURIComponent(mm[1]), q.get("project") || void 0, q.get("host") || void 0));
+      }
       if (req.method === "GET" && (mm = m2(/^\/api\/instances\/([^/]+)$/))) {
         return send(res, 200, { ...host.instance(mm[1]), history: host.history(mm[1]) });
       }
@@ -39117,7 +39225,8 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         }
         return send(res, 200, { ok: true, projects: host.projects });
       }
-      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host) });
+      if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host, b.agents) });
+      if (p2 === "/api/agents/assign") return send(res, 200, assignAgent(b));
       if (mm = m2(/^\/api\/user-tasks\/([^/]+)\/complete$/)) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
       if (p2 === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if (mm = m2(/^\/api\/jobs\/([^/]+)\/complete$/)) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
@@ -39195,7 +39304,7 @@ var init_daemon = __esm({
     MAX_CONCURRENT = Number(process.env.AGE_MAX_CONCURRENT ?? 4);
     STEP_THREADS = process.env.AGE_STEP_THREADS !== "0";
     MIN = 6e4;
-    jobTimeoutMs = (type) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (type === "claude" ? 55 : 25) * MIN);
+    jobTimeoutMs = (agent) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (agent ? 55 : 25) * MIN);
     Host = class {
       /** The global flow library (~/AgentGraph): its flows are offered in every project.
        *  Claude Desktop, which has no project, works there. */
@@ -39214,7 +39323,7 @@ var init_daemon = __esm({
       activity = [];
       instanceMeta = {};
       deployed = {};
-      /** Who runs `jobType: "claude"` agent tasks: a headless `claude -p` ("cli"), or the
+      /** Who runs agent tasks: a headless `claude -p` ("cli"), or the
        *  chat/session agent through session_job_next ("session"). */
       agentMode = agentMode();
       dirty = false;
@@ -39249,7 +39358,8 @@ var init_daemon = __esm({
           {
             maxConcurrent: MAX_CONCURRENT,
             perType: parseLimits(process.env.AGE_CONCURRENCY),
-            timeoutMs: jobTimeoutMs,
+            timeoutMs: (type) => jobTimeoutMs(this.isAgentType(type)),
+            classOf: (type) => this.isAgentType(type) ? "claude" : void 0,
             backoffMs: Number(process.env.AGE_BACKOFF_MS ?? 5e3),
             log: (e) => this.log(e),
             settled: () => this.persist(),
@@ -39337,7 +39447,7 @@ var init_daemon = __esm({
       /** Jobs a previous daemon had activated but never finished: hand them back out. */
       releaseOrphanedJobs() {
         for (const j2 of this.snapshot().jobs ?? []) {
-          if (j2.state === "Activated" && j2.jobType !== "session" && !(this.agentMode === "session" && j2.jobType === "claude")) {
+          if (j2.state === "Activated" && j2.jobType !== "session" && !(this.agentMode === "session" && this.isAgentType(j2.jobType))) {
             try {
               this.engine.failJob(j2.key, j2.retries, "daemon restarted while the job ran; retrying", this.leases[String(j2.key)] ?? null);
               delete this.leases[String(j2.key)];
@@ -39425,7 +39535,7 @@ var init_daemon = __esm({
       }
       /** Start a flow in a project (default: the library home). Global flows run in the
        *  project they were started from. */
-      start(flowRef, variables = {}, title, project2, host) {
+      start(flowRef, variables = {}, title, project2, host, agents) {
         const where = path7.resolve(project2 ?? this.home);
         if (where !== this.home) this.addProject(where);
         const flow = this.resolveFlow(flowRef, where);
@@ -39435,18 +39545,75 @@ var init_daemon = __esm({
           if (checked.problems.length) throw new InputError(formatInputProblems(flow.id, checked.problems), checked.problems);
           variables = checked.variables;
         }
+        if (agents) this.checkRunAgents(flow, agents);
         const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
         const key = String(s.created);
-        this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title, host };
+        this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title, host, ...agents && Object.keys(agents).length ? { agents } : {} };
         this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path7.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
         this.persist();
         return key;
       }
+      /** A run's per-step overrides must name agent steps of the flow and known profiles. */
+      checkRunAgents(flow, agents) {
+        const steps = flow.tasks.filter((t) => t.agent).map((t) => t.name);
+        const known = allProfiles(flow.agentProfiles);
+        const problems = [];
+        for (const [step, c] of Object.entries(agents)) {
+          if (step !== "*" && !steps.includes(step)) problems.push({ field: `agents.${step}`, message: `is not an agent step of ${flow.id} (agent steps: ${steps.join(", ") || "none"})` });
+          if (c?.use && !known[c.use]) problems.push({ field: `agents.${step}`, message: `unknown agent profile "${c.use}" (known: ${Object.keys(known).join(", ")})` });
+        }
+        if (problems.length) throw new InputError(`invalid agents for ${flow.id}: ${problems.map((p2) => `${p2.field} ${p2.message}`).join("; ")}`, problems);
+      }
+      /** Job types of agent steps (the nano-workforce AgentTask marker), plus the legacy "claude". */
+      agentTypeSet() {
+        const types2 = /* @__PURE__ */ new Set(["claude"]);
+        for (const f2 of this.flows.values()) for (const t of f2.tasks) if (t.agent) types2.add(t.jobType);
+        return types2;
+      }
+      isAgentType(type) {
+        return this.agentTypeSet().has(type);
+      }
       /** Every job type this daemon serves itself. */
       servedTypes() {
-        const types2 = new Set(this.agentMode === "cli" ? ["claude"] : []);
+        const types2 = new Set(this.agentMode === "cli" ? this.agentTypeSet() : []);
         for (const f2 of this.flows.values()) for (const t of Object.keys(f2.handlers)) types2.add(t);
         return [...types2];
+      }
+      /** Each agent step of a flow, what the author suggested, what you assigned, and what
+       *  would run it now (for a run started from `host`, with `run` overrides). */
+      agentPlan(flowRef, project2, host, run) {
+        const flow = this.resolveFlow(flowRef, path7.resolve(project2 ?? this.home));
+        if (!flow) throw new Error(`unknown flow "${flowRef}"`);
+        const file2 = readAgentsFile();
+        const profiles = allProfiles(flow.agentProfiles, file2);
+        const fa = file2.flows?.[flow.id] ?? {};
+        const steps = flow.tasks.filter((t) => t.agent).map((t) => {
+          const opts = flow.agents[t.name] ?? {};
+          let resolved;
+          try {
+            const r2 = resolveAgent({ flowId: flow.id, step: t.name, jobType: t.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run, host, file: file2 });
+            resolved = r2 ? { use: r2.name, model: r2.model ?? null, reason: r2.reason, skipped: r2.skipped } : { use: null, reason: "no agent CLI installed \u2014 goes to the chat assistant" };
+          } catch (e) {
+            resolved = { use: null, error: e?.message ?? String(e) };
+          }
+          return {
+            step: t.name,
+            jobType: t.jobType,
+            rank: t.rank ?? null,
+            prompt: t.prompt?.resourceId,
+            author: { use: opts.use ?? flow.defaultAgent ?? null, model: opts.model ?? null },
+            assigned: fa.steps?.[t.name] ?? {},
+            resolved
+          };
+        });
+        return {
+          flowId: flow.id,
+          flow: { use: fa.use ?? null, model: fa.model ?? null },
+          ranks: file2.ranks ?? {},
+          default: file2.default ?? null,
+          steps,
+          profiles: Object.entries(profiles).map(([name2, p2]) => ({ name: name2, protocol: p2.protocol, source: p2.source, description: p2.description, model: p2.model, installed: !!which(commandOf(name2, p2)) }))
+        };
       }
       /** The flow whose handler serves a job type: the job's own flow first. */
       flowFor(type, processId) {
@@ -39467,7 +39634,7 @@ var init_daemon = __esm({
             const now = Date.now();
             const waiting = (after.jobs ?? []).some((j2) => j2.jobType === type && j2.state === "Created" && !this.worker.backingOff(String(j2.key), now));
             if (!waiting) continue;
-            const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(type) + 5 * MIN, WORKER, type === "claude"));
+            const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(this.isAgentType(type)) + 5 * MIN, WORKER, this.isAgentType(type)));
             for (const job of jobs) if (job.jobLeaseToken) this.leases[String(job.key)] = job.jobLeaseToken;
             if (jobs.length) this.touch();
             for (const job of jobs) {
@@ -39487,7 +39654,7 @@ var init_daemon = __esm({
       }
       /** Which code runs a job: the built-in agent step, or the flow's handler, in its project. */
       async handle(job, signal) {
-        if (job.type === "claude") {
+        if (this.isAgentType(job.type) && !this.flowFor(job.type, job.bpmnProcessId)) {
           const r2 = await runInProject(this.projectOf(job.instanceKey), () => this.runAgent(job), signal);
           return { variables: r2.vars, costUsd: r2.costUsd };
         }
@@ -39502,7 +39669,7 @@ var init_daemon = __esm({
        *  chat/session assistant instead of burning retries. */
       agentUnavailable(job, err) {
         const msg = err.message;
-        if (job.type !== "claude" || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
+        if (!this.isAgentType(job.type) || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
         this.agentMode = "session";
         try {
           this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant", this.leases[job.key] ?? null);
@@ -39521,7 +39688,8 @@ var init_daemon = __esm({
         const promptFile = path7.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
         const instanceKey = String(job.instanceKey);
-        const agent = resolveAgent({ use: opts.use, flowDefault: flow.defaultAgent, host: this.instanceMeta[instanceKey]?.host, flowProfiles: flow.agentProfiles });
+        const meta3 = this.instanceMeta[instanceKey];
+        const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta3?.agents, host: meta3?.host });
         if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
@@ -39536,7 +39704,7 @@ ${JSON.stringify(ctx, null, 2)}
 ` + (vars.appendPrompt ? `
 ${vars.appendPrompt}
 ` : "");
-        const model = opts.model ?? agent.profile.model;
+        const model = agent.model;
         const lease = this.leases[String(job.key)];
         const rec = lease ? new AgentRecorder(
           this.engine,
@@ -39547,7 +39715,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           () => this.touch()
         ) : void 0;
         rec?.start();
-        this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} \u2014 ${agent.reason}` });
+        this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} \u2014 ${agent.reason}${agent.skipped ? `; the flow suggests ${agent.skipped}` : ""}` });
         const r2 = await runAgentCli({
           name: agent.name,
           profile: agent.profile,
@@ -39630,7 +39798,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
           agentMode: this.agentMode,
-          sessionJobs: (snap.jobs ?? []).filter((j2) => j2.jobType === "session" || this.agentMode === "session" && j2.jobType === "claude").map((j2) => ({ ...j2, project: pj(j2.instanceKey) })),
+          sessionJobs: (snap.jobs ?? []).filter((j2) => j2.jobType === "session" || this.agentMode === "session" && this.isAgentType(j2.jobType)).map((j2) => ({ ...j2, project: pj(j2.instanceKey) })),
           jobs: snap.jobs ?? [],
           running: [...this.running.entries()].map(([key, { abort: _a3, ...r2 }]) => ({ key, ...r2, project: pj(r2.instanceKey) })),
           incidents: (snap.incidents ?? []).map((i) => ({ ...i, project: pj(i.instanceKey) })),
@@ -39685,7 +39853,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
       /** Claim jobs for the live Claude Code session (job type "session" or another the caller
        *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
       claimJobs(type, max = 1, project2) {
-        const types2 = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
+        const types2 = type ? [type] : this.agentMode === "session" ? ["session", ...this.agentTypeSet()] : ["session"];
         const where = project2 ? path7.resolve(project2) : void 0;
         const open2 = (this.snapshot().jobs ?? []).filter((j2) => j2.state === "Created");
         const jobs = [];
@@ -59848,13 +60016,36 @@ explorer: ${c.explorerUrl()}`);
       inputSchema: {
         flowId: external_exports.string(),
         variables: external_exports.record(external_exports.string(), external_exports.any()).optional().describe("Initial process variables"),
-        title: external_exports.string().optional().describe("Short label for this run, shown in the task list and explorer")
+        title: external_exports.string().optional().describe("Short label for this run, shown in the task list and explorer"),
+        agents: external_exports.record(external_exports.string(), external_exports.object({ use: external_exports.string().optional(), model: external_exports.string().optional() })).optional().describe(`This run only: who runs agent steps, by step name or "*" for all, e.g. { "*": { "use": "opencode", "model": "openai/gpt-5" } }. Omit to use the user's assignments (flow_agents).`)
       }
     },
-    guard(async ({ flowId, variables, title }) => {
+    guard(async ({ flowId, variables, title, agents }) => {
       const c = await engine();
-      const r2 = await c.start(flowId, variables ?? {}, title, server.server.getClientVersion()?.name);
+      const r2 = await c.start(flowId, variables ?? {}, title, server.server.getClientVersion()?.name, agents);
       return text(`Started ${flowId} instance ${r2.instanceKey}. Watch it at ${c.explorerUrl(`instance=${r2.instanceKey}`)}`);
+    })
+  );
+  server.registerTool(
+    "flow_agents",
+    {
+      title: "Who runs a flow's agent steps",
+      description: "Show a flow's agent steps (job type <rank>:<task>), which CLI and model would run each and why, and the installed CLIs. Pass `assign` to change it for every future run: { use, model } for the whole flow, with `step` for one step, or `rank` (e.g. senior) for every flow's <rank>:* steps; null clears. A flow's own suggestion (its author's CLI) applies only when that CLI is installed here. For one run only, use flow_start's `agents` instead.",
+      inputSchema: {
+        flowId: external_exports.string(),
+        assign: external_exports.object({
+          step: external_exports.string().optional(),
+          rank: external_exports.string().optional(),
+          use: external_exports.string().nullable().optional().describe("Profile name (age agent list), or null to clear"),
+          model: external_exports.string().nullable().optional().describe("Model id for that CLI, or null to clear")
+        }).optional()
+      }
+    },
+    guard(async ({ flowId, assign: assign2 }) => {
+      const c = await engine();
+      if (assign2) await c.assignAgent(assign2.rank ? { rank: assign2.rank, use: assign2.use } : { flowId, ...assign2 });
+      const { formatAgentPlan: formatAgentPlan2 } = await Promise.resolve().then(() => (init_summary(), summary_exports));
+      return text(formatAgentPlan2(await c.agentPlan(flowId, server.server.getClientVersion()?.name)));
     })
   );
   server.registerTool(
@@ -60227,15 +60418,22 @@ var HELP = `age \u2014 Agent Graph Engine
   age up                        start the engine (one per user) if needed, print its URL
   age down                      stop the engine
   age status                    flows here; runs, open tasks, incidents in every project
-  age start <flow> [--field value \u2026] [json] [--title t]
+  age start <flow> [--field value \u2026] [json] [--title t] [--agent [step=]cli] [--model [step=]m]
                                 start an instance: input fields as flags (or name=value),
-                                and/or a JSON object; the engine converts and checks them
+                                and/or a JSON object; the engine converts and checks them.
+                                --agent/--model override who runs agent steps, this run only
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
                                 or a route like /instances); prints the URL
   age agent [list]              agent profiles (which CLI runs agent steps) and the default
   age agent default <name>      set the default profile (~/.agent-graph/agents.json)
+  age agent show <flow>         the flow's agent steps: who runs each, and why
+  age agent assign <flow>[/<step>] <cli|-> [--model m]
+                                run a flow's (or one step's) agent steps on your CLI/model,
+                                for every run from now on ("-": keep the CLI, set the model)
+  age agent assign --rank <rank> <cli>   who serves <rank>:* steps (e.g. senior \u2192 claude)
+  age agent unassign <flow>[/<step>] | --rank <rank>
   age daemon                    run the engine in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
@@ -60277,6 +60475,38 @@ async function main() {
     }
     case "agent": {
       const { allProfiles: allProfiles2, readAgentsFile: readAgentsFile2, writeAgentsFile: writeAgentsFile2, agentsFile: agentsFile2, commandOf: commandOf2, which: which2, resolveAgent: resolveAgent2 } = await Promise.resolve().then(() => (init_agents(), agents_exports));
+      if (rest[0] === "show") {
+        if (!rest[1]) throw new Error("usage: age agent show <flow>");
+        const { formatAgentPlan: formatAgentPlan2 } = await Promise.resolve().then(() => (init_summary(), summary_exports));
+        console.log(formatAgentPlan2(await (await EngineClient.connect(project)).agentPlan(rest[1], "cli")));
+        break;
+      }
+      if (rest[0] === "assign" || rest[0] === "unassign") {
+        const c = await EngineClient.connect(project);
+        const take = (name2) => {
+          const i = rest.indexOf(name2);
+          return i < 0 ? void 0 : rest.splice(i, 2)[1];
+        };
+        const rank = take("--rank");
+        const model = take("--model");
+        const clear = rest[0] === "unassign";
+        const usage = "usage: age agent assign <flow>[/<step>] <cli|-> [--model m] | --rank <rank> <cli>; age agent unassign <flow>[/<step>] | --rank <rank>";
+        if (rank) {
+          const use2 = clear ? null : rest[1];
+          if (use2 === void 0) throw new Error(usage);
+          await c.assignAgent({ rank, use: use2 });
+          console.log(clear ? `rank ${rank}: unassigned` : `rank ${rank} \u2192 ${use2}`);
+          break;
+        }
+        const target = rest[1];
+        if (!target || !clear && !rest[2] && !model) throw new Error(usage);
+        const [flowId, step] = target.split("/");
+        const use = clear ? null : !rest[2] || rest[2] === "-" ? void 0 : rest[2];
+        await c.assignAgent({ flowId, step, use, model: clear ? null : model });
+        const { formatAgentPlan: formatAgentPlan2 } = await Promise.resolve().then(() => (init_summary(), summary_exports));
+        console.log(formatAgentPlan2(await c.agentPlan(flowId, "cli")));
+        break;
+      }
       if (rest[0] === "default") {
         const all = allProfiles2();
         if (!rest[1] || !all[rest[1]]) throw new Error(`usage: age agent default <${Object.keys(all).join("|")}>`);
@@ -60327,8 +60557,10 @@ explorer: ${c.explorerUrl()}`);
     case "start": {
       const c = await EngineClient.connect(project);
       if (!rest[0]) throw new Error("usage: age start <flow> [--field value \u2026] [json]");
-      const { variables, title } = parseStartArgs(rest.slice(1));
-      const r2 = await c.start(rest[0], variables, title, "cli");
+      const { takeRunAgents: takeRunAgents2 } = await Promise.resolve().then(() => (init_agents(), agents_exports));
+      const { agents, rest: args } = takeRunAgents2(rest.slice(1));
+      const { variables, title } = parseStartArgs(args);
+      const r2 = await c.start(rest[0], variables, title, "cli", agents);
       console.log(`started instance ${r2.instanceKey} \u2014 ${c.explorerUrl(`instance=${r2.instanceKey}`)}`);
       return;
     }

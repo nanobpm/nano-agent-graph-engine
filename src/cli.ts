@@ -16,15 +16,22 @@ const HELP = `age — Agent Graph Engine
   age up                        start the engine (one per user) if needed, print its URL
   age down                      stop the engine
   age status                    flows here; runs, open tasks, incidents in every project
-  age start <flow> [--field value …] [json] [--title t]
+  age start <flow> [--field value …] [json] [--title t] [--agent [step=]cli] [--model [step=]m]
                                 start an instance: input fields as flags (or name=value),
-                                and/or a JSON object; the engine converts and checks them
+                                and/or a JSON object; the engine converts and checks them.
+                                --agent/--model override who runs agent steps, this run only
   age tasks                     open user tasks
   age complete <task> [json]    complete a user task
   age open [view]               open the explorer in the browser (view: instance=K, task=K, flow=ID,
                                 or a route like /instances); prints the URL
   age agent [list]              agent profiles (which CLI runs agent steps) and the default
   age agent default <name>      set the default profile (~/.agent-graph/agents.json)
+  age agent show <flow>         the flow's agent steps: who runs each, and why
+  age agent assign <flow>[/<step>] <cli|-> [--model m]
+                                run a flow's (or one step's) agent steps on your CLI/model,
+                                for every run from now on ("-": keep the CLI, set the model)
+  age agent assign --rank <rank> <cli>   who serves <rank>:* steps (e.g. senior → claude)
+  age agent unassign <flow>[/<step>] | --rank <rank>
   age daemon                    run the engine in the foreground
   age mcp [--http <port>]       run the MCP server (stdio, or Streamable HTTP)
   age hook <event>              Claude Code hook: print pending work as context
@@ -70,6 +77,38 @@ async function main() {
     }
     case "agent": {
       const { allProfiles, readAgentsFile, writeAgentsFile, agentsFile, commandOf, which, resolveAgent } = await import("./agents.ts");
+      if (rest[0] === "show") {
+        if (!rest[1]) throw new Error("usage: age agent show <flow>");
+        const { formatAgentPlan } = await import("./summary.ts");
+        console.log(formatAgentPlan(await (await EngineClient.connect(project)).agentPlan(rest[1], "cli")));
+        break;
+      }
+      if (rest[0] === "assign" || rest[0] === "unassign") {
+        const c = await EngineClient.connect(project);
+        const take = (name: string) => {
+          const i = rest.indexOf(name);
+          return i < 0 ? undefined : rest.splice(i, 2)[1];
+        };
+        const rank = take("--rank");
+        const model = take("--model");
+        const clear = rest[0] === "unassign";
+        const usage = "usage: age agent assign <flow>[/<step>] <cli|-> [--model m] | --rank <rank> <cli>; age agent unassign <flow>[/<step>] | --rank <rank>";
+        if (rank) {
+          const use = clear ? null : rest[1];
+          if (use === undefined) throw new Error(usage);
+          await c.assignAgent({ rank, use });
+          console.log(clear ? `rank ${rank}: unassigned` : `rank ${rank} → ${use}`);
+          break;
+        }
+        const target = rest[1];
+        if (!target || (!clear && !rest[2] && !model)) throw new Error(usage);
+        const [flowId, step] = target.split("/");
+        const use = clear ? null : !rest[2] || rest[2] === "-" ? undefined : rest[2];
+        await c.assignAgent({ flowId, step, use, model: clear ? null : model });
+        const { formatAgentPlan } = await import("./summary.ts");
+        console.log(formatAgentPlan(await c.agentPlan(flowId, "cli")));
+        break;
+      }
       if (rest[0] === "default") {
         const all = allProfiles();
         if (!rest[1] || !all[rest[1]]) throw new Error(`usage: age agent default <${Object.keys(all).join("|")}>`);
@@ -118,8 +157,10 @@ async function main() {
     case "start": {
       const c = await EngineClient.connect(project);
       if (!rest[0]) throw new Error("usage: age start <flow> [--field value …] [json]");
-      const { variables, title } = parseStartArgs(rest.slice(1));
-      const r = await c.start(rest[0], variables, title, "cli");
+      const { takeRunAgents } = await import("./agents.ts");
+      const { agents, rest: args } = takeRunAgents(rest.slice(1));
+      const { variables, title } = parseStartArgs(args);
+      const r = await c.start(rest[0], variables, title, "cli", agents);
       console.log(`started instance ${r.instanceKey} — ${c.explorerUrl(`instance=${r.instanceKey}`)}`);
       return;
     }

@@ -67,14 +67,19 @@ export function defineForms<T extends Record<string, FormDef>>(forms: T): T {
   return forms;
 }
 
-/** Options for agent tasks — `w.task(name, { jobType: "claude", prompt })` — keyed by
- *  step name. Export the result as `agents` from the flow file. */
+/** Options for agent tasks — `w.task(name, { jobType: "senior:<task>", prompt })` — keyed
+ *  by step name. Export the result as `agents` from the flow file.
+ *
+ *  Agent steps follow the nano-workforce convention: the job type names a rank and a task
+ *  (`senior:review`, `junior:triage`), never a CLI, so the flow runs on anyone's machine.
+ *  Who runs it is the user's choice (`age agent assign`, flow_agents, the explorer);
+ *  `use`/`model` here are only the author's suggestion. ("claude" is the legacy job type.) */
 export interface AgentOptions extends Omit<ClaudeOptions, "cwd" | "timeoutMs"> {
   /** Variables to pass as context (default: all instance variables). */
   context?: string[];
-  /** Agent profile that runs this step: "claude", "opencode", "nano-coder", "gemini", or
-   *  one from `agentProfiles` / ~/.agent-graph/agents.json. Default: the flow's
-   *  `defaultAgent`, else agents.json "default", else the CLI of the host that started the run. */
+  /** Suggested agent profile: "claude", "opencode", "nano-coder", "gemini", or one from
+   *  `agentProfiles`. Applies only where that CLI is installed and the user hasn't assigned
+   *  this flow, step or rank to something else; otherwise the user's default runs it. */
   use?: string;
 }
 

@@ -291,12 +291,42 @@ export function createServer(project: string): McpServer {
         flowId: z.string(),
         variables: z.record(z.string(), z.any()).optional().describe("Initial process variables"),
         title: z.string().optional().describe("Short label for this run, shown in the task list and explorer"),
+        agents: z
+          .record(z.string(), z.object({ use: z.string().optional(), model: z.string().optional() }))
+          .optional()
+          .describe('This run only: who runs agent steps, by step name or "*" for all, e.g. { "*": { "use": "opencode", "model": "openai/gpt-5" } }. Omit to use the user\'s assignments (flow_agents).'),
       },
     },
-    guard(async ({ flowId, variables, title }) => {
+    guard(async ({ flowId, variables, title, agents }) => {
       const c = await engine();
-      const r = await c.start(flowId, variables ?? {}, title, server.server.getClientVersion()?.name);
+      const r = await c.start(flowId, variables ?? {}, title, server.server.getClientVersion()?.name, agents);
       return text(`Started ${flowId} instance ${r.instanceKey}. Watch it at ${c.explorerUrl(`instance=${r.instanceKey}`)}`);
+    }),
+  );
+
+  server.registerTool(
+    "flow_agents",
+    {
+      title: "Who runs a flow's agent steps",
+      description:
+        "Show a flow's agent steps (job type <rank>:<task>), which CLI and model would run each and why, and the installed CLIs. Pass `assign` to change it for every future run: { use, model } for the whole flow, with `step` for one step, or `rank` (e.g. senior) for every flow's <rank>:* steps; null clears. A flow's own suggestion (its author's CLI) applies only when that CLI is installed here. For one run only, use flow_start's `agents` instead.",
+      inputSchema: {
+        flowId: z.string(),
+        assign: z
+          .object({
+            step: z.string().optional(),
+            rank: z.string().optional(),
+            use: z.string().nullable().optional().describe("Profile name (age agent list), or null to clear"),
+            model: z.string().nullable().optional().describe("Model id for that CLI, or null to clear"),
+          })
+          .optional(),
+      },
+    },
+    guard(async ({ flowId, assign }) => {
+      const c = await engine();
+      if (assign) await c.assignAgent(assign.rank ? { rank: assign.rank, use: assign.use } : { flowId, ...assign });
+      const { formatAgentPlan } = await import("./summary.ts");
+      return text(formatAgentPlan(await c.agentPlan(flowId, server.server.getClientVersion()?.name)));
     }),
   );
 

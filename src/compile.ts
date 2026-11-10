@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { declarativeToLayoutedBpmn, inlineJobTypes, walkNodes } from "@nanobpm/workflow";
 import type { AgentOptions, FormDef } from "./index.ts";
-import { allProfiles, type AgentProfile } from "./agents.ts";
+import { allProfiles, rankOf, type AgentProfile } from "./agents.ts";
 import { newEngine } from "./wasm.ts";
 import { hintProblems, inputForm, type FlowInput, type StartFormHints } from "./input.ts";
 import { installResolveHook } from "./resolve-hook.ts";
@@ -14,7 +14,7 @@ export { installResolveHook };
 
 /** Job types served by built-in workers rather than by a `run` handler. */
 export const BUILTIN_JOB_TYPES = {
-  claude: "headless Claude Code agent (claude -p) — prompt from flows/prompts/<resourceId>",
+  claude: "agent step (legacy name) — prefer the nano-workforce form jobType: \"senior:<task>\"",
   session: "claimed by the live Claude Code session through the MCP tools (agent_next_job)",
 } as const;
 
@@ -32,7 +32,11 @@ export interface HumanStep {
 export interface TaskStep {
   name: string;
   jobType: string;
+  /** An agent step (nano-workforce convention: the external AgentTask marker + a prompt),
+   *  run by the built-in agent worker with the CLI the user assigns. */
   agent: boolean;
+  /** The rank of a `<rank>:<task>` job type the author wrote (senior, junior, …). */
+  rank?: string;
   prompt?: { resourceId: string; append?: string };
 }
 
@@ -131,8 +135,11 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
     const tasks: TaskStep[] = [];
     walkNodes(flow.steps, (n: any) => {
       if (n.kind === "human") humans.push({ name: n.name, form: n.form });
-      if (n.kind === "task")
-        tasks.push({ name: n.name, jobType: n.jobType ?? `${flow.id}:${n.name}`, agent: !!n.agent || !!n.prompt, prompt: n.prompt });
+      if (n.kind === "task") {
+        const jobType = n.jobType ?? `${flow.id}:${n.name}`;
+        const agent = (n.agent ?? !!n.prompt) && jobType !== "session" && typeof mod.workers?.[jobType] !== "function";
+        tasks.push({ name: n.name, jobType, agent, rank: agent && n.jobType ? rankOf(n.jobType) : undefined, prompt: n.prompt });
+      }
     });
     for (const h of humans) {
       if (!forms[h.form])
@@ -144,18 +151,21 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
     }
     const projectDir = path.dirname(path.dirname(path.resolve(file)));
     for (const t of tasks) {
-      const builtin = t.jobType in BUILTIN_JOB_TYPES;
+      const builtin = t.agent || t.jobType in BUILTIN_JOB_TYPES;
       if (!builtin && !(mod.workers && typeof mod.workers[t.jobType] === "function"))
         problems.push({
           severity: "warning",
           element: t.name,
           message: `task("${t.name}") has job type "${t.jobType}" that no worker serves (built-ins: ${Object.keys(BUILTIN_JOB_TYPES).join(", ")}; or export workers = { "${t.jobType}": handler })`,
         });
-      if (t.jobType === "claude" && !t.prompt)
-        problems.push({ severity: "error", element: t.name, message: `task("${t.name}") with jobType "claude" needs { prompt: { resourceId } }` });
+      if (t.agent && !t.prompt)
+        problems.push({ severity: "error", element: t.name, message: `agent task("${t.name}") needs { prompt: { resourceId } } (or a worker: export workers = { "${t.jobType}": handler })` });
+      if (t.agent && !t.rank && t.jobType !== "claude" && !t.jobType.startsWith(`${authored.id}:`))
+        problems.push({ severity: "warning", element: t.name, message: `agent job type "${t.jobType}" isn't the nano-workforce form <rank>:<task> (e.g. "senior:${t.name}")` });
       const use = (mod.agents?.[t.name] as AgentOptions | undefined)?.use ?? (t.agent ? mod.defaultAgent : undefined);
+      // The author's CLI is a suggestion: someone without it runs the step on their own.
       if (use && !allProfiles(mod.agentProfiles).hasOwnProperty(use))
-        problems.push({ severity: "error", element: t.name, message: `agent profile "${use}" is unknown (known: ${Object.keys(allProfiles(mod.agentProfiles)).join(", ")}; add it to agentProfiles or ~/.agent-graph/agents.json)` });
+        problems.push({ severity: "warning", element: t.name, message: `the flow suggests agent profile "${use}", which isn't known here — the step will run on your assignment or default (age agent show ${authored.id})` });
       if (t.prompt && !fs.existsSync(path.join(projectDir, "flows", "prompts", t.prompt.resourceId)))
         problems.push({ severity: "error", element: t.name, message: `prompt file flows/prompts/${t.prompt.resourceId} not found` });
     }

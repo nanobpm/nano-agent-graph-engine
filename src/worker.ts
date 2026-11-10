@@ -42,6 +42,9 @@ export interface WorkerOptions {
   maxConcurrent: number;
   /** Lower limits for some types, e.g. { claude: 2 }. */
   perType?: Record<string, number>;
+  /** A shared limit key for several job types (agent steps of any job type → "claude"):
+   *  a type without its own limit counts against its class's. */
+  classOf?: (type: string) => string | undefined;
   /** How long a job of this type may run before it fails as timed out. */
   timeoutMs: (type: string) => number;
   /** Base delay before a failed job is retried (doubles as retries run out). */
@@ -82,10 +85,13 @@ export class Worker {
   /** How many more jobs of `type` may start now. */
   free(type: string): number {
     const all = this.opts.maxConcurrent - this.running.size;
-    const cap = this.opts.perType?.[type];
+    const own = this.opts.perType?.[type];
+    const cls = own === undefined ? this.opts.classOf?.(type) : undefined;
+    const cap = own ?? (cls !== undefined ? this.opts.perType?.[cls] : undefined);
     if (cap === undefined) return Math.max(0, all);
+    const same = (t: string) => (own !== undefined ? t === type : this.opts.classOf?.(t) === cls);
     let ofType = 0;
-    for (const r of this.running.values()) if (r.type === type) ofType++;
+    for (const r of this.running.values()) if (same(r.type)) ofType++;
     return Math.max(0, Math.min(all, cap - ofType));
   }
 

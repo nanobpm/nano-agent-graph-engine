@@ -601,6 +601,8 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
   const [advanced, setAdvanced] = useState(!form);
   const [vars, setVars] = useState("{}");
   const [error, setError] = useState("");
+  // Who runs the agent steps: changes here apply to this run; "Save" keeps them for every run.
+  const [agents, setAgents] = useState<Record<string, { use?: string; model?: string }>>({});
   async function start(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -613,7 +615,7 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
       }
       const fromForm = form ? Object.fromEntries(Object.entries(values).filter(([, v]) => v !== "")) : {};
       const variables = { ...extra, ...fromForm };
-      const r = await api("/api/start", { flowId: flow.key, variables, title: title || undefined, project: where || undefined });
+      const r = await api("/api/start", { flowId: flow.key, variables, title: title || undefined, project: where || undefined, agents: Object.keys(agents).length ? agents : undefined });
       go(`/instances?instance=${r.instanceKey}`);
     } catch (err: any) {
       setError(err.message);
@@ -662,6 +664,7 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
           </Button>
         </div>
       </form>
+      <AgentsPanel flow={flow} where={where} agents={agents} setAgents={setAgents} />
       <div>
         <SectionLabel>Steps</SectionLabel>
         <ul className="flex flex-col gap-1 text-sm">
@@ -677,6 +680,129 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+/** A flow's agent steps: which CLI and model run each, and why. Edits apply to the next run
+ *  started here; "Save for every run" stores them in ~/.agent-graph/agents.json. */
+function AgentsPanel({
+  flow,
+  where,
+  agents,
+  setAgents,
+}: {
+  flow: any;
+  where: string;
+  agents: Record<string, { use?: string; model?: string }>;
+  setAgents: (a: Record<string, { use?: string; model?: string }>) => void;
+}) {
+  const plan = useQuery({
+    queryKey: ["agent-plan", flow.key, where],
+    queryFn: () => api(`/api/flows/${enc(flow.key)}/agents${where ? `?project=${enc(where)}` : ""}`),
+    refetchInterval: 5000,
+  });
+  const [saved, setSaved] = useState("");
+  const [error, setError] = useState("");
+  const p = plan.data;
+  if (!p?.steps?.length) return null;
+  const profiles: any[] = p.profiles ?? [];
+  const set = (step: string, k: "use" | "model", v: string) => {
+    const next = { ...agents, [step]: { ...agents[step], [k]: v || undefined } };
+    if (!next[step].use && !next[step].model) delete next[step];
+    setAgents(next);
+    setSaved("");
+  };
+  async function save() {
+    setError("");
+    try {
+      for (const [step, c] of Object.entries(agents))
+        await api("/api/agents/assign", { flowId: p.flowId, step: step === "*" ? undefined : step, use: c.use, model: c.model });
+      setAgents({});
+      setSaved("Saved: every run of this flow uses these.");
+      await plan.refetch();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+  async function reset(step?: string) {
+    setError("");
+    try {
+      await api("/api/agents/assign", { flowId: p.flowId, step, use: null, model: null });
+      await plan.refetch();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+  const picker = (step: string, current: string) => (
+    <select className={`${inputClass} py-1`} value={agents[step]?.use ?? ""} onChange={(e) => set(step, "use", e.target.value)} aria-label={`CLI for ${step}`}>
+      <option value="">{current}</option>
+      {profiles.map((pr) => (
+        <option key={pr.name} value={pr.name} disabled={!pr.installed}>
+          {pr.name}
+          {pr.installed ? "" : " (not installed)"}
+        </option>
+      ))}
+    </select>
+  );
+  const assignedAny = p.flow.use || p.flow.model || p.steps.some((s: any) => s.assigned.use || s.assigned.model);
+  return (
+    <div>
+      <SectionLabel>Agents</SectionLabel>
+      <p className="mb-2 text-xs text-fg-muted">
+        Who runs each agent step. Changes apply to the run you start here; save them to use them for every run of {p.flowId}.
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-fg-muted">
+            <th className="py-1 font-medium">Step</th>
+            <th className="font-medium">CLI</th>
+            <th className="font-medium">Model</th>
+            <th className="font-medium">Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-t border-edge">
+            <td className="py-1 pr-2 text-fg-muted">All agent steps</td>
+            <td className="pr-2">{picker("*", p.flow.use ? `${p.flow.use} (yours)` : "— as below —")}</td>
+            <td className="pr-2">
+              <input className={`${inputClass} py-1`} placeholder={p.flow.model ?? "—"} value={agents["*"]?.model ?? ""} onChange={(e) => set("*", "model", e.target.value)} aria-label="Model for all agent steps" />
+            </td>
+            <td className="text-xs text-fg-muted">{p.flow.use || p.flow.model ? <button type="button" className="underline" onClick={() => reset()}>reset flow</button> : ""}</td>
+          </tr>
+          {p.steps.map((s: any) => (
+            <tr key={s.step} className="border-t border-edge align-top">
+              <td className="py-1 pr-2">
+                🤖 {s.step}
+                <div className="text-xs text-fg-muted">{s.jobType}</div>
+              </td>
+              <td className="pr-2">{picker(s.step, s.resolved.use ? `${s.resolved.use}` : s.resolved.error ? "error" : "chat assistant")}</td>
+              <td className="pr-2">
+                <input className={`${inputClass} py-1`} placeholder={s.resolved.model ?? "CLI default"} value={agents[s.step]?.model ?? ""} onChange={(e) => set(s.step, "model", e.target.value)} aria-label={`Model for ${s.step}`} />
+              </td>
+              <td className="text-xs text-fg-muted">
+                {s.resolved.error ? <span className="text-danger">{s.resolved.error}</span> : s.resolved.reason}
+                {s.resolved.skipped && <div>flow suggests {s.resolved.skipped}</div>}
+                {(s.assigned.use || s.assigned.model) && (
+                  <div>
+                    <button type="button" className="underline" onClick={() => reset(s.step)}>
+                      reset
+                    </button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-2 flex items-center gap-3">
+        <Button type="button" onClick={save} disabled={!Object.keys(agents).length}>
+          Save for every run
+        </Button>
+        {saved && <span className="text-xs text-fg-muted">{saved}</span>}
+        {!saved && assignedAny && !Object.keys(agents).length && <span className="text-xs text-fg-muted">Your saved assignments are in ~/.agent-graph/agents.json.</span>}
+      </div>
+      {error && <ErrorText>{error}</ErrorText>}
     </div>
   );
 }

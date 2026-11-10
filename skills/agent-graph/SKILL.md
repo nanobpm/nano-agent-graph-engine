@@ -17,7 +17,8 @@ change. **To write or change a flow, use the `agent-graph-authoring` skill** (or
 | Tool | Use |
 |---|---|
 | `flow_status` | Flows this project can start — with their **input** as `id(field: type, optional?: type)` — and runs, open tasks, incidents and running jobs in every project. Pass `instanceKey` for one run in detail (variables, activity). |
-| `flow_start` | Start a run: `flowId`, `variables`, a short `title`. |
+| `flow_start` | Start a run: `flowId`, `variables`, a short `title`; `agents` to run agent steps on another CLI/model for this run only (`{ "*": { "use": "opencode", "model": "…" }, "<step>": {…} }`). |
+| `flow_agents` | Which CLI and model run a flow's agent steps, and why; `assign` changes it for every future run (whole flow, one `step`, or a `rank` such as `senior`; `null` clears). |
 | `show_explorer` | The live explorer inline: diagrams with where runs are, start forms, the task inbox, incidents, agent transcripts. |
 | `task_list` / `task_ask` | Open user tasks. `task_ask` shows the form to the user and completes the task with their answer. |
 | `task_complete` | Complete a task with an answer the user gave you in chat (when dialogs aren't available). |
@@ -38,6 +39,7 @@ change. **To write or change a flow, use the `agent-graph-authoring` skill** (or
 ## While a run is going
 
 - **User task waiting** (the hook or `flow_status` tells you): call `task_ask`, or `show_explorer` with the task.
+- **Trying a flow on other models / running someone else's flow**: agent steps are typed `<rank>:<task>`; the CLI and model are the user's choice. "Run it on GPT-5 via OpenCode this time" → `flow_start` with `agents: { "*": { "use": "opencode", "model": "openai/gpt-5" } }`. "Always use nano-coder for the critique" → `flow_agents` with `assign: { step: "critique", use: "nano-coder" }`. A flow's suggested CLI that isn't installed is skipped; `flow_agents` shows what runs each step.
 - **Agent steps for this session**: `session_job_next`, do the work, `session_job_complete` with the result (JSON object → variables). Keep going until the run waits on the user or a timer, or is done. Batches (`max`) can go to subagents.
 - **Incident** (a step failed 3 times): read it with `flow_status`. Fix the cause — often the flow code, which reloads on save, or a missing file or tool — then `flow_operate` `retry`, and the *same* run continues.
 - **Changed steps** (added, removed or reordered): this deploys a new version. Running instances keep the old shape, so cancel them and start new runs.

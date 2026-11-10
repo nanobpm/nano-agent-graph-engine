@@ -30,7 +30,7 @@ export const changelog = defineFlow("changelog", (w) => {
   w.loop((b) => {
     // A BPMN agent task: served by the built-in "claude" worker with the prompt
     // in flows/prompts/changelog.md; the job's variables are appended as context.
-    b.task("draft", { jobType: "claude", prompt: { resourceId: "changelog.md" } });
+    b.task("draft", { jobType: "senior:draft", prompt: { resourceId: "changelog.md" } });
     b.human("review", { form: "changelog-review" });
     b.switch("decision", {
       publish: (c) => {

@@ -5,7 +5,7 @@ It compiles to BPMN with a generated diagram and runs in a small local daemon. A
 orchestrate:
 
 - **scripts**: `w.run` with Node code, plus `sh()`
-- **headless agents**: `w.task({ jobType: "claude" })` runs a prompt file on an agent CLI of your choice — `claude -p`, or any ACP agent such as OpenCode or nano-coder — and records the transcript as an AgentInstance
+- **headless agents**: `w.task({ jobType: "senior:review" })` runs a prompt file on an agent CLI of *your* choice (the flow names a rank and task, never a CLI) — `claude -p`, or any ACP agent such as OpenCode or nano-coder — and records the transcript as an AgentInstance
 - **the live Claude Code session**: `w.task({ jobType: "session" })`, which the agent picks up through MCP
 - **people**: `w.human` user tasks, asked in a Claude Code dialog or in the web explorer
 - **time and events**: `w.timer` and `w.signal`
@@ -45,7 +45,7 @@ Use an absolute path to `node` (24+). Desktop doesn't load your shell PATH, so `
 - **One engine, every project.** You have one engine (state in `~/.agent-graph`, `AGE_STATE_DIR` moves it). Each project's flows are in its `flows/`; a project joins the engine the first time a flow tool, the CLI or the `/flows` pane is used there. The flows in `~/AgentGraph/flows` (the library; `AGE_HOME` moves it) are *global*: offered in every project and run in the project they were started from. A project flow with the same id takes the global one's place there (`flow_import` copies one in to customize it). Every run belongs to a project: its `sh()` steps and agent steps run in that folder, and files a step writes should use `projectPath("file")`. `flow_status`, the `/flows` pane and the explorer show work in all projects (the explorer has a project picker), so nothing waits somewhere you aren't looking. Agent steps for the session only go to a session in the run's project. Nothing is written into your repos.
 - **Where flows live.** Desktop starts servers in `/`, so flows go in `~/AgentGraph/flows/`. Override with `"env": {"AGE_PROJECT": "/some/dir"}`.
 - **Authoring.** Claude reads `flow_guide`, then writes flows with `flow_write`, which saves, compiles, lints and deploys in one step. Nothing is needed on your side.
-- **Agent steps** (`jobType: "claude"`) need no setup:
+- **Agent steps** (`jobType: "senior:<task>"`) need no setup:
   - If the Claude Code CLI is installed and logged in, they run headless in the background.
   - Otherwise the Claude you are chatting with does them (`session_job_next`/`session_job_complete`). If the CLI fails to authenticate, the engine switches to this automatically.
   - To force one mode: `AGE_AGENT_MODE=cli|session`.
@@ -207,7 +207,7 @@ export const forms = defineForms({ "review": { title: "Review", description: "{{
 export const changelog = defineFlow("changelog", (w) => {
   w.run("gather", async () => ({ commitLog: (await sh("git log --oneline -n 20")).stdout }));
   w.loop((b) => {
-    b.task("draft", { jobType: "claude", prompt: { resourceId: "changelog.md" } });
+    b.task("draft", { jobType: "senior:draft", prompt: { resourceId: "changelog.md" } });
     b.human("review", { form: "review" });
     b.switch("decision", { publish: (c) => { c.run("write", async (j) => { /* … */ }); c.break(); },
                            cancel: (c) => c.break(), default: (c) => c.continue() });
@@ -267,7 +267,14 @@ The daemon deploys every flow that compiles (it does not type-check), and a new 
 
 ## Which agent runs an agent step
 
-An agent step (`jobType: "claude"`) runs on an **agent profile**: a CLI the engine starts headless for that step. So one tool can orchestrate while another subscription or model does the work, or you can pit models of different classes against each other (a writer on one, a critic on another).
+Agent steps follow the [nano-workforce](https://github.com/nanobpm) convention, so a flow is portable: its job type names a **rank and a task** (`senior:review`, `junior:triage`), never a CLI, and the BPMN carries the agent marker (`zeebe:agentDefinition agentType="external"`) and the prompt as a linked resource. Which CLI and model run a step is decided on the machine that runs it. So:
+
+- someone who uses OpenCode can send you a flow and it runs on your Claude Code (or anything else you've installed);
+- you can rerun the same flow on another CLI or model to compare them, without editing it.
+
+`jobType: "claude"` still works as the legacy name of an agent step (no rank). A `jobType` that is neither `<rank>:<task>` nor `claude` gets a lint warning.
+
+An agent step runs on an **agent profile**: a CLI the engine starts headless for that step.
 
 Built-in profiles:
 
@@ -278,18 +285,45 @@ Built-in profiles:
 | `nano-coder` | `nano-coder --acp` | ACP |
 | `gemini` | `gemini --experimental-acp` | ACP |
 
-Any ACP agent works. Add your own in `~/.agent-graph/agents.json`, or in a flow file:
+Any ACP agent works. Add your own in `~/.agent-graph/agents.json`, or in a flow file.
+
+### Choosing the CLI and model
+
+**For every run** (saved in `~/.agent-graph/agents.json`):
+
+```sh
+age agent show review                          # each agent step: who runs it, and why
+age agent assign review opencode               # the whole flow on OpenCode
+age agent assign review/critique nano-coder --model openrouter/openai/gpt-5   # one step
+age agent assign review - --model sonnet       # keep the CLI, change the model
+age agent assign --rank senior claude          # every flow's senior:* steps
+age agent unassign review[/step] | --rank senior
+age agent default nano-coder                   # whatever nothing else decides
+```
+
+**For one run**, without changing the assignments:
+
+```sh
+age start review --agent opencode --model anthropic/claude-sonnet-4-5   # all agent steps
+age start review --agent critique=gemini --model draft=opus            # per step
+```
+
+The same is available to agents as the `flow_agents` MCP tool (show, and `assign`) and `flow_start`'s `agents` argument (`{ "*": { "use": "opencode", "model": "…" }, "critique": { … } }`), over HTTP as `GET /api/flows/<id>/agents` and `POST /api/agents/assign`, and in the explorer's start form: its **Agents** table shows each step's CLI, model and the reason, applies your changes to the run you start, and **Save for every run** keeps them. The run records its overrides.
 
 ```jsonc
 // ~/.agent-graph/agents.json
 {
   "default": "nano-coder",
+  "ranks": { "senior": "claude", "junior": "nano-coder" },
+  "flows": { "review": { "use": "opencode", "steps": { "critique": { "use": "critic", "model": "openai/gpt-5" } } } },
   "profiles": {
     "critic": { "protocol": "acp", "command": "nano-coder", "args": ["--acp"], "model": "openrouter/openai/gpt-5", "modelArg": "--model" },
     "oc-sonnet": { "protocol": "acp", "command": "opencode", "args": ["acp"], "model": "anthropic/claude-sonnet-4-5" }
   }
 }
 ```
+
+A flow's author can **suggest** a CLI and model; it's used only where that CLI is installed and you haven't decided otherwise:
 
 ```ts
 // flows/review.flow.ts
@@ -300,13 +334,16 @@ export const agents = { critique: { use: "critic" }, draft: { model: "opus" } };
 
 The profile for a step is the first of:
 
-1. the step's `use`;
-2. the flow's `defaultAgent`;
-3. `default` in `agents.json`;
-4. the CLI of the host that started the run (Claude Code → `claude`, OpenCode → `opencode`, nano-coder → `nano-coder`);
-5. the first installed of `claude`, `opencode`, `nano-coder`.
+1. this run's override (`--agent`, `flow_start` `agents`, the start form): the step, then `*`;
+2. your assignment for the step;
+3. your assignment for the flow;
+4. your assignment for the step's rank;
+5. the author's suggestion — the step's `use`, else the flow's `defaultAgent` — if that CLI is installed here;
+6. `default` in `agents.json`;
+7. the CLI of the host that started the run (Claude Code → `claude`, OpenCode → `opencode`, nano-coder → `nano-coder`);
+8. the first installed of `claude`, `opencode`, `nano-coder`.
 
-On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. An unknown `use` is a compile error. `age agent` lists the profiles and the default; `age agent default <name>` sets it. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before.
+The model follows the same order (yours, then the author's, then the profile's). An author's profile that is unknown or not installed here is skipped with a note ("flow suggests gpt-cli (unknown here)") and a warning from `age check`, never an error; an unknown profile in your own assignment or override is an error. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `age agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
 
 ACP agents run in the run's project directory with permission requests approved, so give them a sandbox you trust. Each step is a fresh ACP session. `schema` is passed as an instruction to answer with JSON; the first JSON object in the answer becomes variables.
 

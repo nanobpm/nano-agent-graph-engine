@@ -33,3 +33,23 @@ function tilde(p = ""): string {
   const h = process.env.HOME;
   return h && p.startsWith(h) ? `~${p.slice(h.length)}` : p;
 }
+
+/** A flow's agent steps as text: who runs each and why, plus how to change it. */
+export function formatAgentPlan(plan: any): string {
+  const lines = [`Agent steps of ${plan.flowId}:`];
+  if (!plan.steps.length) lines.push("  (none)");
+  for (const s of plan.steps) {
+    const r = s.resolved;
+    const runs = r.error ? `ERROR ${r.error}` : r.use ? `${r.use}${r.model ? ` (${r.model})` : ""}` : "chat assistant";
+    const why = r.error ? "" : ` — ${r.reason}${r.skipped ? `; flow suggests ${r.skipped}` : ""}`;
+    lines.push(`  ${s.step.padEnd(18)} ${s.jobType.padEnd(24)} → ${runs}${why}`);
+  }
+  const mine: string[] = [];
+  if (plan.flow.use || plan.flow.model) mine.push(`flow: ${[plan.flow.use, plan.flow.model && `model ${plan.flow.model}`].filter(Boolean).join(", ")}`);
+  for (const [rank, use] of Object.entries(plan.ranks ?? {})) mine.push(`rank ${rank}: ${use}`);
+  if (plan.default) mine.push(`default: ${plan.default}`);
+  if (mine.length) lines.push(`Your settings: ${mine.join("; ")}`);
+  const inst = plan.profiles.filter((p: any) => p.installed).map((p: any) => p.name);
+  lines.push(`Installed agent CLIs: ${inst.join(", ") || "none"}`);
+  return lines.join("\n");
+}

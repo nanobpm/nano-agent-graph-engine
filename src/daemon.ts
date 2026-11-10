@@ -7,7 +7,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compile.ts";
 import { jobSignal, runInProject } from "./index.ts";
-import { anyAgentInstalled, resolveAgent } from "./agents.ts";
+import { allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
 import { AgentRecorder } from "./agent-record.ts";
 import { Notifier, notify, notifyMode, type Notice } from "./notify.ts";
@@ -35,7 +35,7 @@ const STEP_THREADS = process.env.AGE_STEP_THREADS !== "0";
 const MIN = 60_000;
 /** How long a step may run: agent steps 55 min, others 25 min (AGE_JOB_TIMEOUT_MS overrides both).
  *  The engine's lock is 5 minutes longer, so a step times out before the engine hands it out again. */
-const jobTimeoutMs = (type: string) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (type === "claude" ? 55 : 25) * MIN);
+const jobTimeoutMs = (agent: boolean) => Number(process.env.AGE_JOB_TIMEOUT_MS ?? (agent ? 55 : 25) * MIN);
 
 interface Activity {
   at: string;
@@ -62,9 +62,9 @@ export class Host {
     return this.worker.running;
   }
   activity: Activity[] = [];
-  instanceMeta: Record<string, { flowId: string; flowKey?: string; project?: string; startedAt: string; title?: string; host?: string }> = {};
+  instanceMeta: Record<string, { flowId: string; flowKey?: string; project?: string; startedAt: string; title?: string; host?: string; agents?: RunAgents }> = {};
   deployed: Record<string, string> = {};
-  /** Who runs `jobType: "claude"` agent tasks: a headless `claude -p` ("cli"), or the
+  /** Who runs agent tasks: a headless `claude -p` ("cli"), or the
    *  chat/session agent through session_job_next ("session"). */
   agentMode: "cli" | "session" = agentMode();
   private dirty = false;
@@ -101,7 +101,8 @@ export class Host {
       {
         maxConcurrent: MAX_CONCURRENT,
         perType: parseLimits(process.env.AGE_CONCURRENCY),
-        timeoutMs: jobTimeoutMs,
+        timeoutMs: (type) => jobTimeoutMs(this.isAgentType(type)),
+        classOf: (type) => (this.isAgentType(type) ? "claude" : undefined),
         backoffMs: Number(process.env.AGE_BACKOFF_MS ?? 5_000),
         log: (e) => this.log(e),
         settled: () => this.persist(),
@@ -200,7 +201,7 @@ export class Host {
   /** Jobs a previous daemon had activated but never finished: hand them back out. */
   private releaseOrphanedJobs() {
     for (const j of this.snapshot().jobs ?? []) {
-      if (j.state === "Activated" && j.jobType !== "session" && !(this.agentMode === "session" && j.jobType === "claude")) {
+      if (j.state === "Activated" && j.jobType !== "session" && !(this.agentMode === "session" && this.isAgentType(j.jobType))) {
         try {
           this.engine.failJob(j.key, j.retries, "daemon restarted while the job ran; retrying", this.leases[String(j.key)] ?? null);
           delete this.leases[String(j.key)];
@@ -300,7 +301,7 @@ export class Host {
 
   /** Start a flow in a project (default: the library home). Global flows run in the
    *  project they were started from. */
-  start(flowRef: string, variables: Record<string, unknown> = {}, title?: string, project?: string, host?: string): string {
+  start(flowRef: string, variables: Record<string, unknown> = {}, title?: string, project?: string, host?: string, agents?: RunAgents): string {
     const where = path.resolve(project ?? this.home);
     if (where !== this.home) this.addProject(where);
     const flow = this.resolveFlow(flowRef, where);
@@ -311,19 +312,82 @@ export class Host {
       if (checked.problems.length) throw new InputError(formatInputProblems(flow.id, checked.problems), checked.problems);
       variables = checked.variables;
     }
+    if (agents) this.checkRunAgents(flow, agents);
     const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
     const key = String(s.created);
-    this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: new Date().toISOString(), title, host };
+    this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: new Date().toISOString(), title, host, ...(agents && Object.keys(agents).length ? { agents } : {}) };
     this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path.basename(where)}${title ? ` — ${title}` : ""}` });
     this.persist();
     return key;
   }
 
+  /** A run's per-step overrides must name agent steps of the flow and known profiles. */
+  private checkRunAgents(flow: CompiledFlow, agents: RunAgents) {
+    const steps = flow.tasks.filter((t) => t.agent).map((t) => t.name);
+    const known = allProfiles(flow.agentProfiles);
+    const problems: { field: string; message: string }[] = [];
+    for (const [step, c] of Object.entries(agents)) {
+      if (step !== "*" && !steps.includes(step)) problems.push({ field: `agents.${step}`, message: `is not an agent step of ${flow.id} (agent steps: ${steps.join(", ") || "none"})` });
+      if (c?.use && !known[c.use]) problems.push({ field: `agents.${step}`, message: `unknown agent profile "${c.use}" (known: ${Object.keys(known).join(", ")})` });
+    }
+    if (problems.length) throw new InputError(`invalid agents for ${flow.id}: ${problems.map((p) => `${p.field} ${p.message}`).join("; ")}`, problems);
+  }
+
+  /** Job types of agent steps (the nano-workforce AgentTask marker), plus the legacy "claude". */
+  private agentTypeSet(): Set<string> {
+    const types = new Set<string>(["claude"]);
+    for (const f of this.flows.values()) for (const t of f.tasks) if (t.agent) types.add(t.jobType);
+    return types;
+  }
+
+  isAgentType(type: string): boolean {
+    return this.agentTypeSet().has(type);
+  }
+
   /** Every job type this daemon serves itself. */
   private servedTypes(): string[] {
-    const types = new Set<string>(this.agentMode === "cli" ? ["claude"] : []);
+    const types = new Set<string>(this.agentMode === "cli" ? this.agentTypeSet() : []);
     for (const f of this.flows.values()) for (const t of Object.keys(f.handlers)) types.add(t);
     return [...types];
+  }
+
+  /** Each agent step of a flow, what the author suggested, what you assigned, and what
+   *  would run it now (for a run started from `host`, with `run` overrides). */
+  agentPlan(flowRef: string, project?: string, host?: string, run?: RunAgents) {
+    const flow = this.resolveFlow(flowRef, path.resolve(project ?? this.home));
+    if (!flow) throw new Error(`unknown flow "${flowRef}"`);
+    const file = readAgentsFile();
+    const profiles = allProfiles(flow.agentProfiles, file);
+    const fa = file.flows?.[flow.id] ?? {};
+    const steps = flow.tasks
+      .filter((t) => t.agent)
+      .map((t) => {
+        const opts = flow.agents[t.name] ?? {};
+        let resolved: any;
+        try {
+          const r = resolveAgent({ flowId: flow.id, step: t.name, jobType: t.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run, host, file });
+          resolved = r ? { use: r.name, model: r.model ?? null, reason: r.reason, skipped: r.skipped } : { use: null, reason: "no agent CLI installed — goes to the chat assistant" };
+        } catch (e: any) {
+          resolved = { use: null, error: e?.message ?? String(e) };
+        }
+        return {
+          step: t.name,
+          jobType: t.jobType,
+          rank: t.rank ?? null,
+          prompt: t.prompt?.resourceId,
+          author: { use: opts.use ?? flow.defaultAgent ?? null, model: opts.model ?? null },
+          assigned: fa.steps?.[t.name] ?? {},
+          resolved,
+        };
+      });
+    return {
+      flowId: flow.id,
+      flow: { use: fa.use ?? null, model: fa.model ?? null },
+      ranks: file.ranks ?? {},
+      default: file.default ?? null,
+      steps,
+      profiles: Object.entries(profiles).map(([name, p]) => ({ name, protocol: p.protocol, source: p.source, description: p.description, model: p.model, installed: !!which(commandOf(name, p)) })),
+    };
   }
 
   /** The flow whose handler serves a job type: the job's own flow first. */
@@ -346,7 +410,7 @@ export class Host {
         const now = Date.now();
         const waiting = (after.jobs ?? []).some((j: any) => j.jobType === type && j.state === "Created" && !this.worker.backingOff(String(j.key), now));
         if (!waiting) continue;
-        const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(type) + 5 * MIN, WORKER, type === "claude"));
+        const jobs = JSON.parse(this.engine.activateJobs(type, free, jobTimeoutMs(this.isAgentType(type)) + 5 * MIN, WORKER, this.isAgentType(type)));
         for (const job of jobs) if (job.jobLeaseToken) this.leases[String(job.key)] = job.jobLeaseToken;
         if (jobs.length) this.touch();
         for (const job of jobs) {
@@ -367,7 +431,7 @@ export class Host {
 
   /** Which code runs a job: the built-in agent step, or the flow's handler, in its project. */
   private async handle(job: ActivatedJob, signal: AbortSignal): Promise<JobResult> {
-    if (job.type === "claude") {
+    if (this.isAgentType(job.type) && !this.flowFor(job.type, job.bpmnProcessId)) {
       const r = await runInProject(this.projectOf(job.instanceKey), () => this.runAgent(job), signal);
       return { variables: r.vars, costUsd: r.costUsd };
     }
@@ -386,7 +450,7 @@ export class Host {
    *  chat/session assistant instead of burning retries. */
   private agentUnavailable(job: ActivatedJob, err: Error): boolean {
     const msg = err.message;
-    if (job.type !== "claude" || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
+    if (!this.isAgentType(job.type) || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
     this.agentMode = "session";
     try {
       this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant", this.leases[job.key] ?? null);
@@ -407,7 +471,8 @@ export class Host {
     const promptFile = path.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
     const opts = flow.agents[task.name] ?? {};
     const instanceKey = String(job.instanceKey);
-    const agent = resolveAgent({ use: opts.use, flowDefault: flow.defaultAgent, host: this.instanceMeta[instanceKey]?.host, flowProfiles: flow.agentProfiles });
+    const meta = this.instanceMeta[instanceKey];
+    const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta?.agents, host: meta?.host });
     if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
     const vars = job.variables ?? {};
     const ctx = opts.context ? Object.fromEntries(opts.context.map((k) => [k, vars[k]])) : vars;
@@ -415,7 +480,7 @@ export class Host {
     const prompt =
       `${instructions}\n\n## Context (process variables)\n\n\`\`\`json\n${JSON.stringify(ctx, null, 2)}\n\`\`\`\n` +
       (vars.appendPrompt ? `\n${vars.appendPrompt}\n` : "");
-    const model = opts.model ?? agent.profile.model;
+    const model = agent.model;
     const lease = this.leases[String(job.key)];
     const rec = lease
       ? new AgentRecorder(
@@ -427,7 +492,7 @@ export class Host {
         )
       : undefined;
     rec?.start();
-    this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} — ${agent.reason}` });
+    this.log({ kind: "job", instanceKey, elementId: job.elementId, message: `agent ${agent.name}${model ? ` (${model})` : ""} — ${agent.reason}${agent.skipped ? `; the flow suggests ${agent.skipped}` : ""}` });
     const r = await runAgentCli({
       name: agent.name,
       profile: agent.profile,
@@ -514,7 +579,7 @@ export class Host {
       userTasks: (snap.userTasks ?? []).filter((t: any) => t.state === "Created").map((t: any) => this.userTaskView(t, snap)),
       agentMode: this.agentMode,
       sessionJobs: (snap.jobs ?? [])
-        .filter((j: any) => j.jobType === "session" || (this.agentMode === "session" && j.jobType === "claude"))
+        .filter((j: any) => j.jobType === "session" || (this.agentMode === "session" && this.isAgentType(j.jobType)))
         .map((j: any) => ({ ...j, project: pj(j.instanceKey) })),
       jobs: snap.jobs ?? [],
       running: [...this.running.entries()].map(([key, { abort: _a, ...r }]) => ({ key, ...r, project: pj(r.instanceKey) })),
@@ -574,7 +639,7 @@ export class Host {
   /** Claim jobs for the live Claude Code session (job type "session" or another the caller
    *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
   claimJobs(type?: string, max = 1, project?: string) {
-    const types = type ? [type] : this.agentMode === "session" ? ["session", "claude"] : ["session"];
+    const types = type ? [type] : this.agentMode === "session" ? ["session", ...this.agentTypeSet()] : ["session"];
     const where = project ? path.resolve(project) : undefined;
     const open = (this.snapshot().jobs ?? []).filter((j: any) => j.state === "Created");
     const jobs: any[] = [];
@@ -757,6 +822,10 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         const f = host.flows.get(decodeURIComponent(mm[1]));
         return f ? send(res, 200, f.xml, "application/xml") : send(res, 404, { error: "no such flow" });
       }
+      if (req.method === "GET" && (mm = m(/^\/api\/flows\/([^/]+)\/agents$/))) {
+        const q = url.searchParams;
+        return send(res, 200, host.agentPlan(decodeURIComponent(mm[1]), q.get("project") || undefined, q.get("host") || undefined));
+      }
       if (req.method === "GET" && (mm = m(/^\/api\/instances\/([^/]+)$/))) {
         return send(res, 200, { ...host.instance(mm[1]), history: host.history(mm[1]) });
       }
@@ -797,7 +866,8 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         }
         return send(res, 200, { ok: true, projects: host.projects });
       }
-      if (p === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host) });
+      if (p === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host, b.agents) });
+      if (p === "/api/agents/assign") return send(res, 200, assignAgent(b));
       if ((mm = m(/^\/api\/user-tasks\/([^/]+)\/complete$/))) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
       if (p === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if ((mm = m(/^\/api\/jobs\/([^/]+)\/complete$/))) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));

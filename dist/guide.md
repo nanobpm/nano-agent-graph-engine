@@ -75,7 +75,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
     const r = await sh(`gh issue view ${issue} -R ${repo} --json title,body`);
     return { issueJson: r.stdout };                        // merged into the variables
   });
-  w.task("summarize", { jobType: "claude", prompt: { resourceId: "summarize.md" } });
+  w.task("summarize", { jobType: "senior:summarize", prompt: { resourceId: "summarize.md" } });
   w.human("review", { form: "triage-review" });
   w.switch("action", {
     label: (b) => b.run("label", async (job) => { await sh(`gh issue edit ${job.variables.issue} --add-label triaged`); }),
@@ -99,15 +99,17 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
 - **`w.run(name, async (job) => vars, opts?)`** runs inline code. `job.variables` holds the instance variables; return an object (or nothing).
   - Throwing fails the job: it is tried 3 times with backoff, then becomes an **incident**.
   - `opts`: `{ timeoutMs }`.
-- **`w.task(name, { jobType: "claude", prompt: { resourceId } })`** is an agent step. The prompt file goes in `flows/prompts/`.
+- **`w.task(name, { jobType: "senior:<task>", prompt: { resourceId } })`** is an agent step. The prompt file goes in `flows/prompts/`.
+  - **Job type = `<rank>:<task>`** (nano-workforce convention): a rank (`senior`, `junior`, …) and the task, e.g. `senior:review`. Never name a CLI in the job type: the person running the flow decides which CLI and model serve it, so the flow works on any machine. (`"claude"` is the legacy job type; other shapes get a lint warning.)
   - **Where it runs**: as a headless agent CLI when one is installed; otherwise it is handed to the chat session (`session_job_next`).
   - **Per-step options** go in `export const agents = defineAgents({...})`:
     - `schema`: a JSON schema for the answer, which becomes variables. Also ask for JSON in the prompt.
     - `allowedTools`: headless runs never prompt, so list every tool the step needs.
     - `model`, `system`.
     - `context`: which variables to pass (default: all).
-    - `use`: which agent runs it — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})` or `~/.agent-graph/agents.json`.
-  - **Flow default**: `export const defaultAgent = "…"`.
+    - `use`: a *suggested* agent — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})`. Only applies where that CLI is installed and the user hasn't assigned the flow/step/rank; otherwise their default runs it (an unknown one is a warning, not an error). Usually leave it out.
+  - **Flow default**: `export const defaultAgent = "…"` (also only a suggestion).
+  - The user picks CLIs and models with `flow_agents` / `age agent assign`, or per run (`flow_start` `agents`); don't edit the flow for that.
 - **`w.task(name, { jobType: "session", agent: true })`** is work for the live Claude Code session.
 - Inside `run`, `await claude(prompt, opts)` calls an agent directly.
 - **`w.human(name, { form })`** is a user task. The form comes from `export const forms = defineForms({...})`. Fields can be string (optionally `enum`/`enumNames`, `format: "date-time"`), boolean, or number/integer (`minimum`, `maximum`), plus `required: [...]`. `{{var}}` in the title and description is filled from the variables.

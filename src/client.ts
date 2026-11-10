@@ -3,6 +3,7 @@
 // builds explorer links. The mod (hooks/mod.js) runs sandboxed and can't import this; it
 // keeps a few direct calls to the same routes.
 import { api, ensureDaemon, findDaemon, type DaemonInfo } from "./paths.ts";
+import type { RunAgents } from "./agents.ts";
 
 export interface StartResult {
   instanceKey: string;
@@ -61,8 +62,18 @@ export class EngineClient {
 
   /** `host`: the app starting the run (an MCP clientInfo name such as "claude-code" or
    *  "opencode"); its CLI runs the run's agent steps when nothing else is configured. */
-  start(flowId: string, variables: Record<string, unknown> = {}, title?: string, host?: string): Promise<StartResult> {
-    return this.call("/api/start", { flowId, variables, title, project: this.project, host });
+  start(flowId: string, variables: Record<string, unknown> = {}, title?: string, host?: string, agents?: RunAgents): Promise<StartResult> {
+    return this.call("/api/start", { flowId, variables, title, project: this.project, host, agents });
+  }
+
+  /** A flow's agent steps: the author's suggestion, your assignment, what runs them now. */
+  agentPlan<T = any>(flowId: string, host?: string): Promise<T> {
+    return this.call(`/api/flows/${encodeURIComponent(flowId)}/agents?project=${encodeURIComponent(this.project)}${host ? `&host=${encodeURIComponent(host)}` : ""}`);
+  }
+
+  /** Assign a CLI and/or model to a flow, one of its steps, or a rank; null clears. */
+  assignAgent<T = any>(a: { flowId?: string; step?: string; rank?: string; use?: string | null; model?: string | null }): Promise<T> {
+    return this.call("/api/agents/assign", a);
   }
 
   completeTask(key: string, variables: Record<string, unknown> = {}): Promise<unknown> {

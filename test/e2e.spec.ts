@@ -188,7 +188,7 @@ test("Claude Desktop chat: no project, no claude CLI, author + run through MCP o
 export const forms = defineForms({ ok: { title: "Approve {{topic}}?", description: "{{summary}}", fields: { approve: { type: "boolean" } }, required: ["approve"] } });
 export const agents = defineAgents({ summarize: { schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] } } });
 export const pitch = defineFlow("pitch", (w) => {
-  w.task("summarize", { jobType: "claude", prompt: { resourceId: "summarize.md" } });
+  w.task("summarize", { jobType: "senior:summarize", prompt: { resourceId: "summarize.md" } });
   w.human("approve", { form: "ok" });
   w.run("record", async (job) => ({ recorded: job.variables.approve === true }));
 });`;
@@ -255,7 +255,7 @@ test("flow_list shows project + library; flow_import copies a library flow with 
   try {
     const l = await call("flow_list");
     assert.match(l.text, /## this project[\s\S]*\(none\)[\s\S]*## global \(library\)[\s\S]*changelog: flow "changelog" — Draft release notes/);
-    assert.match(l.text, /draft\(claude\)/);
+    assert.match(l.text, /draft\(senior:draft\)/);
     // Library flows are offered in every project: "global", until a project copy shadows them.
     // one engine per user: its address is in ~/.agent-graph, not in the project
     const daemonUrl = () => JSON.parse(fs.readFileSync(path.join(home, ".agent-graph/daemon.json"), "utf8")).url;
