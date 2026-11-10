@@ -1,38 +1,51 @@
-# Push a tag vX.Y.Z (matching package.json) to release:
-#   npm  @nanobpm/nano-agent-graph-engine (needs the NPM_TOKEN secret, or npm trusted publishing)
-#   the `release` branch (the Claude Code plugin the marketplace on main points at)
-#   a GitHub release with the Claude Desktop extension (.mcpb)
-name: release
+name: Release
+
+# Same model as nanobpm/nano-ide: runs when CI completes on main, and only publishes if
+# that run passed, so nothing goes out with failing CI. scripts/publish.mjs is idempotent:
+# it publishes the package.json version to npm if it isn't there, makes sure the GitHub
+# Release v<version> (normally cut by release-please) has the Claude Desktop extension,
+# and updates the plugin `release` branch. Ordinary commits find everything out already
+# and do nothing. Versions are bumped only by the release-please PR.
+#
+# npm auth: Trusted Publisher (OIDC, npm >= 11.5.1) configured on npm for
+# nanobpm/nano-agent-graph-engine + release.yml. NPM_TOKEN, if set, is used instead
+# (the first publish of a new package needs it: Trusted Publishing is set per package).
 on:
-  push:
-    tags: ["v*"]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
 permissions:
   contents: write
   id-token: write
-concurrency: release
+
+# One publish at a time; queue, never cancel mid-publish.
+concurrency:
+  group: release-publish-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
+          # The commit CI validated, not the branch tip.
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
-      - name: Tag matches package.json
-        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - name: Strip legacy always-auth from generated npmrc
+        run: sed -i '/^always-auth=/d' "$NPM_CONFIG_USERCONFIG"
+      - run: npm install --global npm@latest
       - run: npm ci
       - run: npm run build
-      - run: npm run test:engine
-      - run: npx -y @anthropic-ai/claude-code@latest plugin validate .
-      - run: node scripts/package-mcpb.mjs release
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - run: node scripts/publish-plugin-branch.mjs --push
-      - run: gh release create "$GITHUB_REF_NAME" release/*.mcpb --title "$GITHUB_REF_NAME" --generate-notes
+      - run: node scripts/publish.mjs
         env:
           GH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

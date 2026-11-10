@@ -482,11 +482,20 @@ To try the plugin from a checkout: `npm run build`, then `claude --plugin-dir .`
 
 ### Releasing
 
-`dist/` isn't committed. Bump the version in `package.json`, `.claude-plugin/plugin.json` and
-`.claude-plugin/marketplace.json`, commit, and push a tag `vX.Y.Z`. The `release` workflow then
-builds and tests, publishes `@nanobpm/nano-agent-graph-engine` to npm (secret `NPM_TOKEN`),
-commits the built plugin to the `release` branch (`scripts/publish-plugin-branch.mjs`), and
-creates a GitHub release with the Desktop extension (`npm run pack:mcpb`).
+Releases work as in nanobpm/nano-ide, with [release-please](https://github.com/googleapis/release-please):
+
+- `main` is squash-merged, so PR titles become the commits. Write them as Conventional Commits
+  (`feat: …`, `fix: …`, `feat!: …`); `pr-title-lint` checks this. A `feat` bumps the minor
+  version (the patch while we're on 0.x), `fix`/`perf`/`deps`/`revert` the patch; `docs`,
+  `chore`, `ci`, `test` and `refactor` land without a release.
+- release-please keeps one release PR open. It bumps `package.json`, `.claude-plugin/plugin.json`,
+  `.claude-plugin/marketplace.json` and `CHANGELOG.md`, and auto-merges once CI is green.
+  Never bump versions by hand.
+- Merging it tags `vX.Y.Z` and cuts the GitHub Release. When CI then passes on `main`,
+  `release.yml` runs `scripts/publish.mjs`: it publishes to npm (Trusted Publisher, with
+  provenance), attaches the Desktop extension (`npm run pack:mcpb`) to the release, and commits the
+  built plugin to the `release` branch (`scripts/publish-plugin-branch.mjs`). Each step checks
+  first, so re-runs are safe.
 
 ## Limitations and next steps
 
