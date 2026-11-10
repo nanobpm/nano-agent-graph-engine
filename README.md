@@ -238,8 +238,7 @@ That one declaration drives:
 
 Flows without an input work as before, with free-form JSON variables.
 
-Until nanobpm/nano-ide#610 is released, `@nanobpm/workflow` comes from `vendor/nanobpm-workflow-0.16.0-pr610.tgz`
-(`npm pack` of the PR branch). Switch back to the npm version when it ships.
+Flow inputs need `@nanobpm/workflow` 0.17 or later.
 
 ### The authoring loop: `age check` / `flow_check`
 
