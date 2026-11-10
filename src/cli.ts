@@ -72,7 +72,9 @@ async function main() {
         console.log(JSON.stringify({ ok: !r.some((x) => x.problems.some((p) => p.severity === "error")), typesChecked: typed && !rest.includes("--no-types"), files: r.map((x) => ({ file: x.file, flows: x.flows.map((f) => ({ id: f.id, input: f.input })), problems: x.problems })) }, null, 2));
       else if (!r.length) console.log(`no flows in ${path.join(project, "flows")}`);
       else console.log(formatProblems(r) + (typed ? "" : "\n(type check skipped: dist/typecheck missing — rebuild the plugin)"));
-      process.exitCode = r.some((x) => x.problems.some((p) => p.severity === "error")) ? 1 : 0;
+      const code = r.some((x) => x.problems.some((p) => p.severity === "error")) ? 1 : 0;
+      // Don't wait for a background diagram layout (layout.ts); the engine redoes it on deploy.
+      process.stdout.write("", () => process.exit(code));
       return;
     }
     case "agent": {

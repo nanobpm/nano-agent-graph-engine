@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compile.ts";
 import { jobSignal, runInProject } from "./index.ts";
@@ -466,6 +467,9 @@ export class Host {
     return true;
   }
 
+  /** This daemon's base URL, once listening. */
+  url?: string;
+
   /** Built-in agent worker: prompt file + variables → the step's agent CLI (a profile:
    *  claude -p, or any ACP harness), recorded as an AgentInstance. */
   private async runAgent(job: any): Promise<{ vars: Record<string, unknown>; costUsd?: number }> {
@@ -487,6 +491,12 @@ export class Host {
       // `context: []`: the prompt carries everything it needs; no variables appended.
       (Object.keys(ctx).length || !opts.context ? `\n\n## Context (process variables)\n\n\`\`\`json\n${JSON.stringify(ctx, null, 2)}\n\`\`\`\n` : "\n") +
       (vars.appendPrompt ? `\n${vars.appendPrompt}\n` : "");
+    const jobKey = String(job.key);
+    const statusUrl = this.url ? `${this.url}/api/jobs/${jobKey}/alive` : undefined;
+    const fullPrompt = opts.abortCheck && statusUrl ? prompt + abortBrief(statusUrl) : prompt;
+    // Harness-style result channel (nwf prompts): the agent may write its JSON result here.
+    const resultFile = path.join(os.tmpdir(), `age-result-${jobKey}-${process.pid}.json`);
+    fs.rmSync(resultFile, { force: true });
     const cwd = opts.cwd ? path.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
     const model = agent.model;
     const lease = this.leases[String(job.key)];
@@ -504,12 +514,16 @@ export class Host {
     const r = await runAgentCli({
       name: agent.name,
       profile: agent.profile,
-      prompt,
+      prompt: fullPrompt,
       system: opts.system,
       model,
       cwd,
       // {{name}} placeholders in values are filled from the instance variables.
-      env: opts.env ? Object.fromEntries(Object.entries(opts.env).map(([k, v]) => [k, fillVars(String(v), vars)])) : undefined,
+      env: {
+        AGENT_RESULT_FILE: resultFile,
+        ...(opts.abortCheck && statusUrl ? { AGE_JOB_STATUS_URL: statusUrl } : {}),
+        ...(opts.env ? Object.fromEntries(Object.entries(opts.env).map(([k, v]) => [k, fillVars(String(v), vars)])) : {}),
+      },
       schema: opts.schema,
       allowedTools: opts.allowedTools,
       permissionMode: opts.permissionMode,
@@ -519,6 +533,13 @@ export class Host {
     rec?.done();
     let out: unknown = r.result;
     if (typeof out === "string") out = parseJson(out) ?? out;
+    // A JSON object written to $AGENT_RESULT_FILE wins over the final message.
+    if (fs.existsSync(resultFile)) {
+      const fromFile = parseJson(fs.readFileSync(resultFile, "utf8"));
+      fs.rmSync(resultFile, { force: true });
+      if (fromFile) out = fromFile;
+      else this.log({ kind: "error", instanceKey, elementId: job.elementId, message: "AGENT_RESULT_FILE was not a JSON object; using the agent's final message" });
+    }
     const result = out && typeof out === "object" && !Array.isArray(out) ? (out as Record<string, unknown>) : { [`${task.name}Result`]: out };
     return { vars: result, costUsd: r.costUsd };
   }
@@ -867,6 +888,11 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ processInstanceKey: mm[1] }))).items);
       if (req.method === "GET" && (mm = m(/^\/api\/explorer\/agents\/([^/]+)\/history$/)))
         return send(res, 200, JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items);
+      // Liveness for agents with abortCheck: 404 once the step is cancelled or finished.
+      if (req.method === "GET" && (mm = m(/^\/api\/jobs\/([^/]+)\/alive$/))) {
+        const r = host.running.get(mm[1]);
+        return r ? send(res, 200, { jobKey: mm[1], instanceKey: r.instanceKey, status: "running", abandoned: false }) : send(res, 404, { error: "job is no longer running", abandoned: true });
+      }
       if (req.method !== "POST") return send(res, 404, { error: "not found" });
       const b = await body(req);
       if (p === "/api/reload") return send(res, 200, await host.reload());
@@ -937,6 +963,7 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   v6.listen(addr.port, "::1");
   server.on("close", () => v6.close());
   const info: DaemonInfo = { pid: process.pid, port: addr.port, url: `http://localhost:${addr.port}`, project: host.home, startedAt: new Date().toISOString() };
+  host.url = info.url;
   host.baseUrl = info.url;
   fs.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
@@ -948,4 +975,28 @@ export function fillVars(text: string, vars: Record<string, unknown>): string {
     const v = vars[k];
     return v === undefined || v === null ? "" : typeof v === "string" ? v : JSON.stringify(v, null, 2);
   });
+}
+
+/** Appended to agent prompts with `abortCheck: true` (same contract as Nano Workforce's). */
+export function abortBrief(url: string): string {
+  return `
+
+---
+
+## Abort if this run was cancelled
+
+A human can cancel this run while you work. Then nobody is waiting for your result, and any commit,
+push, PR update, review request or merge you make is an orphaned side effect.
+
+Before every irreversible action (git push, opening or updating a PR, requesting a review, merging),
+check that the run is still wanted:
+
+    curl -fsS "${url}"
+
+- Abort (push nothing, change nothing on GitHub, exit) if the command fails (a 404 means the step was
+  cancelled) or the JSON says \`"abandoned": true\`.
+- Proceed only when it succeeds with \`"abandoned": false\`, and check again right before the push.
+
+Run this check yourself with your own shell tool; don't delegate it to a sub-agent.
+`;
 }

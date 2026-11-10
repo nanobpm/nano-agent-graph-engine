@@ -346,6 +346,10 @@ The model follows the same order (yours, then the author's, then the profile's).
 
 A step's prompt file may use `{{name}}` placeholders (filled from the variables); `context: []` stops the variables being appended as JSON, and `cwd` (also with placeholders) sets the agent's working directory. That lets a flow wrap an app's own prompts: a `run` step builds the prompt, the agent step runs it on your CLI, a `run` step validates and retries (see `~/AgentGraph/flows/publish-video.flow.ts`).
 
+`env` (also with placeholders) adds environment variables for the agent CLI. Every agent run gets `AGENT_RESULT_FILE`: a JSON object written there becomes the step's variables, ahead of the final message. With `abortCheck: true` the agent also gets `AGE_JOB_STATUS_URL` plus a prompt section telling it to `curl -fsS` that URL before irreversible actions; it 404s once the step is cancelled, and the cancelled step's CLI is killed. Those are the Nano Workforce harness conventions, so nwf prompts run unchanged: `~/AgentGraph/flows/pr-converge.flow.ts` is a port of nwf's single-PR converge → merge loop (Copilot review rounds, adversarial self-review, CI fix, rebase, merge, escalations as forms) that uses nwf's own prompt files.
+
+Big flows: the detailed diagram layout (bpmn-auto-layout 2) slows down steeply with flow size. It runs on a worker thread for up to `AGE_LAYOUT_MS` (default 5 s); past that the flow deploys with the simpler 1.x layout, and the detailed one finishes in the background into `~/.agent-graph/layout-cache/` and is used from the next deploy.
+
 ACP agents run in the agent's working directory (by default the run's project directory) with permission requests approved, so give them a sandbox you trust. Each step is a fresh ACP session. `schema` is passed as an instruction to answer with JSON; the first JSON object in the answer becomes variables.
 
 ### Agent transcripts (AgentInstance)

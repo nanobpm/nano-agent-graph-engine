@@ -2,7 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { declarativeToLayoutedBpmn, inlineJobTypes, walkNodes } from "@nanobpm/workflow";
+import { inlineJobTypes, walkNodes } from "@nanobpm/workflow";
+import { layoutFlow } from "./layout.ts";
 import type { AgentOptions, FormDef } from "./index.ts";
 import { allProfiles, rankOf, type AgentProfile } from "./agents.ts";
 import { newEngine } from "./wasm.ts";
@@ -122,7 +123,7 @@ export async function checkFile(file: string, keyFor: (id: string) => string = (
     const flow = { ...authored, id: keyFor(authored.id) };
     let xml: string;
     try {
-      xml = await declarativeToLayoutedBpmn(flow);
+      xml = await layoutFlow(flow);
     } catch (e: any) {
       problems.push({ severity: "error", message: `flow "${authored.id}": compile failed: ${e?.message ?? e}` });
       continue;

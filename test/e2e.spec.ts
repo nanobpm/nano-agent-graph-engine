@@ -424,3 +424,35 @@ test("task_ask: a client that declares elicitation but never shows it gets the q
     } catch {}
   }
 });
+
+test("agent result file + abortCheck: the result file wins, the status URL answers while the step runs", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "age-rf-"));
+  fs.mkdirSync(path.join(project, "flows/prompts"), { recursive: true });
+  fs.writeFileSync(path.join(project, "flows/prompts/work.md"), "Do the work.");
+  fs.writeFileSync(
+    path.join(project, "flows/rf.flow.ts"),
+    `import { defineFlow, defineAgents } from "agent-graph-engine";
+export const agents = defineAgents({ work: { abortCheck: true, context: [], env: { FAKE_WRITE_RESULT: "1" } } });
+export const f = defineFlow("rf", (w) => { w.task("work", { prompt: { resourceId: "prompts/work.md" } }); });`,
+  );
+  const env = { ...process.env, AGE_CLAUDE_CMD: fake, AGE_PROJECT: project, AGE_HOME: emptyHome(), AGE_STATE_DIR: engineHome(), AGE_AGENT_MODE: "cli" } as Record<string, string>;
+  const client = new Client({ name: "t", version: "0" }, { capabilities: {} });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [cli, "mcp"], env, cwd: project }));
+  const call = async (name: string, args: Record<string, unknown> = {}) => {
+    const r: any = await client.callTool({ name, arguments: args });
+    return r.content.map((c: any) => c.text).join("\n") as string;
+  };
+  try {
+    const key = (await call("flow_start", { flowId: "rf" })).match(/instance (\d+)/)![1];
+    const done = await until(async () => {
+      const t = await call("flow_status", { instanceKey: key });
+      return /"state":\s*"Completed"/.test(t) ? t : undefined;
+    });
+    assert.match(done, /"status":\s*"from-file"/);
+    assert.match(done, /"abandoned":\s*false/);
+    assert.match(done, /"briefed":\s*true/);
+  } finally {
+    await client.close();
+    execFileSync(process.execPath, [cli, "down"], { env });
+  }
+});

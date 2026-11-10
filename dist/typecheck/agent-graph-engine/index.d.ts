@@ -70,6 +70,10 @@ export interface AgentOptions extends Omit<ClaudeOptions, "cwd" | "timeoutMs"> {
     /** Extra environment variables for the agent process; values may use {{name}}
      *  placeholders, e.g. { AGENT_WORKSPACE: "{{workDir}}", PR_URL: "{{prUrl}}" }. */
     env?: Record<string, string>;
+    /** Give the agent a way to notice the run was cancelled: sets AGE_JOB_STATUS_URL and appends
+     *  an "Abort if this run was cancelled" section telling it to `curl -fsS` that URL before
+     *  pushing or other irreversible actions (the URL 404s once the step is cancelled). */
+    abortCheck?: boolean;
     /** Suggested agent profile: "claude", "opencode", "nano-coder", "gemini", or one from
      *  `agentProfiles`. Applies only where that CLI is installed and the user hasn't assigned
      *  this flow, step or rank to something else; otherwise the user's default runs it. */

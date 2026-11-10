@@ -5,6 +5,13 @@ import fs from "node:fs";
 let prompt = "";
 for await (const c of process.stdin) prompt += c;
 if (process.env.FAKE_CLAUDE_LOG) fs.appendFileSync(process.env.FAKE_CLAUDE_LOG, JSON.stringify({ argv: process.argv.slice(2), prompt, cwd: process.cwd(), workspace: process.env.AGENT_WORKSPACE }) + "\n");
+// Harness result channel: with FAKE_WRITE_RESULT the result goes to $AGENT_RESULT_FILE, and
+// the job status URL (abortCheck) is probed while the step is still running.
+if (process.env.FAKE_WRITE_RESULT && process.env.AGENT_RESULT_FILE) {
+  const url = process.env.AGE_JOB_STATUS_URL;
+  const alive = url ? await fetch(url).then((r) => r.json()) : null;
+  fs.writeFileSync(process.env.AGENT_RESULT_FILE, JSON.stringify({ status: "from-file", alive, briefed: prompt.includes("Abort if this run was cancelled") }));
+}
 const t0 = Date.now();
 if (process.env.FAKE_CLAUDE_SLEEP_MS) await new Promise((r) => setTimeout(r, Number(process.env.FAKE_CLAUDE_SLEEP_MS)));
 if (process.env.FAKE_CLAUDE_SPANS) fs.appendFileSync(process.env.FAKE_CLAUDE_SPANS, JSON.stringify({ t0, t1: Date.now() }) + "\n");

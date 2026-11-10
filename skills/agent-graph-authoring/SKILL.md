@@ -109,6 +109,9 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
     - `context`: which variables to append to the prompt as JSON (default: all; `[]`: none).
     - `{{name}}` in the prompt file is replaced by that variable. A `run` step can build the whole prompt (e.g. with an app's own prompt builder) into a variable, with the prompt file just `{{myPrompt}}` and `context: []`; a following `run` step checks the agent's output, and a `w.loop` + `switch` retries with the errors.
     - `cwd`: the agent's working directory (absolute or relative to the project; `{{name}}` allowed). Default: the run's project.
+    - `env`: extra environment variables for the agent CLI, values with `{{name}}` placeholders, e.g. `{ AGENT_WORKSPACE: "{{workDir}}" }`.
+    - `abortCheck: true`: the agent gets `AGE_JOB_STATUS_URL` and a prompt section telling it to `curl -fsS` that URL before pushing or other irreversible actions. The URL 404s once the step is cancelled. A cancelled step's CLI is also killed.
+    - **Result file**: every agent run gets `AGENT_RESULT_FILE`. A JSON object the agent writes there becomes the step's variables, and wins over JSON in its final message. That is the Nano Workforce harness contract, so nwf prompts work unchanged (`prompt: { resourceId: "prompts/x.md" }` finds `flows/prompts/x.md`).
     - `use`: a *suggested* agent — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})`. Only applies where that CLI is installed and the user hasn't assigned the flow/step/rank; otherwise their default runs it (an unknown one is a warning, not an error). Usually leave it out.
   - **Flow default**: `export const defaultAgent = "…"` (also only a suggestion).
   - The user picks CLIs and models with `flow_agents` / `age agent assign`, or per run (`flow_start` `agents`); don't edit the flow for that.
@@ -117,6 +120,9 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
 - **`w.human(name, { form })`** is a user task. The form comes from `export const forms = defineForms({...})`. Fields can be string (optionally `enum`/`enumNames`, `format: "date-time"`), boolean, or number/integer (`minimum`, `maximum`), plus `required: [...]`. `{{var}}` in the title and description is filled from the variables.
 - **Choices**: `w.switch("var", { value: (b) => …, default: (b) => … })`, or `w.branch("<FEEL condition>", { then, else })`.
 - **Repeats**: `w.loop((b) => { …; b.break(); … b.continue(); })`, e.g. draft → review → redo.
+- **Ending early**: `b.end("abandoned")` ends that path; `b.end("stopped", { terminate: true })` ends the whole run (every other path is cancelled). Nothing may follow it in its block. Chain after a step: `b.run("cleanup", fn).end("merged")`.
+- **First of**: `w.race({ timeout: { timer: { after: "PT1H" }, do: (b) => … }, reply: { signal: { correlationKey: "prKey" }, do: (b) => … } })` waits for whichever event comes first. A timer + signal race is a poll delay that a message can cut short.
+- **SLA on a step**: `w.task(…).boundary({ timer: "PT50M", onTimeout: (b) => b.run("sla", …) })` cancels the step when the timer fires and runs `onTimeout`, which then continues with the rest of the flow.
 - **Fixed branches**: `w.parallel([(b) => …, (b) => …])` runs every branch and joins them before continuing.
 - **Fan-out**: `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` runs one branch per list item, with results collected in order. Options: `sequential`, `completionCondition`. Up to 4 headless agent branches run at once.
 - **Waits**:
@@ -126,6 +132,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
 
 ## Rules that bite
 
+- **Names are unique per flow**: steps, ends, race arms, forms' steps. Helpers that add steps (an `escalate(b, …)` used in several places) must number their names.
 - **Step names** are BPMN ids: letters, digits, `_` and `-`. Don't start them with `Gw_`, `Loop_`, `Sub_`, `Msg_` or `f_`, and don't use `Start`/`End` as step names (`Start` is only a contract key).
 - **Variables are JSON**: keep them small (paths and ids, not file contents). Return values must be JSON-typed. A `{}` or `unknown` where JSON is expected is a type error: convert it with `String(…)`/`Number(…)`, or declare an `out` envelope.
 - **File paths**: the engine serves every project. `sh()` and agent steps run in the run's project, but plain `fs` calls don't, so use `projectPath("file")` or absolute paths.
