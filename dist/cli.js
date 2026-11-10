@@ -1380,9 +1380,9 @@ function bind(fn, target) {
 function assign(target, ...others) {
   return Object.assign(target, ...others);
 }
-function set(target, path11, value) {
+function set(target, path12, value) {
   let currentTarget = target;
-  forEach(path11, function(key, idx) {
+  forEach(path12, function(key, idx) {
     if (typeof key !== "number" && typeof key !== "string") {
       throw new Error("illegal key type: " + typeof key + ". Key should be of type number or string.");
     }
@@ -1392,7 +1392,7 @@ function set(target, path11, value) {
     if (key === "__proto__") {
       throw new Error("illegal key: __proto__");
     }
-    let nextKey = path11[idx + 1];
+    let nextKey = path12[idx + 1];
     let nextTarget = currentTarget[key];
     if (isDefined(nextKey) && isNil(nextTarget)) {
       nextTarget = currentTarget[key] = isNaN(+nextKey) ? {} : [];
@@ -8100,7 +8100,7 @@ function findCompactFlowRegions(records, graphEdges, outgoing, edgeOrder) {
       ];
     });
     const primaryEdge = selectPrimaryEdge(split, branches, edgeOrder, /* @__PURE__ */ new Set(), outgoing);
-    const primaryPath = paths.find((path11) => path11[0] === primaryEdge);
+    const primaryPath = paths.find((path12) => path12[0] === primaryEdge);
     regions.push({ split, join, paths, primaryPath });
   }
   return regions;
@@ -8138,13 +8138,13 @@ function shortestFlowPath(start, target, outgoing, edgeOrder, blocked) {
       visited.add(edge.targetRef);
       previous.set(edge.targetRef, edge);
       if (edge.targetRef === target) {
-        const path11 = [];
+        const path12 = [];
         for (let current = target; current !== start; ) {
           const previousEdge = previous.get(current);
-          path11.unshift(previousEdge);
+          path12.unshift(previousEdge);
           current = previousEdge.sourceRef;
         }
-        return path11;
+        return path12;
       }
       pending.push(edge.targetRef);
     }
@@ -8158,18 +8158,18 @@ function createCompactRankWeights(regions) {
   const weights = /* @__PURE__ */ new Map();
   for (const { paths, primaryPath } of regions) {
     const span = primaryPath.length;
-    for (const path11 of paths) {
-      if (path11 === primaryPath) {
+    for (const path12 of paths) {
+      if (path12 === primaryPath) {
         continue;
       }
-      const internalCount = path11.length - 1;
+      const internalCount = path12.length - 1;
       const offsets = [0];
       for (let index = 1; index <= internalCount; index++) {
         const offset = internalCount === 1 ? Math.floor(span / 2) : Math.floor((index - 1) * span / (internalCount - 1));
         offsets.push(offset);
       }
       offsets.push(span);
-      path11.forEach((edge, index) => {
+      path12.forEach((edge, index) => {
         const weight = offsets[index + 1] - offsets[index];
         const existing = weights.get(edge);
         weights.set(edge, existing === void 0 ? weight : Math.min(existing, weight));
@@ -8346,21 +8346,21 @@ function selectPrimaryEdge(node2, edges, edgeOrder, visited = /* @__PURE__ */ ne
   const preferred = endReaching.length ? endReaching : candidates;
   return preferred.find((edge) => edge === defaultEdge) || [...preferred].sort((a, b) => edgeOrder.get(a) - edgeOrder.get(b))[0];
 }
-function canReachEndEvent(node2, outgoing, path11) {
+function canReachEndEvent(node2, outgoing, path12) {
   if (is(node2, "bpmn:EndEvent")) {
     return true;
   }
-  if (path11.has(node2)) {
+  if (path12.has(node2)) {
     return false;
   }
-  path11.add(node2);
+  path12.add(node2);
   for (const edge of outgoing.get(node2) || []) {
-    if (canReachEndEvent(edge.targetRef, outgoing, path11)) {
-      path11.delete(node2);
+    if (canReachEndEvent(edge.targetRef, outgoing, path12)) {
+      path12.delete(node2);
       return true;
     }
   }
-  path11.delete(node2);
+  path12.delete(node2);
   return false;
 }
 function branchOffset(index, oneSided = false) {
@@ -14348,10 +14348,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path11) {
-  if (!path11)
+function getElementAtPath(obj, path12) {
+  if (!path12)
     return obj;
-  return path11.reduce((acc, key) => acc?.[key], obj);
+  return path12.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14610,11 +14610,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path11, issues) {
+function prefixIssues(path12, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path11);
+    iss.path.unshift(path12);
     return iss;
   });
 }
@@ -15147,16 +15147,16 @@ function flattenError(error64, mapper = (issue2) => issue2.message) {
 }
 function formatError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error65, path11 = []) => {
+  const processError = (error65, path12 = []) => {
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path12, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path12, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path12, ...issue2.path]);
       } else {
-        const fullpath = [...path11, ...issue2.path];
+        const fullpath = [...path12, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -15195,17 +15195,17 @@ function formatError(error64, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error64, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error65, path11 = []) => {
+  const processError = (error65, path12 = []) => {
     var _a3;
     for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path12, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path12, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path12, ...issue2.path]);
       } else {
-        const fullpath = [...path11, ...issue2.path];
+        const fullpath = [...path12, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -15244,8 +15244,8 @@ function treeifyError(error64, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path11 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path11) {
+  const path12 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path12) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -33277,13 +33277,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path11 = ref.slice(1).split("/").filter(Boolean);
-  if (path11.length === 0) {
+  const path12 = ref.slice(1).split("/").filter(Boolean);
+  if (path12.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path11[0] === defsKey) {
-    const key = path11[1] === void 0 ? void 0 : decodeJSONPointerSegment(path11[1]);
+  if (path12[0] === defsKey) {
+    const key = path12[1] === void 0 ? void 0 : decodeJSONPointerSegment(path12[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -37167,8 +37167,8 @@ var init_client = __esm({
         return `${this.url}/?project=${encodeURIComponent(this.project)}${hash2 ? `#${hash2}` : ""}`;
       }
       /** Any engine route (the MCP App's ui_api proxy). */
-      call(path11, body2) {
-        return api(this.info, path11, body2);
+      call(path12, body2) {
+        return api(this.info, path12, body2);
       }
       /** Engine state: this project's flows and work (work elsewhere is marked); `all` for everything. */
       state(all = false) {
@@ -38513,6 +38513,7 @@ var init_agent_record = __esm({
 });
 
 // src/notify.ts
+import path6 from "node:path";
 import { spawn as spawn4, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 function findTerminalNotifier() {
@@ -38596,6 +38597,14 @@ function notifyMode(env = process.env.AGE_NOTIFY) {
   if (v2 === "tasks" || v2 === "incidents") return v2;
   return "all";
 }
+function revealPath(file2, platform = process.platform) {
+  const [cmd2, args] = platform === "darwin" ? ["open", ["-R", file2]] : platform === "win32" ? ["explorer", [`/select,${file2}`]] : ["xdg-open", [path6.dirname(file2)]];
+  try {
+    spawn4(cmd2, args, { stdio: "ignore", detached: true }).on("error", () => {
+    }).unref();
+  } catch {
+  }
+}
 var xml2, appleString, warned, Notifier;
 var init_notify = __esm({
   "src/notify.ts"() {
@@ -38661,7 +38670,7 @@ var init_explorer_html = __esm({
 });
 
 // src/explorer-api.ts
-import path6 from "node:path";
+import path7 from "node:path";
 function instanceFacts(events) {
   const out = /* @__PURE__ */ new Map();
   const jobs = /* @__PURE__ */ new Map();
@@ -38806,7 +38815,7 @@ function instanceView(host, f2, live, incidentOpen) {
     has_incident: incidentOpen,
     business_id: f2.businessId ?? meta3?.title ?? null,
     suspendedDate: null,
-    tags: [path6.basename(project2), ...meta3?.title ? [meta3.title] : []],
+    tags: [path7.basename(project2), ...meta3?.title ? [meta3.title] : []],
     parent_process_instance_key: f2.parentKey,
     parent_element_instance_key: f2.parentElementKey
   };
@@ -38823,7 +38832,7 @@ function listInstances(host, q) {
   const page = Math.max(0, Number(q.page ?? 0) || 0);
   const pageSize = Math.min(200, Math.max(1, Number(q.pageSize ?? 50)));
   const all = [...facts.values()].map((f2) => instanceView(host, f2, live.get(f2.key), openIncidents.has(f2.key))).filter(
-    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path6.resolve(q.project))
+    (i) => (!q.state || i.state === q.state) && (q.hasIncident === void 0 || i.has_incident === q.hasIncident) && (!q.project || i.project === path7.resolve(q.project))
   ).sort((a, b) => b.start_date_ms - a.start_date_ms || Number(b.key) - Number(a.key));
   return { items: all.slice(page * pageSize, (page + 1) * pageSize), total: all.length, page, pageSize };
 }
@@ -39106,7 +39115,7 @@ __export(daemon_exports, {
 });
 import fs9 from "node:fs";
 import http from "node:http";
-import path7 from "node:path";
+import path8 from "node:path";
 import crypto3 from "node:crypto";
 function agentMode() {
   const m2 = process.env.AGE_AGENT_MODE ?? "auto";
@@ -39219,7 +39228,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       const b = await body(req);
       if (p2 === "/api/reload") return send(res, 200, await host.reload());
       if (p2 === "/api/projects") {
-        if (typeof b.path !== "string" || !path7.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
+        if (typeof b.path !== "string" || !path8.isAbsolute(b.path)) return send(res, 400, { error: "path must be absolute" });
         if (host.addProject(b.path)) {
           await host.reload();
           watch();
@@ -39228,6 +39237,12 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       }
       if (p2 === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host, b.agents) });
       if (p2 === "/api/agents/assign") return send(res, 200, assignAgent(b));
+      if (mm = m2(/^\/api\/flows\/([^/]+)\/reveal$/)) {
+        const f2 = host.flows.get(decodeURIComponent(mm[1]));
+        if (!f2) return send(res, 404, { error: "no such flow" });
+        revealPath(f2.file);
+        return send(res, 200, { file: f2.file });
+      }
       if (mm = m2(/^\/api\/user-tasks\/([^/]+)\/complete$/)) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
       if (p2 === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if (mm = m2(/^\/api\/jobs\/([^/]+)\/complete$/)) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));
@@ -39248,7 +39263,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       return send(res, 400, { error: String(e?.message ?? e) });
     }
   });
-  const infoFile = path7.join(host.dir, "daemon.json");
+  const infoFile = path8.join(host.dir, "daemon.json");
   function shutdown() {
     host.stop();
     try {
@@ -39315,7 +39330,7 @@ var init_daemon = __esm({
     Host = class {
       /** The global flow library (~/AgentGraph): its flows are offered in every project.
        *  Claude Desktop, which has no project, works there. */
-      home = path7.resolve(defaultHome());
+      home = path8.resolve(defaultHome());
       dir;
       /** Projects whose flows/ this engine loads (registered by clients as they connect). */
       projects = [];
@@ -39349,7 +39364,7 @@ var init_daemon = __esm({
       });
       constructor(dir = engineDir()) {
         this.dir = dir;
-        fs9.mkdirSync(path7.join(this.dir, "compiled"), { recursive: true });
+        fs9.mkdirSync(path8.join(this.dir, "compiled"), { recursive: true });
         this.engine = newEngine();
         this.worker = new Worker(
           {
@@ -39373,7 +39388,7 @@ var init_daemon = __esm({
             onError: (job, err) => this.agentUnavailable(job, err)
           }
         );
-        const journal = path7.join(this.dir, "journal.json");
+        const journal = path8.join(this.dir, "journal.json");
         if (fs9.existsSync(journal)) {
           this.engine.replayEvents(fs9.readFileSync(journal, "utf8"));
           this.log({ kind: "daemon", message: `replayed event log (${this.snapshot().eventCount} events)` });
@@ -39389,13 +39404,13 @@ var init_daemon = __esm({
       }
       readJson(name2, dflt) {
         try {
-          return JSON.parse(fs9.readFileSync(path7.join(this.dir, name2), "utf8"));
+          return JSON.parse(fs9.readFileSync(path8.join(this.dir, name2), "utf8"));
         } catch {
           return dflt;
         }
       }
       writeAtomic(name2, data) {
-        const p2 = path7.join(this.dir, name2);
+        const p2 = path8.join(this.dir, name2);
         fs9.writeFileSync(`${p2}.tmp`, data);
         fs9.renameSync(`${p2}.tmp`, p2);
       }
@@ -39404,7 +39419,7 @@ var init_daemon = __esm({
         try {
           const snap = this.snapshot();
           const link = (instanceKey, hash2) => this.baseUrl ? `${this.baseUrl}/?project=${encodeURIComponent(this.projectOf(instanceKey))}#${hash2}` : void 0;
-          const where = (instanceKey) => path7.basename(this.projectOf(instanceKey));
+          const where = (instanceKey) => path8.basename(this.projectOf(instanceKey));
           const notices = [
             ...(snap.incidents ?? []).map((i) => ({
               key: `incident:${i.key}`,
@@ -39467,7 +39482,7 @@ var init_daemon = __esm({
       /** Add a project (its flows/ are loaded and watched). Idempotent. The library itself
        *  is not a project: its flows are global. Returns whether it was new. */
       addProject(dir) {
-        const p2 = path7.resolve(dir);
+        const p2 = path8.resolve(dir);
         if (p2 === this.home || this.projects.includes(p2)) return false;
         this.projects.push(p2);
         this.touch();
@@ -39477,7 +39492,7 @@ var init_daemon = __esm({
       /** "~/…" for paths under the home dir, for display. */
       tilde(p2) {
         const h2 = process.env.HOME;
-        return h2 && (p2 === h2 || p2.startsWith(h2 + path7.sep)) ? `~${p2.slice(h2.length)}` : p2;
+        return h2 && (p2 === h2 || p2.startsWith(h2 + path8.sep)) ? `~${p2.slice(h2.length)}` : p2;
       }
       /** Compile every project's flows/ and the library's, and deploy every flow whose BPMN
        *  changed. Project flows deploy as "<projectSlug>.<id>", global ones as "<id>". */
@@ -39497,7 +39512,7 @@ var init_daemon = __esm({
           for (const f2 of r2.flows) {
             if (flows.has(f2.key)) continue;
             flows.set(f2.key, f2);
-            fs9.writeFileSync(path7.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
+            fs9.writeFileSync(path8.join(this.dir, "compiled", `${f2.key}.bpmn`), f2.xml);
             const hash2 = crypto3.createHash("sha256").update(f2.xml).digest("hex");
             if (this.deployed[f2.key] !== hash2) {
               this.engine.deploy(f2.xml);
@@ -39507,7 +39522,7 @@ var init_daemon = __esm({
             }
           }
         }
-        for (const [key, f2] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, f2);
+        for (const [key, f2] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, fs9.existsSync(f2.file) ? f2 : { ...f2, retired: true });
         this.flows = flows;
         this.steps?.recycle();
         this.touch();
@@ -39517,19 +39532,20 @@ var init_daemon = __esm({
       /** The flow a name means in a project: the project's own, else the global one with
        *  that id. An exact key (e.g. "nanobpmn-1a2b.release") also works. */
       resolveFlow(ref, project2) {
-        if (project2 && path7.resolve(project2) !== this.home) {
+        if (project2 && path8.resolve(project2) !== this.home) {
           const own2 = this.flows.get(`${projectSlug(project2)}.${ref}`);
-          if (own2) return own2;
+          if (own2 && !own2.retired) return own2;
         }
         const g = this.flows.get(ref);
-        return g && (g.scope === "global" || !project2 || path7.resolve(g.projectDir) === path7.resolve(project2)) ? g : void 0;
+        if (g?.retired) return void 0;
+        return g && (g.scope === "global" || !project2 || path8.resolve(g.projectDir) === path8.resolve(project2)) ? g : void 0;
       }
       /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
       flowsFor(project2) {
-        const all = [...this.flows.values()];
+        const all = [...this.flows.values()].filter((f2) => !f2.retired);
         if (!project2) return all;
-        const p2 = path7.resolve(project2);
-        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path7.resolve(f2.projectDir) === p2);
+        const p2 = path8.resolve(project2);
+        const own2 = p2 === this.home ? [] : all.filter((f2) => f2.scope === "project" && path8.resolve(f2.projectDir) === p2);
         const ids = new Set(own2.map((f2) => f2.id));
         return [...own2, ...all.filter((f2) => f2.scope === "global" && !ids.has(f2.id))];
       }
@@ -39543,7 +39559,7 @@ var init_daemon = __esm({
       /** Start a flow in a project (default: the library home). Global flows run in the
        *  project they were started from. */
       start(flowRef, variables = {}, title, project2, host, agents) {
-        const where = path7.resolve(project2 ?? this.home);
+        const where = path8.resolve(project2 ?? this.home);
         if (where !== this.home) this.addProject(where);
         const flow = this.resolveFlow(flowRef, where);
         if (!flow) throw new Error(`unknown flow "${flowRef}" in ${this.tilde(where)}`);
@@ -39556,7 +39572,7 @@ var init_daemon = __esm({
         const s = JSON.parse(this.engine.createInstance(flow.key, JSON.stringify(variables)));
         const key = String(s.created);
         this.instanceMeta[key] = { flowId: flow.id, flowKey: flow.key, project: where, startedAt: (/* @__PURE__ */ new Date()).toISOString(), title, host, ...agents && Object.keys(agents).length ? { agents } : {} };
-        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path7.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
+        this.log({ kind: "start", instanceKey: key, message: `started ${flow.id} in ${path8.basename(where)}${title ? ` \u2014 ${title}` : ""}` });
         this.persist();
         return key;
       }
@@ -39589,7 +39605,7 @@ var init_daemon = __esm({
       /** Each agent step of a flow, what the author suggested, what you assigned, and what
        *  would run it now (for a run started from `host`, with `run` overrides). */
       agentPlan(flowRef, project2, host, run) {
-        const flow = this.resolveFlow(flowRef, path7.resolve(project2 ?? this.home));
+        const flow = this.resolveFlow(flowRef, path8.resolve(project2 ?? this.home));
         if (!flow) throw new Error(`unknown flow "${flowRef}"`);
         const file2 = readAgentsFile();
         const profiles = allProfiles(flow.agentProfiles, file2);
@@ -39692,7 +39708,7 @@ var init_daemon = __esm({
         const flow = this.flows.get(job.bpmnProcessId);
         const task = flow?.tasks.find((t) => t.name === job.elementId);
         if (!flow || !task?.prompt) throw new Error(`no prompt bound to ${job.bpmnProcessId}/${job.elementId}`);
-        const promptFile = path7.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
+        const promptFile = path8.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId);
         const opts = flow.agents[task.name] ?? {};
         const instanceKey = String(job.instanceKey);
         const meta3 = this.instanceMeta[instanceKey];
@@ -39712,7 +39728,7 @@ ${JSON.stringify(ctx, null, 2)}
 ` : "\n") + (vars.appendPrompt ? `
 ${vars.appendPrompt}
 ` : "");
-        const cwd = opts.cwd ? path7.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
+        const cwd = opts.cwd ? path8.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
         const model = agent.model;
         const lease = this.leases[String(job.key)];
         const rec = lease ? new AgentRecorder(
@@ -39785,10 +39801,10 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           activeElements: (i.activeElements ?? []).map((a) => a.elementId)
         }));
         return {
-          project: project2 ? path7.resolve(project2) : void 0,
+          project: project2 ? path8.resolve(project2) : void 0,
           home: this.home,
           globalDir: this.home,
-          projects: this.projects.map((p2) => ({ path: p2, name: path7.basename(p2), slug: projectSlug(p2) })),
+          projects: this.projects.map((p2) => ({ path: p2, name: path8.basename(p2), slug: projectSlug(p2) })),
           now: snap.now,
           eventCount: snap.eventCount,
           flows: this.flowsFor(project2).map((f2) => ({
@@ -39796,14 +39812,14 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             key: f2.key,
             scope: f2.scope,
             project: f2.scope === "project" ? f2.projectDir : void 0,
-            file: f2.scope === "project" ? path7.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
+            file: f2.scope === "project" ? path8.relative(f2.projectDir, f2.file) : this.tilde(f2.file),
             description: f2.description,
             humans: f2.humans,
             tasks: f2.tasks.map((t) => ({ name: t.name, jobType: t.jobType, agent: t.agent })),
             input: f2.input,
             startForm: f2.startForm
           })),
-          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path7.resolve(project2)) : this.problems,
+          problems: project2 ? this.problems.filter((p2) => !p2.project || p2.project === path8.resolve(project2)) : this.problems,
           instances,
           userTasks: (snap.userTasks ?? []).filter((t) => t.state === "Created").map((t) => this.userTaskView(t, snap)),
           agentMode: this.agentMode,
@@ -39863,7 +39879,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
        *  names). With `project`, only jobs of runs in that project: a session works on its repo. */
       claimJobs(type, max = 1, project2) {
         const types2 = type ? [type] : this.agentMode === "session" ? ["session", ...this.agentTypeSet()] : ["session"];
-        const where = project2 ? path7.resolve(project2) : void 0;
+        const where = project2 ? path8.resolve(project2) : void 0;
         const open2 = (this.snapshot().jobs ?? []).filter((j2) => j2.state === "Created");
         const jobs = [];
         for (const t of types2) {
@@ -39880,7 +39896,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
         return jobs.map((j2) => {
           const flow = this.flows.get(j2.bpmnProcessId);
           const task = flow?.tasks.find((t) => t.name === j2.elementId);
-          const promptFile = task?.prompt ? path7.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
+          const promptFile = task?.prompt ? path8.join(flow.projectDir, "flows", "prompts", task.prompt.resourceId) : void 0;
           return {
             key: j2.key,
             flowId: flow?.id ?? j2.bpmnProcessId,
@@ -39889,7 +39905,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             instanceKey: j2.instanceKey,
             variables: j2.variables,
             prompt: promptFile && fs9.existsSync(promptFile) ? fillVars(fs9.readFileSync(promptFile, "utf8"), j2.variables ?? {}) : void 0,
-            cwd: flow?.agents[j2.elementId]?.cwd ? path7.resolve(this.projectOf(String(j2.instanceKey)), fillVars(flow.agents[j2.elementId].cwd, j2.variables ?? {})) : void 0,
+            cwd: flow?.agents[j2.elementId]?.cwd ? path8.resolve(this.projectOf(String(j2.instanceKey)), fillVars(flow.agents[j2.elementId].cwd, j2.variables ?? {})) : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
@@ -40368,8 +40384,8 @@ var init_parseUtil = __esm({
     init_errors3();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path11, errorMaps, issueData } = params;
-      const fullPath = [...path11, ...issueData.path || []];
+      const { data, path: path12, errorMaps, issueData } = params;
+      const fullPath = [...path12, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -40653,11 +40669,11 @@ var init_types = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path11, key) {
+      constructor(parent, value, path12, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path11;
+        this._path = path12;
         this._key = key;
       }
       get path() {
@@ -44113,11 +44129,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path11) {
-  if (path11.length === 0) {
+function getDotPath(path12) {
+  if (path12.length === 0) {
     return "object root";
   }
-  return path11.reduce((acc, seg, index) => {
+  return path12.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -51594,8 +51610,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path11) {
-      let input2 = path11;
+    function removeDotSegments(path12) {
+      let input2 = path12;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -51669,11 +51685,11 @@ var require_utils = __commonJS({
       }
       return output2.join("");
     }
-    function removeDotSegmentsRelative(path11) {
-      if (path11 === "" || path11[0] === "/") {
-        return removeDotSegments(path11);
+    function removeDotSegmentsRelative(path12) {
+      if (path12 === "" || path12[0] === "/") {
+        return removeDotSegments(path12);
       }
-      const segments = path11.split("/");
+      const segments = path12.split("/");
       const last = segments.length - 1;
       const output2 = [];
       let trailingDirectory = false;
@@ -52036,8 +52052,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path11 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
+        const path12 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path12 && path12 !== "/" ? path12 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -59778,9 +59794,9 @@ __export(mcp_exports, {
   runMcpHttp: () => runMcpHttp
 });
 import fs10 from "node:fs";
-import path8 from "node:path";
+import path9 from "node:path";
 function ensureModuleType(dir) {
-  const f2 = path8.join(dir, "package.json");
+  const f2 = path9.join(dir, "package.json");
   if (!fs10.existsSync(f2)) fs10.writeFileSync(f2, '{ "type": "module" }\n');
 }
 function guideText() {
@@ -59815,7 +59831,7 @@ function createServer2(project2) {
     guard(async () => {
       const r2 = await checkProject(project2);
       addTypeProblems(r2);
-      if (!r2.length) return text(`No flows yet. Create ${path8.join(project2, "flows")}/<name>.flow.ts (see the agent-graph-authoring skill or flow_guide).`);
+      if (!r2.length) return text(`No flows yet. Create ${path9.join(project2, "flows")}/<name>.flow.ts (see the agent-graph-authoring skill or flow_guide).`);
       const bad = r2.some((x) => x.problems.some((p2) => p2.severity === "error"));
       let reload = "";
       if (!bad) {
@@ -59854,10 +59870,10 @@ ${guideText()}`))
     },
     guard(async ({ name: name2, source, prompts }) => {
       const dir = flowsDir(project2);
-      fs10.mkdirSync(path8.join(dir, "prompts"), { recursive: true });
+      fs10.mkdirSync(path9.join(dir, "prompts"), { recursive: true });
       ensureModuleType(dir);
-      for (const [f2, body2] of Object.entries(prompts ?? {})) fs10.writeFileSync(path8.join(dir, "prompts", f2), body2);
-      const file2 = path8.join(dir, `${name2}.flow.ts`);
+      for (const [f2, body2] of Object.entries(prompts ?? {})) fs10.writeFileSync(path9.join(dir, "prompts", f2), body2);
+      const file2 = path9.join(dir, `${name2}.flow.ts`);
       fs10.writeFileSync(file2, source);
       const r2 = await checkFile(file2);
       addTypeProblems([r2]);
@@ -59870,7 +59886,7 @@ ${guideText()}`))
 Deployed: ${r2.flows.map((f2) => f2.id).join(", ")}. Start it with flow_start; show it with show_explorer.`;
       }
       return text(`${formatProblems([r2])}
-written ${path8.relative(project2, file2)}${tail}`, bad);
+written ${path9.relative(project2, file2)}${tail}`, bad);
     })
   );
   server.registerTool(
@@ -59882,7 +59898,7 @@ written ${path8.relative(project2, file2)}${tail}`, bad);
     },
     guard(async () => {
       const home = defaultHome();
-      const places = [[project2, "this project"], ...path8.resolve(home) !== path8.resolve(project2) ? [[home, "global (library)"]] : []];
+      const places = [[project2, "this project"], ...path9.resolve(home) !== path9.resolve(project2) ? [[home, "global (library)"]] : []];
       const out = [];
       for (const [dir, label] of places) {
         out.push(`## ${label} (${flowsDir(dir)})`);
@@ -59890,7 +59906,7 @@ written ${path8.relative(project2, file2)}${tail}`, bad);
         if (!files.length) out.push("(none)");
         for (const f2 of files) {
           const r2 = await checkFile(f2);
-          const name2 = path8.basename(f2).replace(/\.flow\.\w+$/, "");
+          const name2 = path9.basename(f2).replace(/\.flow\.\w+$/, "");
           const errs = r2.problems.filter((p2) => p2.severity === "error").length;
           for (const fl of r2.flows) {
             const steps = [...fl.tasks.map((t) => `${t.name}(${t.jobType})`), ...fl.humans.map((h2) => `${h2.name}(human)`), ...Object.keys(fl.handlers).map((h2) => h2.split(":").pop())];
@@ -59912,24 +59928,24 @@ written ${path8.relative(project2, file2)}${tail}`, bad);
     },
     guard(async ({ name: name2, overwrite }) => {
       const home = defaultHome();
-      if (path8.resolve(home) === path8.resolve(project2)) return text("This project is the library already.", true);
-      const src = listFlowFiles(home).find((f2) => path8.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
+      if (path9.resolve(home) === path9.resolve(project2)) return text("This project is the library already.", true);
+      const src = listFlowFiles(home).find((f2) => path9.basename(f2).replace(/\.flow\.\w+$/, "") === name2);
       if (!src) return text(`No library flow ${name2} in ${flowsDir(home)}`, true);
-      const dst = path8.join(flowsDir(project2), path8.basename(src));
-      if (fs10.existsSync(dst) && !overwrite) return text(`${path8.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
-      fs10.mkdirSync(path8.join(flowsDir(project2), "prompts"), { recursive: true });
+      const dst = path9.join(flowsDir(project2), path9.basename(src));
+      if (fs10.existsSync(dst) && !overwrite) return text(`${path9.relative(project2, dst)} exists; pass overwrite=true to replace it.`, true);
+      fs10.mkdirSync(path9.join(flowsDir(project2), "prompts"), { recursive: true });
       ensureModuleType(flowsDir(project2));
       fs10.copyFileSync(src, dst);
-      const copied = [path8.relative(project2, dst)];
+      const copied = [path9.relative(project2, dst)];
       const r0 = await checkFile(src);
       for (const fl of r0.flows)
         for (const t of fl.tasks)
           if (t.prompt) {
-            const p2 = path8.join(flowsDir(home), "prompts", t.prompt.resourceId);
-            const q = path8.join(flowsDir(project2), "prompts", t.prompt.resourceId);
+            const p2 = path9.join(flowsDir(home), "prompts", t.prompt.resourceId);
+            const q = path9.join(flowsDir(project2), "prompts", t.prompt.resourceId);
             if (fs10.existsSync(p2) && (overwrite || !fs10.existsSync(q))) {
               fs10.copyFileSync(p2, q);
-              copied.push(path8.relative(project2, q));
+              copied.push(path9.relative(project2, q));
             }
           }
       const r2 = await checkFile(dst);
@@ -59949,13 +59965,13 @@ Deployed here: ${r2.flows.map((f2) => f2.id).join(", ")}`}`, bad);
     },
     guard(async ({ name: name2 }) => {
       const files = listFlowFiles(project2);
-      if (!name2) return text(files.length ? files.map((f3) => path8.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
-      const f2 = files.find((x) => path8.basename(x).replace(/\.flow\.\w+$/, "") === name2);
+      if (!name2) return text(files.length ? files.map((f3) => path9.basename(f3)).join("\n") : `No flows yet in ${flowsDir(project2)}.`);
+      const f2 = files.find((x) => path9.basename(x).replace(/\.flow\.\w+$/, "") === name2);
       if (!f2) return text(`No flow file ${name2}.flow.ts`, true);
-      const pdir = path8.join(flowsDir(project2), "prompts");
+      const pdir = path9.join(flowsDir(project2), "prompts");
       const prompts = fs10.existsSync(pdir) ? fs10.readdirSync(pdir).map((p2) => `--- prompts/${p2}
-${fs10.readFileSync(path8.join(pdir, p2), "utf8")}`) : [];
-      return text([`--- ${path8.basename(f2)}`, fs10.readFileSync(f2, "utf8"), ...prompts].join("\n"));
+${fs10.readFileSync(path9.join(pdir, p2), "utf8")}`) : [];
+      return text([`--- ${path9.basename(f2)}`, fs10.readFileSync(f2, "utf8"), ...prompts].join("\n"));
     })
   );
   K3(
@@ -60352,7 +60368,7 @@ __export(hooks_exports, {
   runHook: () => runHook
 });
 import fs11 from "node:fs";
-import path9 from "node:path";
+import path10 from "node:path";
 async function readStdin() {
   if (process.stdin.isTTY) return {};
   let s = "";
@@ -60369,7 +60385,7 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   const c = await EngineClient.find(project2);
   if (!c) return;
   const s = await c.state();
-  const here = (x) => !x.project || x.project === path9.resolve(project2);
+  const here = (x) => !x.project || x.project === path10.resolve(project2);
   const tasks = s.userTasks.filter(here);
   const sessionJobs = s.sessionJobs.filter((j2) => j2.state === "Created" && here(j2));
   const incidents = s.incidents.filter(here);
@@ -60381,7 +60397,7 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
     ...event === "SessionStart" ? elsewhere.map((x) => `e${x.key}`) : []
   ].sort();
   if (!keys.length) return;
-  const seenFile = path9.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
+  const seenFile = path10.join(engineDir(), `hook-seen-${projectSlug(project2)}.json`);
   if (event === "UserPromptSubmit") {
     let seen = [];
     try {
@@ -60395,7 +60411,7 @@ async function runHook(projectArg, event = "UserPromptSubmit") {
   for (const t of tasks)
     lines.push(`- user task ${t.key}: ${t.flowId}/${t.elementId}${t.title ? ` "${t.title}"` : ""}${t.form?.title ? ` \u2014 ${t.form.title}` : ""} (${c.explorerUrl(`task=${t.key}`)})`);
   if (elsewhere.length) {
-    const names = [...new Set(elsewhere.map((x) => path9.basename(x.project)))];
+    const names = [...new Set(elsewhere.map((x) => path10.basename(x.project)))];
     lines.push(`- ${elsewhere.length} task(s)/incident(s) waiting in other projects (${names.join(", ")}) \u2014 flow_status lists them`);
   }
   if (sessionJobs.length) lines.push(`- ${sessionJobs.length} job(s) assigned to this session (session_job_next)`);
@@ -60420,7 +60436,7 @@ init_client();
 init_summary();
 init_input();
 import { spawn as spawn5 } from "node:child_process";
-import path10 from "node:path";
+import path11 from "node:path";
 var HELP = `age \u2014 Agent Graph Engine
 
   age check [file] [--json]     type-check, compile and lint flows/*.flow.ts (or one file);
@@ -60459,7 +60475,7 @@ function arg(name2) {
   return v2;
 }
 var projectOpt = arg("--project");
-var project = projectOpt ? path10.resolve(projectOpt) : resolveProject();
+var project = projectOpt ? path11.resolve(projectOpt) : resolveProject();
 var [cmd, ...rest] = process.argv.slice(2);
 function parseVars(s) {
   if (!s) return {};
@@ -60474,11 +60490,11 @@ async function main() {
     case "check": {
       const json5 = rest.includes("--json");
       const file2 = rest.find((a) => !a.startsWith("--"));
-      const r2 = file2 ? [await checkFile(path10.resolve(file2))] : await checkProject(project);
+      const r2 = file2 ? [await checkFile(path11.resolve(file2))] : await checkProject(project);
       const typed = rest.includes("--no-types") || addTypeProblems(r2);
       if (json5)
         console.log(JSON.stringify({ ok: !r2.some((x) => x.problems.some((p2) => p2.severity === "error")), typesChecked: typed && !rest.includes("--no-types"), files: r2.map((x) => ({ file: x.file, flows: x.flows.map((f2) => ({ id: f2.id, input: f2.input })), problems: x.problems })) }, null, 2));
-      else if (!r2.length) console.log(`no flows in ${path10.join(project, "flows")}`);
+      else if (!r2.length) console.log(`no flows in ${path11.join(project, "flows")}`);
       else console.log(formatProblems(r2) + (typed ? "" : "\n(type check skipped: dist/typecheck missing \u2014 rebuild the plugin)"));
       process.exitCode = r2.some((x) => x.problems.some((p2) => p2.severity === "error")) ? 1 : 0;
       return;

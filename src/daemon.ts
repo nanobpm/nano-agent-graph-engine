@@ -10,7 +10,7 @@ import { jobSignal, runInProject } from "./index.ts";
 import { allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
 import { AgentRecorder } from "./agent-record.ts";
-import { Notifier, notify, notifyMode, type Notice } from "./notify.ts";
+import { Notifier, notify, notifyMode, revealPath, type Notice } from "./notify.ts";
 import { newEngine, type TestEngine } from "./wasm.ts";
 import { acquireEngineLock, defaultHome, engineDir, findDaemon, projectSlug, type DaemonInfo } from "./paths.ts";
 import { explorerHtml } from "./explorer-html.ts";
@@ -261,7 +261,9 @@ export class Host {
       }
     }
     // Keep handlers of flows that failed to compile this time, so running instances continue.
-    for (const [key, f] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, f);
+    // A deleted file's flow is retired: hidden and not startable, but its running instances
+    // keep their handlers.
+    for (const [key, f] of this.flows) if (!flows.has(key) && this.deployed[key]) flows.set(key, fs.existsSync(f.file) ? f : { ...f, retired: true });
     this.flows = flows;
     // Step threads cached the old modules; new steps get fresh threads.
     this.steps?.recycle();
@@ -275,15 +277,16 @@ export class Host {
   resolveFlow(ref: string, project?: string): CompiledFlow | undefined {
     if (project && path.resolve(project) !== this.home) {
       const own = this.flows.get(`${projectSlug(project)}.${ref}`);
-      if (own) return own;
+      if (own && !own.retired) return own;
     }
     const g = this.flows.get(ref);
+    if (g?.retired) return undefined;
     return g && (g.scope === "global" || !project || path.resolve(g.projectDir) === path.resolve(project)) ? g : undefined;
   }
 
   /** The flows a project can start: its own, plus the global ones it doesn't shadow. */
   flowsFor(project?: string): CompiledFlow[] {
-    const all = [...this.flows.values()];
+    const all = [...this.flows.values()].filter((f) => !f.retired);
     if (!project) return all;
     const p = path.resolve(project);
     const own = p === this.home ? [] : all.filter((f) => f.scope === "project" && path.resolve(f.projectDir) === p);
@@ -874,6 +877,13 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       }
       if (p === "/api/start") return send(res, 200, { instanceKey: host.start(b.flowId, b.variables ?? {}, b.title, b.project, b.host, b.agents) });
       if (p === "/api/agents/assign") return send(res, 200, assignAgent(b));
+      // Only a deployed flow's own file, never a path from the request.
+      if ((mm = m(/^\/api\/flows\/([^/]+)\/reveal$/))) {
+        const f = host.flows.get(decodeURIComponent(mm[1]));
+        if (!f) return send(res, 404, { error: "no such flow" });
+        revealPath(f.file);
+        return send(res, 200, { file: f.file });
+      }
       if ((mm = m(/^\/api\/user-tasks\/([^/]+)\/complete$/))) return send(res, 200, (host.completeUserTask(mm[1], b.variables ?? {}), { ok: true }));
       if (p === "/api/jobs/claim") return send(res, 200, host.claimJobs(b.type, b.max, b.project));
       if ((mm = m(/^\/api\/jobs\/([^/]+)\/complete$/))) return send(res, 200, (host.completeJob(mm[1], b.variables ?? {}), { ok: true }));

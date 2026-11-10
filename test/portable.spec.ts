@@ -145,3 +145,27 @@ export const tpl = defineFlow("tpl", (w) => {
     run(["down"], env, project);
   }
 });
+
+test("a deleted flow file disappears from the engine; reveal only takes deployed flows", async () => {
+  const project = tmp("age-del-");
+  const state = tmp("age-engine-");
+  fs.mkdirSync(path.join(project, "flows"));
+  const file = path.join(project, "flows/gone.flow.ts");
+  fs.writeFileSync(file, `import { defineFlow } from "agent-graph-engine";\nexport const f = defineFlow("gone", (w) => { w.run("x", async () => ({})); });\n`);
+  const env = { ...process.env, AGE_PROJECT: project, AGE_HOME: tmp("age-lib-"), AGE_STATE_DIR: state, AGE_NOTIFY: "off" } as Record<string, string>;
+  try {
+    run(["up"], env, project);
+    const { url } = JSON.parse(fs.readFileSync(path.join(state, "daemon.json"), "utf8"));
+    const ids = async () => ((await (await fetch(`${url}/api/state?project=${encodeURIComponent(project)}`)).json()) as any).flows.map((f: any) => f.id);
+    assert.deepEqual(await ids(), ["gone"]);
+    const bad = await fetch(`${url}/api/flows/${encodeURIComponent("../../etc")}/reveal`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    assert.equal(bad.status, 404);
+    fs.rmSync(file);
+    await fetch(`${url}/api/reload`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    assert.deepEqual(await ids(), []);
+    const r = run(["start", "gone"], env, project);
+    assert.notEqual(r.code, 0);
+  } finally {
+    run(["down"], env, project);
+  }
+});

@@ -1,3 +1,4 @@
+import path from "node:path";
 // Desktop notifications from the engine: an incident was raised, or a user task is
 // waiting. The engine runs in the background, so without these a run that stops hours
 // later goes unnoticed until someone opens a session or the explorer.
@@ -160,5 +161,16 @@ export class Notifier {
       return;
     }
     for (const n of wanted) this.show(n);
+  }
+}
+
+/** Show a file in the file manager: selected in Finder / Explorer; Linux opens its folder. */
+export function revealPath(file: string, platform: NodeJS.Platform = process.platform) {
+  const [cmd, args] =
+    platform === "darwin" ? ["open", ["-R", file]] : platform === "win32" ? ["explorer", [`/select,${file}`]] : ["xdg-open", [path.dirname(file)]];
+  try {
+    spawn(cmd as string, args as string[], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
+  } catch {
+    /* no file manager */
   }
 }

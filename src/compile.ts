@@ -58,6 +58,8 @@ export interface CompiledFlow {
   key: string;
   /** The flow file's mtime when it was loaded: step threads import the same version. */
   stamp: number;
+  /** Its file was deleted: not listed or startable; running instances finish. */
+  retired?: boolean;
   /** Project root the flow file belongs to (parent of flows/). */
   projectDir: string;
   /** "project": from this project's flows/. "global": from the shared library

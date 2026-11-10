@@ -649,6 +649,19 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
           {form?.title ? `${flow.id} · ` : ""}Runs in <code title={where}>{tilde(where)}</code>
           {flow.scope === "global" && !scope && " — pick a project above to run it there"}
         </p>
+        <p className="-mt-2 flex items-center gap-2 text-xs text-fg-muted">
+          <span>
+            Defined in <code>{tilde(flow.file)}</code>
+          </span>
+          <button
+            type="button"
+            className="underline"
+            title="Show the flow file in your file manager (rename, move or delete it there; the engine picks up the change)"
+            onClick={() => api(`/api/flows/${enc(flow.key)}/reveal`, {}).catch((e) => setError(e.message))}
+          >
+            Open folder
+          </button>
+        </p>
         {form?.description && <p className="text-sm">{form.description}</p>}
         {form && <FormFields form={form} values={values} setValues={setValues} />}
         <label className="flex flex-col gap-1 text-sm">
