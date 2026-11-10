@@ -114,3 +114,34 @@ test("a flow from another author runs on my CLIs: assign per flow/step, override
     run(["down"], env, project);
   }
 });
+
+test("agent options: {{var}} placeholders in the prompt, context: [] sends no variables, cwd from a variable", async () => {
+  const project = tmp("age-tpl-");
+  const state = tmp("age-engine-");
+  const work = tmp("age-work-");
+  fs.mkdirSync(path.join(project, "flows/prompts"), { recursive: true });
+  fs.writeFileSync(
+    path.join(project, "flows/tpl.flow.ts"),
+    `import { defineFlow, defineAgents } from "agent-graph-engine";
+export const agents = defineAgents({ write: { context: [], cwd: "{{dir}}" } });
+export const tpl = defineFlow("tpl", (w) => {
+  w.run("prep", async () => ({ built: "Write the notes for v2.", dir: ${JSON.stringify(work)}, secret: "do-not-send" }));
+  w.task("write", { jobType: "senior:write", prompt: { resourceId: "w.md" } });
+});
+`,
+  );
+  fs.writeFileSync(path.join(project, "flows/prompts/w.md"), "{{built}}\nList: {{list}}");
+  fs.writeFileSync(path.join(state, "agents.json"), JSON.stringify({ profiles: { writer: { protocol: "claude", command: fake } }, default: "writer" }));
+  const log = path.join(state, "fake.log");
+  const env = { ...process.env, AGE_PROJECT: project, AGE_HOME: tmp("age-lib-"), AGE_STATE_DIR: state, AGE_NOTIFY: "off", FAKE_CLAUDE_LOG: log } as Record<string, string>;
+  try {
+    const r = run(["start", "tpl"], env, project);
+    assert.equal(r.code, 0, r.out);
+    const entry = await until(async () => (fs.existsSync(log) ? JSON.parse(fs.readFileSync(log, "utf8").trim().split("\n")[0]) : undefined));
+    assert.match(entry.prompt, /^Write the notes for v2\.\nList: \n/);
+    assert.doesNotMatch(entry.prompt, /do-not-send|Context \(process variables\)/);
+    assert.equal(fs.realpathSync(entry.cwd), fs.realpathSync(work));
+  } finally {
+    run(["down"], env, project);
+  }
+});

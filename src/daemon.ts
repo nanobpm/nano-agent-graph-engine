@@ -476,10 +476,14 @@ export class Host {
     if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
     const vars = job.variables ?? {};
     const ctx = opts.context ? Object.fromEntries(opts.context.map((k) => [k, vars[k]])) : vars;
-    const instructions = fs.readFileSync(promptFile, "utf8").trim();
+    // {{name}} in the prompt file is replaced by that variable (text as is, else JSON).
+    const instructions = fillVars(fs.readFileSync(promptFile, "utf8").trim(), vars);
     const prompt =
-      `${instructions}\n\n## Context (process variables)\n\n\`\`\`json\n${JSON.stringify(ctx, null, 2)}\n\`\`\`\n` +
+      instructions +
+      // `context: []`: the prompt carries everything it needs; no variables appended.
+      (Object.keys(ctx).length || !opts.context ? `\n\n## Context (process variables)\n\n\`\`\`json\n${JSON.stringify(ctx, null, 2)}\n\`\`\`\n` : "\n") +
       (vars.appendPrompt ? `\n${vars.appendPrompt}\n` : "");
+    const cwd = opts.cwd ? path.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
     const model = agent.model;
     const lease = this.leases[String(job.key)];
     const rec = lease
@@ -499,7 +503,7 @@ export class Host {
       prompt,
       system: opts.system,
       model,
-      cwd: this.projectOf(instanceKey),
+      cwd,
       schema: opts.schema,
       allowedTools: opts.allowedTools,
       permissionMode: opts.permissionMode,
@@ -514,6 +518,7 @@ export class Host {
   }
 
   // ---------- read model for the API / MCP / UI ----------
+
 
   userTaskView(t: any, snap: any) {
     const inst = (snap.instances ?? []).find((i: any) => i.key === t.instanceKey);
@@ -666,7 +671,8 @@ export class Host {
         elementId: j.elementId,
         instanceKey: j.instanceKey,
         variables: j.variables,
-        prompt: promptFile && fs.existsSync(promptFile) ? fs.readFileSync(promptFile, "utf8") : undefined,
+        prompt: promptFile && fs.existsSync(promptFile) ? fillVars(fs.readFileSync(promptFile, "utf8"), j.variables ?? {}) : undefined,
+        cwd: flow?.agents[j.elementId]?.cwd ? path.resolve(this.projectOf(String(j.instanceKey)), fillVars(flow.agents[j.elementId].cwd!, j.variables ?? {})) : undefined,
         outputSchema: flow?.agents[j.elementId]?.schema,
       };
     });
@@ -921,4 +927,12 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   host.baseUrl = info.url;
   fs.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
+}
+
+/** Replace {{name}} with the variable: strings as is, other values as JSON, missing ones empty. */
+export function fillVars(text: string, vars: Record<string, unknown>): string {
+  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k) => {
+    const v = vars[k];
+    return v === undefined || v === null ? "" : typeof v === "string" ? v : JSON.stringify(v, null, 2);
+  });
 }

@@ -4,7 +4,7 @@
 import fs from "node:fs";
 let prompt = "";
 for await (const c of process.stdin) prompt += c;
-if (process.env.FAKE_CLAUDE_LOG) fs.appendFileSync(process.env.FAKE_CLAUDE_LOG, JSON.stringify({ argv: process.argv.slice(2), prompt }) + "\n");
+if (process.env.FAKE_CLAUDE_LOG) fs.appendFileSync(process.env.FAKE_CLAUDE_LOG, JSON.stringify({ argv: process.argv.slice(2), prompt, cwd: process.cwd() }) + "\n");
 const t0 = Date.now();
 if (process.env.FAKE_CLAUDE_SLEEP_MS) await new Promise((r) => setTimeout(r, Number(process.env.FAKE_CLAUDE_SLEEP_MS)));
 if (process.env.FAKE_CLAUDE_SPANS) fs.appendFileSync(process.env.FAKE_CLAUDE_SPANS, JSON.stringify({ t0, t1: Date.now() }) + "\n");

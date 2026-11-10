@@ -61,8 +61,12 @@ export declare function defineForms<T extends Record<string, FormDef>>(forms: T)
  *  Who runs it is the user's choice (`age agent assign`, flow_agents, the explorer);
  *  `use`/`model` here are only the author's suggestion. ("claude" is the legacy job type.) */
 export interface AgentOptions extends Omit<ClaudeOptions, "cwd" | "timeoutMs"> {
-    /** Variables to pass as context (default: all instance variables). */
+    /** Variables to append to the prompt as JSON (default: all instance variables; `[]`:
+     *  none — use when the prompt file pulls in what it needs with {{name}} placeholders). */
     context?: string[];
+    /** Working directory for the agent, absolute or relative to the run's project; may use
+     *  {{name}} placeholders, e.g. "{{workDir}}". Default: the run's project. */
+    cwd?: string;
     /** Suggested agent profile: "claude", "opencode", "nano-coder", "gemini", or one from
      *  `agentProfiles`. Applies only where that CLI is installed and the user hasn't assigned
      *  this flow, step or rank to something else; otherwise the user's default runs it. */

@@ -106,7 +106,9 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
     - `schema`: a JSON schema for the answer, which becomes variables. Also ask for JSON in the prompt.
     - `allowedTools`: headless runs never prompt, so list every tool the step needs.
     - `model`, `system`.
-    - `context`: which variables to pass (default: all).
+    - `context`: which variables to append to the prompt as JSON (default: all; `[]`: none).
+    - `{{name}}` in the prompt file is replaced by that variable. A `run` step can build the whole prompt (e.g. with an app's own prompt builder) into a variable, with the prompt file just `{{myPrompt}}` and `context: []`; a following `run` step checks the agent's output, and a `w.loop` + `switch` retries with the errors.
+    - `cwd`: the agent's working directory (absolute or relative to the project; `{{name}}` allowed). Default: the run's project.
     - `use`: a *suggested* agent — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})`. Only applies where that CLI is installed and the user hasn't assigned the flow/step/rank; otherwise their default runs it (an unknown one is a warning, not an error). Usually leave it out.
   - **Flow default**: `export const defaultAgent = "…"` (also only a suggestion).
   - The user picks CLIs and models with `flow_agents` / `age agent assign`, or per run (`flow_start` `agents`); don't edit the flow for that.

@@ -510,6 +510,23 @@ function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r:
     for (const i of state?.instances ?? []) if (i.flowKey === flow?.key && inScope(i) && !i.completed) for (const a of i.activeElements) counts[a] = (counts[a] ?? 0) + 1;
     return counts;
   }, [state, flow?.key]);
+  const plan = useAgentPlan(flow, flow ? whereOf(flow, state?.home) : "");
+  // One pill per element: an agent step shows its CLI (and model); a step with runs on it, the count.
+  const badges = useMemo(() => {
+    const agentOf = new Map<string, any>((plan.data?.steps ?? []).map((s: any) => [s.step, s.resolved]));
+    const ids = new Set([...Object.keys(active), ...agentOf.keys()]);
+    return [...ids].map((elementId) => {
+      const n = active[elementId];
+      const r = agentOf.get(elementId);
+      const who = r ? `🤖 ${runsOn(r)}` : "";
+      return {
+        elementId,
+        label: [who, n ? String(n) : ""].filter(Boolean).join(" · "),
+        title: [r ? `Runs on ${runsOn(r)} — ${r.error ?? r.reason}` : "", n ? `${n} active instance${n > 1 ? "s" : ""}` : ""].filter(Boolean).join("; "),
+        tone: (n ? "active" : "settled") as "active" | "settled",
+      };
+    });
+  }, [active, plan.data]);
 
   return (
     <div className="flex h-full">
@@ -544,13 +561,8 @@ function FlowsView({ state, flowId, go }: { state: any; flowId?: string; go: (r:
             <BpmnViewer
               xml={xml.data ?? null}
               activeElementIds={Object.keys(active)}
-              badges={Object.entries(active).map(([elementId, n]) => ({
-                elementId,
-                label: String(n),
-                title: `${n} active instance${n > 1 ? "s" : ""}`,
-                tone: "active" as const,
-              }))}
-              onBadgeClick={() => go(`/instances?state=Active`)}
+              badges={badges}
+              onBadgeClick={(id) => (active[id] ? go(`/instances?state=Active`) : document.getElementById("agents-panel")?.scrollIntoView({ behavior: "smooth" }))}
             />
           </div>
           <div className="flex-1 overflow-auto p-6">
@@ -593,16 +605,17 @@ function segments(state: any): [string, any[], ReactNode][] {
 
 function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: string) => void }) {
   // Project flows run in their project; global ones in the project shown (else the library).
-  const where: string = flow.project ?? (scope || home || "");
+  const where = whereOf(flow, home);
   // A flow with an input gets a form; the engine converts and checks the values.
   const form = flow.startForm;
   const [title, setTitle] = useState("");
   const [values, setValues] = useState<Record<string, unknown>>(() => (form ? formDefaults(form) : {}));
-  const [advanced, setAdvanced] = useState(!form);
+  const [advanced, setAdvanced] = useState(false);
   const [vars, setVars] = useState("{}");
   const [error, setError] = useState("");
   // Who runs the agent steps: changes here apply to this run; "Save" keeps them for every run.
   const [agents, setAgents] = useState<Record<string, { use?: string; model?: string }>>({});
+  const plan = useAgentPlan(flow, where);
   async function start(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -642,11 +655,9 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
           <span className="font-medium">Run title</span>
           <input className={inputClass} placeholder="Optional — shown in the instance list" value={title} onChange={(e) => setTitle(e.target.value)} />
         </label>
-        {form && (
-          <button type="button" className="self-start text-xs text-fg-muted underline" onClick={() => setAdvanced(!advanced)}>
-            {advanced ? "Hide" : "Advanced:"} more variables (JSON)
-          </button>
-        )}
+        <button type="button" className="self-start text-xs text-fg-muted underline" onClick={() => setAdvanced(!advanced)}>
+          {advanced ? "Hide" : "Advanced:"} more variables (JSON)
+        </button>
         {advanced && (
           <textarea
             className={`${inputClass} font-mono`}
@@ -671,6 +682,7 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
           {flow.tasks.map((t: any) => (
             <li key={t.name}>
               {t.agent ? "🤖" : "⚙️"} {t.name} <span className="text-xs text-fg-muted">{t.jobType}</span>
+              {t.agent && plan.data && <span className="text-xs text-fg-muted"> → {runsOn(plan.data.steps.find((s: any) => s.step === t.name)?.resolved)}</span>}
             </li>
           ))}
           {flow.humans.map((h: any) => (
@@ -683,6 +695,20 @@ function StartForm({ flow, home, go }: { flow: any; home?: string; go: (r: strin
     </div>
   );
 }
+
+/** Where a flow runs: project flows in their project; global ones in the project shown (else the library). */
+const whereOf = (flow: any, home?: string): string => flow.project ?? (scope || home || "");
+
+/** Who runs each of a flow's agent steps (CLI, model, why) — shared by the diagram, the steps list and the Agents panel. */
+function useAgentPlan(flow: any, where: string) {
+  return useQuery({
+    queryKey: ["agent-plan", flow?.key, where],
+    queryFn: () => api(`/api/flows/${enc(flow.key)}/agents${where ? `?project=${enc(where)}` : ""}`),
+    enabled: !!flow && (flow.tasks ?? []).some((t: any) => t.agent),
+    refetchInterval: 5000,
+  });
+}
+const runsOn = (r: any): string => (r?.error ? "error" : r?.use ? `${r.use}${r.model ? ` · ${r.model}` : ""}` : "chat assistant");
 
 /** A flow's agent steps: which CLI and model run each, and why. Edits apply to the next run
  *  started here; "Save for every run" stores them in ~/.agent-graph/agents.json. */
@@ -697,11 +723,7 @@ function AgentsPanel({
   agents: Record<string, { use?: string; model?: string }>;
   setAgents: (a: Record<string, { use?: string; model?: string }>) => void;
 }) {
-  const plan = useQuery({
-    queryKey: ["agent-plan", flow.key, where],
-    queryFn: () => api(`/api/flows/${enc(flow.key)}/agents${where ? `?project=${enc(where)}` : ""}`),
-    refetchInterval: 5000,
-  });
+  const plan = useAgentPlan(flow, where);
   const [saved, setSaved] = useState("");
   const [error, setError] = useState("");
   const p = plan.data;
@@ -747,7 +769,7 @@ function AgentsPanel({
   );
   const assignedAny = p.flow.use || p.flow.model || p.steps.some((s: any) => s.assigned.use || s.assigned.model);
   return (
-    <div>
+    <div id="agents-panel">
       <SectionLabel>Agents</SectionLabel>
       <p className="mb-2 text-xs text-fg-muted">
         Who runs each agent step. Changes apply to the run you start here; save them to use them for every run of {p.flowId}.

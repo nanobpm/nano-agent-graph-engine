@@ -345,7 +345,9 @@ The profile for a step is the first of:
 
 The model follows the same order (yours, then the author's, then the profile's). An author's profile that is unknown or not installed here is skipped with a note ("flow suggests gpt-cli (unknown here)") and a warning from `age check`, never an error; an unknown profile in your own assignment or override is an error. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `age agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
 
-ACP agents run in the run's project directory with permission requests approved, so give them a sandbox you trust. Each step is a fresh ACP session. `schema` is passed as an instruction to answer with JSON; the first JSON object in the answer becomes variables.
+A step's prompt file may use `{{name}}` placeholders (filled from the variables); `context: []` stops the variables being appended as JSON, and `cwd` (also with placeholders) sets the agent's working directory. That lets a flow wrap an app's own prompts: a `run` step builds the prompt, the agent step runs it on your CLI, a `run` step validates and retries (see `~/AgentGraph/flows/publish-video.flow.ts`).
+
+ACP agents run in the agent's working directory (by default the run's project directory) with permission requests approved, so give them a sandbox you trust. Each step is a fresh ACP session. `schema` is passed as an instruction to answer with JSON; the first JSON object in the answer becomes variables.
 
 ### Agent transcripts (AgentInstance)
 

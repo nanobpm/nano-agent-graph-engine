@@ -39101,6 +39101,7 @@ var daemon_exports = {};
 __export(daemon_exports, {
   Host: () => Host,
   InputError: () => InputError,
+  fillVars: () => fillVars,
   serve: () => serve
 });
 import fs9 from "node:fs";
@@ -39274,6 +39275,12 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
   host.baseUrl = info.url;
   fs9.writeFileSync(infoFile, JSON.stringify(info, null, 2));
   return { host, server, info };
+}
+function fillVars(text2, vars) {
+  return text2.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, k2) => {
+    const v2 = vars[k2];
+    return v2 === void 0 || v2 === null ? "" : typeof v2 === "string" ? v2 : JSON.stringify(v2, null, 2);
+  });
 }
 var InputError, WORKER, TICK_MS, MAX_CONCURRENT, STEP_THREADS, MIN, jobTimeoutMs, Host;
 var init_daemon = __esm({
@@ -39693,17 +39700,19 @@ var init_daemon = __esm({
         if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
-        const instructions = fs9.readFileSync(promptFile, "utf8").trim();
-        const prompt = `${instructions}
+        const instructions = fillVars(fs9.readFileSync(promptFile, "utf8").trim(), vars);
+        const prompt = instructions + // `context: []`: the prompt carries everything it needs; no variables appended.
+        (Object.keys(ctx).length || !opts.context ? `
 
 ## Context (process variables)
 
 \`\`\`json
 ${JSON.stringify(ctx, null, 2)}
 \`\`\`
-` + (vars.appendPrompt ? `
+` : "\n") + (vars.appendPrompt ? `
 ${vars.appendPrompt}
 ` : "");
+        const cwd = opts.cwd ? path7.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
         const model = agent.model;
         const lease = this.leases[String(job.key)];
         const rec = lease ? new AgentRecorder(
@@ -39722,7 +39731,7 @@ ${instructions}`].filter(Boolean).join("\n\n") },
           prompt,
           system: opts.system,
           model,
-          cwd: this.projectOf(instanceKey),
+          cwd,
           schema: opts.schema,
           allowedTools: opts.allowedTools,
           permissionMode: opts.permissionMode,
@@ -39879,7 +39888,8 @@ ${instructions}`].filter(Boolean).join("\n\n") },
             elementId: j2.elementId,
             instanceKey: j2.instanceKey,
             variables: j2.variables,
-            prompt: promptFile && fs9.existsSync(promptFile) ? fs9.readFileSync(promptFile, "utf8") : void 0,
+            prompt: promptFile && fs9.existsSync(promptFile) ? fillVars(fs9.readFileSync(promptFile, "utf8"), j2.variables ?? {}) : void 0,
+            cwd: flow?.agents[j2.elementId]?.cwd ? path7.resolve(this.projectOf(String(j2.instanceKey)), fillVars(flow.agents[j2.elementId].cwd, j2.variables ?? {})) : void 0,
             outputSchema: flow?.agents[j2.elementId]?.schema
           };
         });
