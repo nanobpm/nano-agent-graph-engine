@@ -228,6 +228,7 @@ async function runClaude(r: AgentRun): Promise<AgentOutcome> {
       if (r.schema && typeof result === "string") result = parseJson(result) ?? result;
       resolve({ result, costUsd: final.total_cost_usd, model: usedModel ?? model });
     });
+    child.stdin.on("error", () => {}); // a CLI that dies early: its exit code and stderr report it
     child.stdin.end(r.prompt);
   });
 }

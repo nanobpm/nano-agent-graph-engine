@@ -120,14 +120,14 @@ export function sh(
     const child = spawn("bash", ["-c", command], {
       cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: { ...process.env, ...opts.env },
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: [opts.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs,
       signal: jobSignal(),
     });
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
+    child.stdout!.on("data", (d) => (stdout += d));
+    child.stderr!.on("data", (d) => (stderr += d));
     child.on("error", reject);
     child.on("close", (code) => {
       const r = { stdout, stderr, code: code ?? -1 };
@@ -135,7 +135,12 @@ export function sh(
         reject(new Error(`sh exited ${r.code}: ${command}\n${stderr.slice(-2000) || stdout.slice(-2000)}`));
       } else resolve(r);
     });
-    child.stdin.end(opts.input ?? "");
+    // A command that exits without reading its input closes the pipe first (EPIPE); its exit
+    // code and output are what count, so that isn't an error of the step.
+    if (child.stdin) {
+      child.stdin.on("error", () => {});
+      child.stdin.end(opts.input);
+    }
   });
 }
 
@@ -181,12 +186,13 @@ export async function claude<T = string>(prompt: string, opts: ClaudeOptions = {
     });
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
+    child.stdout!.on("data", (d) => (stdout += d));
+    child.stderr!.on("data", (d) => (stderr += d));
     child.on("error", reject);
     child.on("close", (code) =>
       code === 0 ? resolve(stdout) : reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-2000)}`)),
     );
+    child.stdin.on("error", () => {}); // a CLI that dies early: its exit code and stderr report it
     child.stdin.end(prompt);
   });
   const msg = JSON.parse(out) as Record<string, any>;
