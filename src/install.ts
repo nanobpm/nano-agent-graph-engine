@@ -18,11 +18,21 @@ const pkgRoot = () => path.resolve(path.dirname(fs.realpathSync(process.argv[1])
 /** How a host should start the server. Absolute paths: desktop apps don't load your shell
  *  PATH. Run from npx's cache (which npm may clear), it's `npx -y <package> mcp`; from an
  *  installed or checked-out copy, node + that copy's cli.js. */
-export function serverCommand(): { command: string; args: string[] } {
+export function serverCommand(): { command: string; args: string[]; env?: Record<string, string> } {
   const cli = fs.realpathSync(process.argv[1]);
   if (/[\\/]_npx[\\/]/.test(cli)) {
-    const npx = path.join(path.dirname(process.execPath), process.platform === "win32" ? "npx.cmd" : "npx");
-    return { command: fs.existsSync(npx) ? npx : "npx", args: ["-y", PACKAGE, "mcp"] };
+    // node + npx's own script, not the `npx` shim, and node's dir first on PATH: the bins
+    // npx runs start with `#!/usr/bin/env node`, and apps started from the Dock only have
+    // /usr/bin:/bin:/usr/sbin:/sbin.
+    const sep = process.platform === "win32" ? ";" : ":";
+    const system =
+      process.platform === "win32"
+        ? [path.join(process.env.SystemRoot ?? "C:\\Windows", "System32")]
+        : ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+    const env = { PATH: [path.dirname(process.execPath), ...system].join(sep) };
+    const npxCli = path.join(path.dirname(process.execPath), process.platform === "win32" ? "node_modules/npm/bin/npx-cli.js" : "../lib/node_modules/npm/bin/npx-cli.js");
+    if (fs.existsSync(npxCli)) return { command: process.execPath, args: [fs.realpathSync(npxCli), "-y", PACKAGE, "mcp"], env };
+    return { command: "npx", args: ["-y", PACKAGE, "mcp"], env };
   }
   return { command: process.execPath, args: [cli, "mcp"] };
 }
@@ -81,14 +91,16 @@ function codexPlan(remove: boolean): Plan {
   }
   let after = out.join("\n").replace(/\n{3,}$/, "\n\n");
   if (!remove) {
-    const { command, args } = serverCommand();
-    after = `${after.replace(/\s*$/, "")}${after.trim() ? "\n\n" : ""}${header}\ncommand = ${tomlString(command)}\nargs = [${args.map(tomlString).join(", ")}]\n`;
+    const { command, args, env } = serverCommand();
+    const envLine = env ? `env = { ${Object.entries(env).map(([k, v]) => `${k} = ${tomlString(v)}`).join(", ")} }\n` : "";
+    after = `${after.replace(/\s*$/, "")}${after.trim() ? "\n\n" : ""}${header}\ncommand = ${tomlString(command)}\nargs = [${args.map(tomlString).join(", ")}]\n${envLine}`;
   }
   return { file, before: before || undefined, after, skillsDir: path.join(path.dirname(file), "skills"), notes: [] };
 }
 
 export function planFor(host: Host, remove = false): Plan {
-  const { command, args } = serverCommand();
+  const { command, args, env } = serverCommand();
+  const entry = env ? { command, args, env } : { command, args };
   switch (host) {
     case "claude-code":
       return {
@@ -101,13 +113,13 @@ export function planFor(host: Host, remove = false): Plan {
         notes: remove ? [] : ["The plugin brings the MCP server, both skills, the hooks and the /flows mod. Restart Claude Code to load it."],
       };
     case "claude-desktop": {
-      const p = jsonPlan(claudeDesktopConfig(), "mcpServers", { command, args }, remove);
+      const p = jsonPlan(claudeDesktopConfig(), "mcpServers", entry, remove);
       p.notes.push("Quit Claude Desktop (⌘Q) and reopen it to load the server.");
       return p;
     }
     case "opencode": {
       const dir = path.join(process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config"), "opencode");
-      const p = jsonPlan(path.join(dir, "opencode.json"), "mcp", { type: "local", command: [command, ...args], enabled: true }, remove);
+      const p = jsonPlan(path.join(dir, "opencode.json"), "mcp", { type: "local", command: [command, ...args], enabled: true, ...(env ? { environment: env } : {}) }, remove);
       p.skillsDir = path.join(dir, "skills");
       p.notes.push("Check with `opencode mcp list`; restart the OpenCode app if it's running.");
       return p;
@@ -118,7 +130,7 @@ export function planFor(host: Host, remove = false): Plan {
       return p;
     }
     case "cursor": {
-      const p = jsonPlan(path.join(os.homedir(), ".cursor", "mcp.json"), "mcpServers", { command, args }, remove);
+      const p = jsonPlan(path.join(os.homedir(), ".cursor", "mcp.json"), "mcpServers", entry, remove);
       p.notes.push("Enable it under Cursor Settings → MCP if Cursor asks.");
       return p;
     }
