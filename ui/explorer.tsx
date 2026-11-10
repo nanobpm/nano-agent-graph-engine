@@ -637,7 +637,7 @@ function mount() {
 
 if (__APP__) {
   document.documentElement.classList.add("app");
-  app = new App({ name: "Agent Graph explorer", version: "0.9.0" }, {}, { autoResize: true });
+  app = new App({ name: "Agent Graph explorer", version: "0.9.1" }, {}, { autoResize: true });
   app.ontoolresult = (r: any) => {
     const p = r?.structuredContent?.project;
     if (typeof p === "string" && p !== scope) setScope(p);

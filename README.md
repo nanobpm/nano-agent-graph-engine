@@ -157,6 +157,10 @@ claude --plugin-dir ~/workspace/agent-graph-engine
 `dist/` is committed, so no build is needed. Node 22.15 or newer is required (Node 24 recommended: flow files are
 `.ts` and run with Node's built-in type stripping).
 
+On macOS, also install `terminal-notifier` (`brew install terminal-notifier`) for
+[notifications](#notifications) that open the run in the explorer when clicked. Without it they still appear, but
+clicking one opens Script Editor.
+
 The plugin provides:
 
 - the **`agent-graph` MCP server**:
@@ -279,7 +283,7 @@ The engine runs in the background, so a run can stop long after you've left the 
 
 | Platform | Uses | Click opens the explorer |
 |---|---|---|
-| macOS | `terminal-notifier` if installed (`brew install terminal-notifier`), else `osascript` | only with `terminal-notifier` |
+| macOS | `terminal-notifier` (**recommended:** `brew install terminal-notifier`; found on PATH or in Homebrew's bin), else `osascript` | only with `terminal-notifier`; `osascript` notifications belong to Script Editor, so a click opens Script Editor |
 | Linux | `notify-send` (libnotify, any freedesktop notification daemon) | with libnotify 0.7.9+ (`--action`); the URL is also in the text |
 | Windows 10/11 | a PowerShell toast (no install) | yes |
 

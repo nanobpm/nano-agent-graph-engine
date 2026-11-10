@@ -8,6 +8,7 @@
 //   Windows  a PowerShell WinRT toast; clicking it opens the explorer (protocol activation)
 // AGE_NOTIFY=off disables them; AGE_NOTIFY=tasks|incidents limits them to one kind.
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 export interface Notice {
   /** Stable id (e.g. "incident:22"): a key is announced at most once. */
@@ -28,20 +29,22 @@ export interface Command {
 const xml = (s: string) => s.replace(/[<>&'"]/g, (c) => `&#${c.charCodeAt(0)};`);
 const appleString = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
-let hasTerminalNotifier: boolean | undefined;
-function onPath(cmd: string): boolean {
-  const r = spawnSync(process.platform === "win32" ? "where" : "which", [cmd], { stdio: "ignore" });
-  return r.status === 0;
+/** terminal-notifier's path: on PATH, or in Homebrew's bin (an engine started from a GUI
+ *  app often has a PATH without it). Checked per notification, so installing it later works. */
+function findTerminalNotifier(): string | undefined {
+  const r = spawnSync("which", ["terminal-notifier"], { encoding: "utf8" });
+  if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
+  return ["/opt/homebrew/bin/terminal-notifier", "/usr/local/bin/terminal-notifier"].find((p) => existsSync(p));
 }
 
 /** The command that shows `n` on `platform` (pure apart from a PATH probe on macOS). */
-export function notifyCommand(n: Notice, platform: NodeJS.Platform = process.platform, terminalNotifier?: boolean): Command | undefined {
+export function notifyCommand(n: Notice, platform: NodeJS.Platform = process.platform, terminalNotifier?: string | false): Command | undefined {
   const body = n.body.length > 240 ? `${n.body.slice(0, 237)}…` : n.body;
   if (platform === "darwin") {
-    terminalNotifier ??= hasTerminalNotifier ??= onPath("terminal-notifier");
+    terminalNotifier ??= findTerminalNotifier() ?? false;
     if (terminalNotifier) {
       return {
-        cmd: "terminal-notifier",
+        cmd: terminalNotifier,
         args: ["-title", "Agent Graph", "-subtitle", n.title, "-message", body, "-group", n.key, ...(n.url ? ["-open", n.url] : [])],
       };
     }

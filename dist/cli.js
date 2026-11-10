@@ -38150,17 +38150,19 @@ var init_agent_record = __esm({
 
 // src/notify.ts
 import { spawn as spawn4, spawnSync } from "node:child_process";
-function onPath(cmd2) {
-  const r2 = spawnSync(process.platform === "win32" ? "where" : "which", [cmd2], { stdio: "ignore" });
-  return r2.status === 0;
+import { existsSync } from "node:fs";
+function findTerminalNotifier() {
+  const r2 = spawnSync("which", ["terminal-notifier"], { encoding: "utf8" });
+  if (r2.status === 0 && r2.stdout.trim()) return r2.stdout.trim();
+  return ["/opt/homebrew/bin/terminal-notifier", "/usr/local/bin/terminal-notifier"].find((p2) => existsSync(p2));
 }
 function notifyCommand(n, platform = process.platform, terminalNotifier) {
   const body2 = n.body.length > 240 ? `${n.body.slice(0, 237)}\u2026` : n.body;
   if (platform === "darwin") {
-    terminalNotifier ??= hasTerminalNotifier ??= onPath("terminal-notifier");
+    terminalNotifier ??= findTerminalNotifier() ?? false;
     if (terminalNotifier) {
       return {
-        cmd: "terminal-notifier",
+        cmd: terminalNotifier,
         args: ["-title", "Agent Graph", "-subtitle", n.title, "-message", body2, "-group", n.key, ...n.url ? ["-open", n.url] : []]
       };
     }
@@ -38222,7 +38224,7 @@ function notifyMode(env = process.env.AGE_NOTIFY) {
   if (v2 === "tasks" || v2 === "incidents") return v2;
   return "all";
 }
-var xml2, appleString, hasTerminalNotifier, warned, Notifier;
+var xml2, appleString, warned, Notifier;
 var init_notify = __esm({
   "src/notify.ts"() {
     "use strict";

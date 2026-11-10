@@ -5,8 +5,8 @@ import { Notifier, notifyCommand, notifyMode, type Notice } from "../src/notify.
 const n: Notice = { key: "incident:22", title: `Incident in boom (oc "test")`, body: "check: missing <ok> & 'x'", url: "http://localhost:5/?project=%2Ftmp#instance=18" };
 
 test("macOS: terminal-notifier opens the explorer on click; osascript otherwise, quoted", () => {
-  const tn = notifyCommand(n, "darwin", true)!;
-  assert.equal(tn.cmd, "terminal-notifier");
+  const tn = notifyCommand(n, "darwin", "/opt/homebrew/bin/terminal-notifier")!;
+  assert.equal(tn.cmd, "/opt/homebrew/bin/terminal-notifier");
   assert.deepEqual(tn.args.slice(-2), ["-open", n.url]);
   const as = notifyCommand(n, "darwin", false)!;
   assert.equal(as.cmd, "osascript");
