@@ -1,6 +1,7 @@
 // Diagram layout for compiled flows. bpmn-auto-layout 2 draws the nicest diagrams, but its
 // edge router grows steeply with flow size (a ~60-step flow took 2.5 minutes). So:
-//   1. layouts are cached by the hash of the diagram-less BPMN (restarts and re-checks are instant);
+//   1. layouts are cached by the hash of the diagram-less BPMN and the @nanobpm/workflow version
+//      that laid them out (restarts and re-checks are instant; a new layouter redraws);
 //   2. a cache miss runs the v2 layout on a worker thread for up to AGE_LAYOUT_MS (default 5 s);
 //   3. past that, the fast v1 layout is used now, and the v2 thread finishes in the background
 //      and fills the cache, so the next deploy of the same flow gets the detailed diagram.
@@ -8,10 +9,23 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { Worker } from "node:worker_threads";
+import { createRequire } from "node:module";
 import { declarativeToBpmn } from "@nanobpm/workflow";
 // @ts-expect-error -- bpmn-auto-layout 1.x ships no types
 import { layoutProcess as layoutV1 } from "bpmn-auto-layout-v1";
 import { engineDir } from "./paths.ts";
+
+/** The layouter's version: set by the build (the bundle has no node_modules), else installed. */
+export const workflowVersion = (() => {
+  if (process.env.NAGE_WORKFLOW_VERSION) return process.env.NAGE_WORKFLOW_VERSION;
+  try {
+    let dir = path.dirname(createRequire(import.meta.url).resolve("@nanobpm/workflow"));
+    while (!fs.existsSync(path.join(dir, "package.json")) && path.dirname(dir) !== dir) dir = path.dirname(dir);
+    return JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).version as string;
+  } catch {
+    return "unknown";
+  }
+})();
 
 const budgetMs = () => Number(process.env.AGE_LAYOUT_MS ?? 5_000);
 const cacheDir = () => path.join(engineDir(), "layout-cache");
@@ -46,7 +60,7 @@ function layoutV2(xml: string, file: string): Promise<string> {
 }
 
 export async function layoutXml(xml: string): Promise<string> {
-  const file = path.join(cacheDir(), `${crypto.createHash("sha256").update(xml).digest("hex").slice(0, 32)}.bpmn`);
+  const file = path.join(cacheDir(), `${crypto.createHash("sha256").update(`${workflowVersion}\n${xml}`).digest("hex").slice(0, 32)}.bpmn`);
   try {
     return fs.readFileSync(file, "utf8");
   } catch {

@@ -124,7 +124,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
 - **First of**: `w.race({ timeout: { timer: { after: "PT1H" }, do: (b) => … }, reply: { signal: { correlationKey: "prKey" }, do: (b) => … } })` waits for whichever event comes first. A timer + signal race is a poll delay that a message can cut short.
 - **SLA on a step**: `w.task(…).boundary({ timer: "PT50M", onTimeout: (b) => b.run("sla", …) })` cancels the step when the timer fires and runs `onTimeout`, which then continues with the rest of the flow.
 - **Fixed branches**: `w.parallel([(b) => …, (b) => …])` runs every branch and joins them before continuing.
-- **Fan-out**: `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` runs one branch per list item, with results collected in order. Options: `sequential`, `completionCondition`. Up to 4 headless agent branches run at once.
+- **Fan-out**: `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` runs one branch per list item, with results collected in order. Options: `sequential`, `completionCondition`, and `name` to label a multi-step body (it's drawn as an expanded sub-process). Up to 4 headless agent branches run at once.
 - **Waits**:
   - `w.timer(name, { after: "PT1H" })` waits for a duration.
   - `w.startOn({ cycle: "R/PT24H" })` starts the flow on a timer.
