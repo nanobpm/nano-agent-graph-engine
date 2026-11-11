@@ -13,8 +13,8 @@
         "repo": "nanobpm/nano-agent-graph-engine",
         "ref": "release"
       },
-      "description": "Durable process engine: defineFlow \u2192 BPMN, local engine, agent steps on your CLI, user tasks, web explorer",
-      "version": "0.15.0"
+      "description": "Durable process engine: defineFlow → BPMN, local engine, agent steps on your CLI, user tasks, web explorer",
+      "version": "0.16.0"
     }
   ]
 }
