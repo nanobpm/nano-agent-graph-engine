@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.16.1...v0.16.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* EPIPE from a dead ACP CLI no longer escapes as an uncaught error ([#8](https://github.com/nanobpm/nano-agent-graph-engine/issues/8)) ([dea5675](https://github.com/nanobpm/nano-agent-graph-engine/commit/dea5675e2e10a511f2ce169f7708ffbcabc9d76d))
+
 ## [0.16.1](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.16.0...v0.16.1) (2026-11-11)
 
 
