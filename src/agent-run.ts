@@ -147,7 +147,9 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     // When the CLI dies, the first error is often a symptom (EPIPE writing to it, the ACP
     // client's "… exited") and can come before Node sees the exit. Give it a moment to
     // close; if it did die, report that with its stderr.
-    if (!r.signal?.aborted) {
+    // A CLI that never started (ENOENT: not installed, bad cwd) keeps its spawn error, which
+    // the daemon's agentUnavailable() fallback looks for.
+    if (!r.signal?.aborted && t.child.pid !== undefined) {
       await Promise.race([closed, new Promise((res) => setTimeout(res, 1000))]);
       if (t.child.exitCode !== null || t.child.signalCode !== null) throw diedError();
     }
