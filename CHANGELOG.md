@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.17.1...v0.18.0) (2026-11-11)
+
+
+### Miscellaneous Chores
+
+* release 0.18.0 ([#16](https://github.com/nanobpm/nano-agent-graph-engine/issues/16)) ([125250f](https://github.com/nanobpm/nano-agent-graph-engine/commit/125250f49b41af15108970ce078d23d9abac6d97))
+
 ## [0.17.1](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.17.0...v0.17.1) (2026-11-11)
 
 
