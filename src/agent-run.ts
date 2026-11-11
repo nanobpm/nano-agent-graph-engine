@@ -69,7 +69,8 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
   });
   const exited = new Promise<never>((_, reject) => {
     t.child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
-    t.child.on("exit", (code, sig) => reject(new Error(`${command} exited (${sig ?? code}) before finishing: ${stderr.trim().slice(-1500)}`)));
+    // "close", not "exit": by then stderr is drained, so the error carries the CLI's last words.
+    t.child.on("close", (code, sig) => reject(new Error(`${command} exited (${sig ?? code}) before finishing: ${stderr.trim().slice(-1500)}`)));
   });
   exited.catch(() => {});
   // Turns stream to the transcript as they arrive; text chunks of one message are merged.
