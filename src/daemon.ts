@@ -8,7 +8,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compile.ts";
 import { jobSignal, runInProject } from "./index.ts";
-import { allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
+import { AUTO_ORDER, allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
 import { TranscriptWriter, readTranscript, pruneTranscripts, linkAgentJob, jobForAgent } from "./transcript.ts";
 import { AgentRecorder } from "./agent-record.ts";
@@ -482,7 +482,7 @@ export class Host {
     const instanceKey = String(job.instanceKey);
     const meta = this.instanceMeta[instanceKey];
     const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta?.agents, host: meta?.host });
-    if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
+    if (!agent) throw new Error(`ENOENT: no agent CLI installed (${AUTO_ORDER.join(", ")}) and no default in ~/.agent-graph/agents.json`);
     const vars = job.variables ?? {};
     const ctx = opts.context ? Object.fromEntries(opts.context.map((k) => [k, vars[k]])) : vars;
     // {{name}} in the prompt file is replaced by that variable (text as is, else JSON).
@@ -777,7 +777,7 @@ export class Host {
 }
 
 /** AGE_AGENT_MODE=cli|session|auto (default auto: cli when an agent CLI is installed —
- *  claude, opencode, nano-coder — or ~/.agent-graph/agents.json names a default). */
+ *  one of AUTO_ORDER — or ~/.agent-graph/agents.json names a default). */
 function agentMode(): "cli" | "session" {
   const m = process.env.AGE_AGENT_MODE ?? "auto";
   if (m === "cli" || m === "session") return m;

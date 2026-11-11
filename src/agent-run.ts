@@ -48,7 +48,46 @@ export interface AgentOutcome {
 }
 
 export function runAgentCli(r: AgentRun): Promise<AgentOutcome> {
-  return r.profile.protocol === "claude" ? runClaude(r) : runAcp(r);
+  const p = r.profile.protocol;
+  return p === "claude" ? runClaude(r) : p === "exec" ? runExec(r) : runAcp(r);
+}
+
+// ── exec: any CLI ────────────────────────────────────────────────────────────────
+// The prompt replaces "{prompt}" in the profile's args, or else goes to stdin. What the CLI
+// prints is the answer (streamed to the live transcript as it comes); a non-zero exit fails
+// the step with its stderr. No tool calls or token counts: the CLI's output is all we see.
+
+async function runExec(r: AgentRun): Promise<AgentOutcome> {
+  const { command, args, env } = launch(r.name, r.profile, r.model);
+  const text = `${r.system ? `${r.system}\n\n` : ""}${r.prompt}${schemaNote(r.schema)}`;
+  const inArgs = args.some((a) => a.includes("{prompt}"));
+  const argv = inArgs ? args.map((a) => a.replaceAll("{prompt}", text)) : args;
+  r.onTurn({ role: "USER", text });
+  r.onEvent?.({ kind: "message", role: "user", text, mode: "snapshot", final: true });
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, argv, { cwd: r.cwd, env: { ...process.env, ...env, ...r.env }, stdio: [inArgs ? "ignore" : "pipe", "pipe", "pipe"], signal: r.signal });
+    let out = "";
+    let stderr = "";
+    child.stdout!.setEncoding("utf8");
+    child.stdout!.on("data", (d: string) => {
+      out += d;
+      r.onEvent?.({ kind: "message", role: "assistant", text: d, messageId: "exec" });
+    });
+    child.stderr!.on("data", (d) => (stderr = (stderr + d).slice(-4000)));
+    child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
+    child.on("close", (code, sig) => {
+      if (code !== 0) return reject(new Error(`${command} exited (${sig ?? code}): ${(stderr.trim() || out.trim()).slice(-2000)}`));
+      const answer = out.trim();
+      r.onEvent?.({ kind: "message", role: "assistant", text: answer, mode: "snapshot", messageId: "exec", final: true });
+      r.onTurn({ role: "ASSISTANT", text: answer, model: r.model ?? r.profile.model, metrics: { durationMs: Date.now() - started } });
+      resolve({ result: r.schema ? parseJson(answer) ?? answer : answer, model: r.model ?? r.profile.model });
+    });
+    if (!inArgs) {
+      child.stdin!.on("error", () => {}); // a CLI that doesn't read stdin, or dies: its exit reports it
+      child.stdin!.end(text);
+    }
+  });
 }
 
 function schemaNote(schema?: Record<string, unknown>): string {
@@ -155,6 +194,13 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     if (!r.signal?.aborted && t.child.pid !== undefined) {
       await Promise.race([closed, new Promise((res) => setTimeout(res, 1000))]);
       if (t.child.exitCode !== null || t.child.signalCode !== null) throw diedError();
+    }
+    // An ACP error's reason is often in its `data` ("Internal error" + data: "403 Access to
+    // model denied …"); without it the incident says nothing useful.
+    const data = (e as { data?: unknown })?.data;
+    if (data !== undefined && data !== null && e instanceof Error) {
+      const d = typeof data === "string" ? data : typeof (data as any).details === "string" ? (data as any).details : typeof (data as any).message === "string" ? (data as any).message : JSON.stringify(data);
+      throw new Error(`${r.name}: ${e.message}: ${d.slice(0, 1500)}`);
     }
     throw e;
   } finally {
