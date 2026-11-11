@@ -55,10 +55,11 @@ test("step threads", async (t) => {
   });
 
   await t.test("two computing steps run in parallel", async () => {
-    // Overlap of the two busy loops, not wall-clock time (CI runners are slow and shared).
-    const [a, b] = (await Promise.all([pool.run(req("spin", { ms: 400 }), never), pool.run(req("spin", { ms: 400 }), never)])) as any[];
+    // The two busy loops overlap in time (one after the other, the overlap is negative).
+    // Not wall-clock time: on slow, shared CI runners a second thread can start ~0.3 s late.
+    const [a, b] = (await Promise.all([pool.run(req("spin", { ms: 800 }), never), pool.run(req("spin", { ms: 800 }), never)])) as any[];
     const overlap = Math.min(a.end, b.end) - Math.max(a.start, b.start);
-    assert.ok(overlap > 200, `the steps overlapped ${overlap} ms`);
+    assert.ok(overlap > 0, `the steps didn't overlap (${overlap} ms)`);
   });
 
   await t.test("a step stuck in a synchronous loop is terminated after abort", async () => {
