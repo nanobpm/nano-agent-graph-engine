@@ -67,9 +67,12 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     env: { ...(process.env as Record<string, string>), ...env, ...r.env },
     onStderr: (c) => (stderr = (stderr + c).slice(-4000)),
   });
+  // "close", not "exit": by then stderr is drained, so the error carries the CLI's last words.
+  const closed = new Promise<void>((resolve) => t.child.on("close", () => resolve()));
+  const diedError = () => new Error(`${command} exited (${t.child.signalCode ?? t.child.exitCode}) before finishing: ${stderr.trim().slice(-1500)}`);
   const exited = new Promise<never>((_, reject) => {
     t.child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
-    t.child.on("exit", (code, sig) => reject(new Error(`${command} exited (${sig ?? code}) before finishing: ${stderr.trim().slice(-1500)}`)));
+    closed.then(() => reject(diedError()));
   });
   exited.catch(() => {});
   // Turns stream to the transcript as they arrive; text chunks of one message are merged.
@@ -140,6 +143,17 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
       // Cumulative for the session, which is this step's alone.
       costUsd: cost?.currency === "USD" && cost.amount > 0 ? cost.amount : undefined,
     };
+  } catch (e) {
+    // When the CLI dies, the first error is often a symptom (EPIPE writing to it, the ACP
+    // client's "… exited") and can come before Node sees the exit. Give it a moment to
+    // close; if it did die, report that with its stderr.
+    // A CLI that never started (ENOENT: not installed, bad cwd) keeps its spawn error, which
+    // the daemon's agentUnavailable() fallback looks for.
+    if (!r.signal?.aborted && t.child.pid !== undefined) {
+      await Promise.race([closed, new Promise((res) => setTimeout(res, 1000))]);
+      if (t.child.exitCode !== null || t.child.signalCode !== null) throw diedError();
+    }
+    throw e;
   } finally {
     flush();
     r.signal?.removeEventListener("abort", stop);

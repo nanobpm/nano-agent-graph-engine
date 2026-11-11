@@ -56,6 +56,13 @@ test("ACP: a CLI that dies fails the step with its stderr", async () => {
   );
 });
 
+test("ACP: a CLI that isn't installed keeps its ENOENT (the daemon falls back on it)", async () => {
+  await assert.rejects(
+    runAgentCli({ name: "x", profile: { protocol: "acp", command: "no-such-cli-xyz" }, prompt: "p", cwd: os.tmpdir(), onTurn: () => {} }),
+    /ENOENT/,
+  );
+});
+
 test("ACP: abort kills the CLI", async () => {
   const ac = new AbortController();
   setTimeout(() => ac.abort(), 100);
