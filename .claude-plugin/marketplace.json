@@ -14,7 +14,7 @@
         "ref": "release"
       },
       "description": "Durable process engine: defineFlow → BPMN, local engine, agent steps on your CLI, user tasks, web explorer",
-      "version": "0.16.0"
+      "version": "0.16.1"
     }
   ]
 }
