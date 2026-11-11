@@ -219,6 +219,20 @@ test("exec: any CLI — prompt in {prompt} or on stdin, stdout is the answer, st
   await assert.rejects(runAgentCli({ name: "x", profile: fail, prompt: "p", cwd: os.tmpdir(), onTurn: () => {} }), /exited \(2\): quota exceeded/);
 });
 
+test("exec: cancelling a step stops the CLI and what it started", { skip: process.platform === "win32" }, async () => {
+  const pidFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "age-kill-")), "pid");
+  // A wrapper that starts a long-lived child and waits on it.
+  const wrapper = { protocol: "exec" as const, command: "sh", args: ["-c", `sleep 30 & echo $! > ${pidFile}; wait`] };
+  const ac = new AbortController();
+  const run = runAgentCli({ name: "w", profile: wrapper, prompt: "p", cwd: os.tmpdir(), signal: ac.signal, onTurn: () => {} });
+  while (!fs.existsSync(pidFile) || !fs.readFileSync(pidFile, "utf8").trim()) await new Promise((res) => setTimeout(res, 20));
+  const pid = Number(fs.readFileSync(pidFile, "utf8"));
+  ac.abort(new Error("cancelled"));
+  await assert.rejects(run, /cancelled/);
+  await new Promise((res) => setTimeout(res, 200));
+  assert.throws(() => process.kill(pid, 0), /ESRCH/, "the wrapper's child was killed too");
+});
+
 test("exec: a prompt with $& or $$ reaches the CLI as written", async () => {
   const echo = { protocol: "exec" as const, command: process.execPath, args: ["-e", "console.log(process.argv[1])", "{prompt}"] };
   assert.equal((await runAgentCli({ name: "x", profile: echo, prompt: "regex $& and shell $$ and $'", cwd: os.tmpdir(), onTurn: () => {} })).result, "regex $& and shell $$ and $'");

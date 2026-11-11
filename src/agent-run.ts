@@ -66,7 +66,20 @@ async function runExec(r: AgentRun): Promise<AgentOutcome> {
   r.onEvent?.({ kind: "message", role: "user", text, mode: "snapshot", final: true });
   const started = Date.now();
   return new Promise((resolve, reject) => {
-    const child = spawn(command, argv, { cwd: r.cwd, env: { ...process.env, ...env, ...r.env }, stdio: [inArgs ? "ignore" : "pipe", "pipe", "pipe"], signal: r.signal });
+    if (r.signal?.aborted) return reject(r.signal.reason ?? new Error("aborted"));
+    // Its own process group (POSIX), so cancelling a step also stops whatever a wrapper
+    // script started, not just the wrapper.
+    const group = process.platform !== "win32";
+    const child = spawn(command, argv, { cwd: r.cwd, env: { ...process.env, ...env, ...r.env }, stdio: [inArgs ? "ignore" : "pipe", "pipe", "pipe"], detached: group });
+    const kill = () => {
+      try {
+        if (group && child.pid) process.kill(-child.pid, "SIGTERM");
+        else child.kill("SIGTERM");
+      } catch {
+        /* already gone */
+      }
+    };
+    r.signal?.addEventListener("abort", kill, { once: true });
     let out = "";
     let stderr = "";
     child.stdout!.setEncoding("utf8");
@@ -77,6 +90,8 @@ async function runExec(r: AgentRun): Promise<AgentOutcome> {
     child.stderr!.on("data", (d) => (stderr = (stderr + d).slice(-4000)));
     child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
     child.on("close", (code, sig) => {
+      r.signal?.removeEventListener("abort", kill);
+      if (r.signal?.aborted) return reject(r.signal.reason ?? new Error("aborted"));
       if (code !== 0) return reject(new Error(`${command} exited (${sig ?? code}): ${(stderr.trim() || out.trim()).slice(-2000)}`));
       const answer = out.trim();
       r.onEvent?.({ kind: "message", role: "assistant", text: answer, mode: "snapshot", messageId: "exec", final: true });
