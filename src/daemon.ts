@@ -8,7 +8,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { checkProject, flowsDir, type CompiledFlow, type Problem } from "./compile.ts";
 import { jobSignal, runInProject } from "./index.ts";
-import { allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
+import { AUTO_ORDER, allProfiles, anyAgentInstalled, assignAgent, readAgentsFile, resolveAgent, which, commandOf, type RunAgents } from "./agents.ts";
 import { parseJson, runAgentCli } from "./agent-run.ts";
 import { TranscriptWriter, readTranscript, pruneTranscripts, linkAgentJob, jobForAgent } from "./transcript.ts";
 import { AgentRecorder } from "./agent-record.ts";
@@ -69,6 +69,9 @@ export class Host {
   /** Who runs agent tasks: a headless `claude -p` ("cli"), or the
    *  chat/session agent through session_job_next ("session"). */
   agentMode: "cli" | "session" = agentMode();
+  /** Session mode because a CLI failed (logged out, vanished), not because none is set up. */
+  private agentModeForced = false;
+  private agentModeAt = Date.now();
   private dirty = false;
   private timer?: NodeJS.Timeout;
   /** Lease tokens of agent jobs this engine activated (job key → token). Agent jobs are
@@ -351,6 +354,12 @@ export class Host {
 
   /** Every job type this daemon serves itself. */
   private servedTypes(): string[] {
+    // Nothing was set up when we started: look again now and then, so a CLI installed or
+    // added (`nage agent add`) since takes the agent steps without restarting the engine.
+    if (this.agentMode === "session" && !this.agentModeForced && Date.now() - this.agentModeAt > 10_000) {
+      this.agentModeAt = Date.now();
+      this.agentMode = agentMode();
+    }
     const types = new Set<string>(this.agentMode === "cli" ? this.agentTypeSet() : []);
     for (const f of this.flows.values()) for (const t of Object.keys(f.handlers)) types.add(t);
     return [...types];
@@ -370,7 +379,7 @@ export class Host {
         const opts = flow.agents[t.name] ?? {};
         let resolved: any;
         try {
-          const r = resolveAgent({ flowId: flow.id, step: t.name, jobType: t.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run, host, file });
+          const r = resolveAgent({ flowId: flow.id, step: t.name, jobType: t.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run, host, file, cwd: flow.projectDir });
           resolved = r ? { use: r.name, model: r.model ?? null, reason: r.reason, skipped: r.skipped } : { use: null, reason: "no agent CLI installed — goes to the chat assistant" };
         } catch (e: any) {
           resolved = { use: null, error: e?.message ?? String(e) };
@@ -458,6 +467,7 @@ export class Host {
     const msg = err.message;
     if (!this.isAgentType(job.type) || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
     this.agentMode = "session";
+    this.agentModeForced = true;
     try {
       this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant", this.leases[job.key] ?? null);
       delete this.leases[job.key];
@@ -481,8 +491,9 @@ export class Host {
     const opts = flow.agents[task.name] ?? {};
     const instanceKey = String(job.instanceKey);
     const meta = this.instanceMeta[instanceKey];
-    const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta?.agents, host: meta?.host });
-    if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
+    const cwd = opts.cwd ? path.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, job.variables ?? {})) : this.projectOf(instanceKey);
+    const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta?.agents, host: meta?.host, cwd });
+    if (!agent) throw new Error(`ENOENT: no agent CLI installed (${AUTO_ORDER.join(", ")}) and no default in ~/.agent-graph/agents.json`);
     const vars = job.variables ?? {};
     const ctx = opts.context ? Object.fromEntries(opts.context.map((k) => [k, vars[k]])) : vars;
     // {{name}} in the prompt file is replaced by that variable (text as is, else JSON).
@@ -498,7 +509,6 @@ export class Host {
     // Harness-style result channel (nwf prompts): the agent may write its JSON result here.
     const resultFile = path.join(os.tmpdir(), `age-result-${jobKey}-${process.pid}.json`);
     fs.rmSync(resultFile, { force: true });
-    const cwd = opts.cwd ? path.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
     const model = agent.model;
     const lease = this.leases[String(job.key)];
     const rec = lease
@@ -777,7 +787,7 @@ export class Host {
 }
 
 /** AGE_AGENT_MODE=cli|session|auto (default auto: cli when an agent CLI is installed —
- *  claude, opencode, nano-coder — or ~/.agent-graph/agents.json names a default). */
+ *  one of AUTO_ORDER — or ~/.agent-graph/agents.json names a default). */
 function agentMode(): "cli" | "session" {
   const m = process.env.AGE_AGENT_MODE ?? "auto";
   if (m === "cli" || m === "session") return m;

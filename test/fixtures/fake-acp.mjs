@@ -13,6 +13,9 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
   const m = JSON.parse(line);
   if (m.method === "initialize") send({ id: m.id, result: { protocolVersion: 1, agentCapabilities: { loadSession: false } } });
   else if (m.method === "session/new") send({ id: m.id, result: { sessionId: "s1" } });
+  else if (m.method === "session/prompt" && process.argv.includes("--fail-prompt"))
+    // As Qwen Code reports a provider error: a generic message, the reason in data.
+    send({ id: m.id, error: { code: -32603, message: "Internal error", data: { details: "403 Access to model denied." } } });
   else if (m.method === "session/prompt") {
     const text = m.params.prompt.map((b) => b.text).join("");
     if (process.env.FAKE_ACP_LOG) fs.appendFileSync(process.env.FAKE_ACP_LOG, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), prompt: text }) + "\n");

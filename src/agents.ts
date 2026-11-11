@@ -1,6 +1,8 @@
 // Agent profiles: which CLI runs an agent step. A profile names a command and how to talk
-// to it — "acp" (Agent Client Protocol over stdio: nano-coder, OpenCode, Gemini CLI,
-// codex-acp, claude-code-acp, …) or "claude" (`claude -p`, Claude Code's print mode).
+// to it — "acp" (Agent Client Protocol over stdio: nano-coder, OpenCode, Gemini CLI, Qwen
+// Code, Kimi Code, Copilot CLI, codex-acp, …), "claude" (`claude -p`, Claude Code's print
+// mode), or "exec" (any other CLI: the prompt goes in as an argument or on stdin, and what
+// it prints is the result).
 //
 // Where profiles come from, later wins on a name clash:
 //   built-ins < a flow file's `export const agentProfiles` < ~/.agent-graph/agents.json
@@ -27,7 +29,8 @@ import { engineDir } from "./paths.ts";
 
 export interface AgentProfile {
   /** "acp": Agent Client Protocol over stdio. "claude": `claude -p` print mode. */
-  protocol: "acp" | "claude";
+  /** "exec": any CLI — the prompt replaces "{prompt}" in args (else goes to stdin) and stdout is the result. */
+  protocol: "acp" | "claude" | "exec";
   command: string;
   args?: string[];
   env?: Record<string, string>;
@@ -35,6 +38,8 @@ export interface AgentProfile {
   model?: string;
   /** How the model is passed: a flag (e.g. "--model") … */
   modelArg?: string;
+  /** Put the model flag before args rather than after (kimi: `kimi -m <model> acp`). */
+  modelArgFirst?: boolean;
   /** … or env vars, with "{model}" replaced (OpenCode: OPENCODE_CONFIG_CONTENT). */
   modelEnv?: Record<string, string>;
   /** Shown in `nage agents` and the explorer. */
@@ -52,7 +57,13 @@ export const BUILTIN_PROFILES: Record<string, AgentProfile> = {
   },
   "nano-coder": { protocol: "acp", command: "nano-coder", args: ["--acp"], modelArg: "--model", description: "nano-coder over ACP (nano-coder --acp)" },
   gemini: { protocol: "acp", command: "gemini", args: ["--experimental-acp"], modelArg: "--model", description: "Gemini CLI over ACP" },
+  qwen: { protocol: "acp", command: "qwen", args: ["--acp"], modelArg: "--model", description: "Qwen Code over ACP (qwen --acp)" },
+  kimi: { protocol: "acp", command: "kimi", args: ["acp"], modelArg: "--model", modelArgFirst: true, description: "Kimi Code over ACP (kimi acp)" },
+  copilot: { protocol: "acp", command: "copilot", args: ["--acp"], modelArg: "--model", description: "GitHub Copilot CLI over ACP (copilot --acp)" },
 };
+
+/** When nothing picks a CLI, the first of these that's installed runs the step. */
+export const AUTO_ORDER = ["claude", "opencode", "nano-coder", "gemini", "qwen", "kimi", "copilot"];
 
 /** The CLI each host runs on: a run started from that host defaults to it. */
 export const HOST_PROFILE: Record<string, string> = { "claude-code": "claude", "claude-desktop": "claude", "claude-ai": "claude", opencode: "opencode", "nano-coder": "nano-coder" };
@@ -112,10 +123,16 @@ export function allProfiles(flowProfiles: Record<string, AgentProfile> = {}, fil
   return out;
 }
 
-const found = new Map<string, string | undefined>();
-/** Absolute path of a command, looking past the minimal PATH Desktop starts us with. */
-export function which(command: string): string | undefined {
+const found = new Map<string, string>();
+/** Absolute path of a command, looking past the minimal PATH Desktop starts us with. A
+ *  relative path ("./ask.sh") is relative to `cwd` (the step's working directory). Only hits
+ *  are cached: a CLI installed after an incident is found when the step is retried. */
+export function which(command: string, cwd?: string): string | undefined {
   if (path.isAbsolute(command)) return fs.existsSync(command) ? command : undefined;
+  if (command.includes("/")) {
+    const f = path.resolve(cwd ?? process.cwd(), command);
+    return fs.existsSync(f) ? f : undefined;
+  }
   if (found.has(command)) return found.get(command);
   const home = process.env.HOME ?? "";
   const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, `${home}/.opencode/bin`, "/opt/homebrew/bin", "/usr/local/bin"];
@@ -127,7 +144,7 @@ export function which(command: string): string | undefined {
       break;
     }
   }
-  found.set(command, hit);
+  if (hit) found.set(command, hit);
   return hit;
 }
 
@@ -156,11 +173,13 @@ export interface ResolveInput {
   host?: string;
   /** Read instead of ~/.agent-graph/agents.json (tests, previews). */
   file?: AgentsFile;
+  /** The step's working directory, for profiles whose command is a relative path. */
+  cwd?: string;
 }
 
 /** Pick the profile and model for an agent step. Undefined when nothing usable is installed.
- *  The user's own choices (run, step, flow, rank, default) must name a known profile — a typo
- *  there is an error, not a silent fallback. The author's suggestions only apply when that
+ *  The user's own choices (run, step, flow, rank, default) must name a known profile whose CLI
+ *  is installed — a typo or a missing CLI there is an error, not a silent fallback. The author's suggestions only apply when that
  *  CLI is known and installed here, so a flow from someone on another CLI just runs on yours. */
 export function resolveAgent(opts: ResolveInput): ResolvedAgent | undefined {
   const file = opts.file ?? readAgentsFile();
@@ -181,7 +200,11 @@ export function resolveAgent(opts: ResolveInput): ResolvedAgent | undefined {
       if (mode === "author") skipped ??= `${name} (unknown here)`;
       return undefined;
     }
-    if (mode !== "user" && !which(commandOf(name, profile))) {
+    if (!which(commandOf(name, profile), opts.cwd)) {
+      // Your own choice of CLI isn't silently swapped for another (another subscription,
+      // another model): the step stops with an incident that says what to install or change.
+      // (Worded without "ENOENT", which would hand every agent step to the chat assistant.)
+      if (mode === "user") throw new Error(`agent CLI "${commandOf(name, profile)}" isn't installed here (${name}, from ${reason}); install it, or change the assignment (nage agent assign …)`);
       if (mode === "author") skipped ??= `${name} (not installed)`;
       return undefined;
     }
@@ -198,7 +221,7 @@ export function resolveAgent(opts: ResolveInput): ResolvedAgent | undefined {
     pick(opts.flowDefault, "author (flow default)", "author", opts.use ? undefined : opts.model) ??
     pick(file.default, "your default", "user") ??
     pick(opts.host && HOST_PROFILE[opts.host], "host", "auto") ??
-    ["claude", "opencode", "nano-coder"].map((n) => pick(n, "installed", "auto")).find(Boolean);
+    AUTO_ORDER.map((n) => pick(n, "installed", "auto")).find(Boolean);
   return r && skipped ? { ...r, skipped } : r;
 }
 
@@ -220,6 +243,64 @@ export function takeRunAgents(args: string[]): { agents?: RunAgents; rest: strin
     (agents[step] ??= {})[m[1] === "agent" ? "use" : "model"] = val;
   }
   return { agents: Object.keys(agents).length ? agents : undefined, rest };
+}
+
+/** `nage agent add <name> --acp|--claude|--exec [options] -- <command> [args…]` → a profile. */
+export function parseAgentAdd(argv: string[]): { name: string; profile: AgentProfile } {
+  const usage = "usage: nage agent add <name> --acp|--claude|--exec [--model-arg <flag>] [--model-first] [--model m] [--env K=V …] [--description text] -- <command> [args…]";
+  const dash = argv.indexOf("--");
+  if (dash < 0 || dash === argv.length - 1) throw new Error(`${usage}\n(the agent's command goes after --)`);
+  const [command, ...args] = argv.slice(dash + 1);
+  const opts = argv.slice(0, dash);
+  const name = opts.shift();
+  if (!name || name.startsWith("-") || !/^[A-Za-z0-9][\w.-]*$/.test(name)) throw new Error(`${usage}\n(a name: letters, digits, . _ -)`);
+  const protocols = (["acp", "claude", "exec"] as const).filter((p) => opts.includes(`--${p}`));
+  if (protocols.length !== 1) throw new Error(`${usage}\n(say how to talk to it: --acp (Agent Client Protocol over stdio), --exec (prompt in, answer printed) or --claude (claude -p))`);
+  const profile: AgentProfile = { protocol: protocols[0], command };
+  if (args.length) profile.args = args;
+  for (let i = 0; i < opts.length; i++) {
+    const o = opts[i];
+    if (o === `--${profile.protocol}`) continue;
+    if (o === "--model-first") {
+      profile.modelArgFirst = true;
+      continue;
+    }
+    const v = opts[++i];
+    if (v === undefined) throw new Error(`${o} needs a value\n${usage}`);
+    if (o === "--model-arg") profile.modelArg = v;
+    else if (o === "--model") profile.model = v;
+    else if (o === "--description") profile.description = v;
+    else if (o === "--env") {
+      const eq = v.indexOf("=");
+      if (eq < 1) throw new Error(`--env takes K=V, not "${v}"`);
+      (profile.env ??= {})[v.slice(0, eq)] = v.slice(eq + 1);
+    } else throw new Error(`unknown option ${o}\n${usage}`);
+  }
+  if (profile.protocol === "claude" && profile.modelArg === undefined) profile.modelArg = "--model";
+  return { name, profile };
+}
+
+/** Add (or replace) a profile in agents.json. Returns a note when it shadows a preset. */
+export function addProfile(name: string, profile: AgentProfile): string | undefined {
+  const file = readAgentsFile();
+  (file.profiles ??= {})[name] = profile;
+  writeAgentsFile(file);
+  return BUILTIN_PROFILES[name] ? `note: replaces the built-in "${name}" preset for you (nage agent remove ${name} restores it)` : undefined;
+}
+
+/** Remove a profile from agents.json; says what still points at it. */
+export function removeProfile(name: string): string {
+  const file = readAgentsFile();
+  if (!file.profiles?.[name]) throw new Error(`no profile "${name}" in ${agentsFile()}${BUILTIN_PROFILES[name] ? " (it's a built-in preset)" : ""}`);
+  delete file.profiles[name];
+  writeAgentsFile(file);
+  if (BUILTIN_PROFILES[name]) return `removed your "${name}"; the built-in preset applies again`;
+  const users = [
+    file.default === name && "the default",
+    ...Object.entries(file.ranks ?? {}).filter(([, v]) => v === name).map(([r]) => `rank ${r}`),
+    ...Object.entries(file.flows ?? {}).flatMap(([f, a]) => [a.use === name && `flow ${f}`, ...Object.entries(a.steps ?? {}).filter(([, c]) => c.use === name).map(([st]) => `${f}/${st}`)]),
+  ].filter(Boolean);
+  return `removed ${name}${users.length ? `; still assigned to ${users.join(", ")} — those steps will stop until you change it` : ""}`;
 }
 
 /** Set (or clear, with use/model null) an assignment in agents.json. No step: the whole flow. */
@@ -258,18 +339,25 @@ export function commandOf(name: string, p: AgentProfile): string {
 
 /** Is any agent CLI usable here (else agent steps go to the chat assistant)? */
 export function anyAgentInstalled(): boolean {
-  const d = readAgentsFile().default;
-  if (d) return true;
-  return ["claude", "opencode", "nano-coder"].some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
+  const file = readAgentsFile();
+  if (file.default) return true;
+  // Your own profiles count (an `nage agent add`ed CLI may be the only one here), as do
+  // relative commands, which are only resolved against a step's working directory.
+  const yours = Object.entries(file.profiles ?? {}).some(([n, p]) => !path.isAbsolute(commandOf(n, p)) && commandOf(n, p).includes("/") || which(commandOf(n, p)));
+  return yours || AUTO_ORDER.some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
 }
 
 /** Command line + env for a profile run with a model. */
-export function launch(name: string, p: AgentProfile, model?: string): { command: string; args: string[]; env: Record<string, string> } {
-  const command = which(commandOf(name, p)) ?? commandOf(name, p);
+export function launch(name: string, p: AgentProfile, model?: string, cwd?: string): { command: string; args: string[]; env: Record<string, string> } {
+  const command = which(commandOf(name, p), cwd) ?? commandOf(name, p);
   const args = [...(p.args ?? [])];
   const env: Record<string, string> = { ...(p.env ?? {}) };
   const m = model ?? p.model;
-  if (m && p.modelArg && p.protocol === "acp") args.push(p.modelArg, m);
+  // (claude passes its own --model; see runClaude.)
+  if (m && p.modelArg && p.protocol !== "claude") {
+    if (p.modelArgFirst) args.unshift(p.modelArg, m);
+    else args.push(p.modelArg, m);
+  }
   if (m && p.modelEnv) for (const [k, v] of Object.entries(p.modelEnv)) env[k] = v.replaceAll("{model}", m);
   return { command, args, env };
 }

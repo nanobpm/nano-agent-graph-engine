@@ -296,8 +296,25 @@ Built-in profiles:
 | `opencode` | `opencode acp` | [ACP](https://agentclientprotocol.com) |
 | `nano-coder` | `nano-coder --acp` | ACP |
 | `gemini` | `gemini --experimental-acp` | ACP |
+| `qwen` | `qwen --acp` | ACP |
+| `kimi` | `kimi acp` (a model goes before `acp`: `kimi --model … acp`) | ACP |
+| `copilot` | `copilot --acp` | ACP |
 
-Any ACP agent works. Add your own in `~/.agent-graph/agents.json`, or in a flow file.
+**Any other CLI** works too. Add it with `nage agent add` (it goes in `~/.agent-graph/agents.json`), saying how to talk to it:
+
+```sh
+# an ACP agent (Agent Client Protocol over stdio): tool calls, streaming and tokens in the transcript
+nage agent add codex --acp -- npx -y @zed-industries/codex-acp
+# anything else: the prompt replaces {prompt} in its arguments, or else goes to its stdin,
+# and what it prints is the answer (a non-zero exit fails the step with its stderr)
+nage agent add aider --exec --model-arg --model -- aider --yes-always --no-git --message {prompt}
+nage agent add my-script --exec -- ./ask.sh
+# options: --model <default model>, --model-arg <flag> (how a model is passed; --model-first
+# puts it before the args), --env K=V, --description text
+nage agent remove aider
+```
+
+`--exec` CLIs show their output in the live transcript as it's printed, but no tool calls or token counts (the engine only sees stdout). A profile you add under a preset's name replaces the preset for you; removing it brings the preset back. Flow files can define profiles too (`agentProfiles`, below).
 
 ### Choosing the CLI and model
 
@@ -353,9 +370,9 @@ The profile for a step is the first of:
 5. the author's suggestion — the step's `use`, else the flow's `defaultAgent` — if that CLI is installed here;
 6. `default` in `agents.json`;
 7. the CLI of the host that started the run (Claude Code → `claude`, OpenCode → `opencode`, nano-coder → `nano-coder`);
-8. the first installed of `claude`, `opencode`, `nano-coder`.
+8. the first installed of `claude`, `opencode`, `nano-coder`, `gemini`, `qwen`, `kimi`, `copilot`.
 
-The model follows the same order (yours, then the author's, then the profile's). An author's profile that is unknown or not installed here is skipped with a note ("flow suggests gpt-cli (unknown here)") and a warning from `nage check`, never an error; an unknown profile in your own assignment or override is an error. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `nage agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
+The model follows the same order (yours, then the author's, then the profile's). **CLIs that aren't installed.** The flow author's suggestions are only *suggestions*: one whose profile is unknown or whose CLI isn't installed here is skipped, with a note ("flow suggests gpt-cli (unknown here)") and a warning from `nage check`, and the step falls through to the next rule. Your own choices are not swapped behind your back (that could mean another subscription or model): an assignment or override naming an unknown profile, or a CLI that isn't installed, stops the step with an incident that says so ("agent CLI "kimi" isn't installed here (kimi, from your rank senior); install it, or change the assignment"); the explorer's Agents table and `nage agent show` show the same before you run. The auto-detect in rule 8 only considers installed CLIs, and `nage agent` marks the ones that aren't. On a name clash `agents.json` wins over a flow's `agentProfiles`, which win over the built-ins. `nage agent` lists the profiles. If no agent CLI is installed, agent steps go to the chat session (`session_job_next`), as before. `AGE_CONCURRENCY=claude=N` caps all agent steps together.
 
 A step's prompt file may use `{{name}}` placeholders (filled from the variables); `context: []` stops the variables being appended as JSON, and `cwd` (also with placeholders) sets the agent's working directory. That lets a flow wrap an app's own prompts: a `run` step builds the prompt, the agent step runs it on your CLI, a `run` step validates and retries (see `~/AgentGraph/flows/publish-video.flow.ts`).
 

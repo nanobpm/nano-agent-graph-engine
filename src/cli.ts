@@ -26,6 +26,12 @@ const HELP = `nage — Nano Agent Graph Engine
                                  or a route like /instances); prints the URL
   nage agent [list]              agent profiles (which CLI runs agent steps) and the default
   nage agent default <name>      set the default profile (~/.agent-graph/agents.json)
+  nage agent add <name> --acp|--claude|--exec [--model-arg <flag>] [--model-first] [--model m]
+                 [--env K=V …] [--description text] -- <command> [args…]
+                                 any agent CLI: --acp speaks ACP over stdio; --exec is any other
+                                 CLI (the prompt replaces {prompt} in args, else goes to stdin,
+                                 and what it prints is the answer); --claude is claude -p
+  nage agent remove <name>       remove a profile you added
   nage agent show <flow>         the flow's agent steps: who runs each, and why
   nage agent assign <flow>[/<step>] <cli|-> [--model m]
                                  run a flow's (or one step's) agent steps on your CLI/model,
@@ -44,8 +50,10 @@ const HELP = `nage — Nano Agent Graph Engine
   global flows, offered in every project (AGE_HOME).`;
 
 function arg(name: string): string | undefined {
+  // Not past "--": what follows is someone else's command line (nage agent add … -- <cmd>).
+  const end = process.argv.indexOf("--");
   const i = process.argv.indexOf(name);
-  if (i < 0) return undefined;
+  if (i < 0 || (end >= 0 && i > end)) return undefined;
   const v = process.argv[i + 1];
   process.argv.splice(i, 2);
   return v;
@@ -117,6 +125,21 @@ async function main() {
         console.log(formatAgentPlan(await c.agentPlan(flowId, "cli")));
         break;
       }
+      if (rest[0] === "add") {
+        const { parseAgentAdd, addProfile } = await import("./agents.ts");
+        const { name, profile } = parseAgentAdd(rest.slice(1));
+        const note = addProfile(name, profile);
+        const cmd = commandOf(name, profile);
+        console.log(`added ${name}: ${profile.protocol} ${[cmd, ...(profile.args ?? [])].join(" ")}${which(cmd) ? "" : "  (not installed here yet)"} (${agentsFile()})${note ? `\n${note}` : ""}`);
+        console.log(`use it: nage agent default ${name} | nage agent assign <flow>[/<step>] ${name} | nage start <flow> --agent ${name}`);
+        break;
+      }
+      if (rest[0] === "remove") {
+        const { removeProfile } = await import("./agents.ts");
+        if (!rest[1]) throw new Error("usage: nage agent remove <name>");
+        console.log(removeProfile(rest[1]));
+        break;
+      }
       if (rest[0] === "default") {
         const all = allProfiles();
         if (!rest[1] || !all[rest[1]]) throw new Error(`usage: nage agent default <${Object.keys(all).join("|")}>`);
@@ -124,13 +147,19 @@ async function main() {
         console.log(`default agent: ${rest[1]} (${agentsFile()})`);
         break;
       }
-      const dflt = resolveAgent({});
+      let dflt: ReturnType<typeof resolveAgent>;
+      let dfltError = "";
+      try {
+        dflt = resolveAgent({});
+      } catch (e: any) {
+        dfltError = e.message;
+      }
       for (const [name, p] of Object.entries(allProfiles())) {
         const cmd = commandOf(name, p);
         const found = which(cmd);
         console.log(`${name === dflt?.name ? "*" : " "} ${name.padEnd(14)} ${p.protocol.padEnd(6)} ${[cmd, ...(p.args ?? [])].join(" ")}${p.model ? `  model=${p.model}` : ""}  [${p.source}${found ? "" : ", not installed"}]`);
       }
-      console.log(`\n* default (${dflt?.reason ?? "none installed"}). Add profiles or set "default" in ${agentsFile()};`);
+      console.log(`\n* default (${dflt?.reason ?? (dfltError || "none installed")}). Add profiles or set "default" in ${agentsFile()};`);
       console.log(`  a run started from a host (Claude Code, OpenCode) uses that host's CLI unless a default is set.`);
       break;
     }

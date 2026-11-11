@@ -14,8 +14,9 @@ const fakeClaude = path.join(root, "test/fixtures/fake-claude.mjs");
 process.env.AGE_STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "age-agents-"));
 delete process.env.AGE_CLAUDE_CMD;
 
-const { resolveAgent, writeAgentsFile, readAgentsFile, assignAgent, takeRunAgents, rankOf, launch, allProfiles } = await import("../src/agents.ts");
+const { resolveAgent, writeAgentsFile, readAgentsFile, assignAgent, takeRunAgents, rankOf, launch, allProfiles, parseAgentAdd, addProfile, removeProfile, which } = await import("../src/agents.ts");
 const { runAgentCli } = await import("../src/agent-run.ts");
+type AgentsFile = import("../src/agents.ts").AgentsFile;
 
 test("ACP: streams turns (merged chunks, tool call + result) and returns the answer", async () => {
   const log = path.join(process.env.AGE_STATE_DIR!, "acp.log");
@@ -60,6 +61,13 @@ test("ACP: a CLI that isn't installed keeps its ENOENT (the daemon falls back on
   await assert.rejects(
     runAgentCli({ name: "x", profile: { protocol: "acp", command: "no-such-cli-xyz" }, prompt: "p", cwd: os.tmpdir(), onTurn: () => {} }),
     /ENOENT/,
+  );
+});
+
+test("ACP: an error response says why (its data), not just \"Internal error\"", async () => {
+  await assert.rejects(
+    runAgentCli({ name: "qwenish", profile: { protocol: "acp", command: process.execPath, args: [fakeAcp, "--fail-prompt"] }, prompt: "p", cwd: os.tmpdir(), onTurn: () => {} }),
+    /^Error: qwenish: Internal error: 403 Access to model denied\.$/,
   );
 });
 
@@ -118,6 +126,15 @@ test("profile resolution: run > your step > your flow > your rank > author (if i
   assert.equal(resolveAgent({ ...base, file: noRank, step: "w", use: "gpt-cli" })!.skipped, "gpt-cli (unknown here)");
   // A user's own typo is an error, not a silent fallback.
   assert.throws(() => resolveAgent({ ...base, step: "w", run: { "*": { use: "nope" } } }), /unknown agent profile "nope" \(run override/);
+  // Your own choice of a CLI that isn't installed stops the step (it's not swapped for another
+  // CLI), and the message doesn't say ENOENT (that hands every agent step to the chat assistant).
+  const gone = { ...file, profiles: { ...file.profiles, gone: { protocol: "acp" as const, command: "no-such-cli-xyz" } } };
+  const missingFiles: AgentsFile[] = [{ ...gone, ranks: { senior: "gone" }, flows: {} }, { ...gone, flows: { review: { use: "gone" } } }];
+  for (const f of missingFiles)
+    assert.throws(
+      () => resolveAgent({ ...base, file: f, step: "w" }),
+      (e: Error) => /"no-such-cli-xyz" isn't installed here \(gone, from your (rank senior|flow assignment)\)/.test(e.message) && !/ENOENT/.test(e.message),
+    );
   // A job type that isn't <rank>:<task> has no rank.
   assert.equal(rankOf("senior:feature"), "senior");
   assert.equal(rankOf("claude"), undefined);
@@ -126,7 +143,8 @@ test("profile resolution: run > your step > your flow > your rank > author (if i
 
 test("agents.json: user profiles win over a flow's; host CLI only when installed", () => {
   const flowProfiles = { claude: { protocol: "acp" as const, command: "evil" } };
-  writeAgentsFile({ default: "nano-coder", profiles: { claude: { protocol: "claude", command: "claude" } } });
+  // (nano-coder pointed at node, so this doesn't depend on which agent CLIs this machine has)
+  writeAgentsFile({ default: "nano-coder", profiles: { claude: { protocol: "claude", command: "claude" }, "nano-coder": { protocol: "acp", command: process.execPath } } });
   assert.equal(resolveAgent({ host: "opencode" })!.name, "nano-coder");
   assert.equal(allProfiles(flowProfiles).claude.command, "claude");
   assert.equal(allProfiles(flowProfiles).claude.source, "agents.json");
@@ -170,4 +188,93 @@ test("promptFile: flows/prompts/<id>, or flows/<id> for ids that carry their fol
   assert.equal(promptFile(dir, "fix-ci.md"), path.join(dir, "flows", "prompts", "fix-ci.md"));
   assert.equal(promptFile(dir, "prompts/fix-ci.md"), path.join(dir, "flows", "prompts", "fix-ci.md"));
   assert.equal(promptFile(dir, "missing.md"), path.join(dir, "flows", "prompts", "missing.md"));
+});
+
+test("presets: qwen, kimi and copilot over ACP; kimi's model flag goes before its subcommand", () => {
+  const all = allProfiles({}, {});
+  assert.deepEqual(launch("qwen", all.qwen, "qwen3-coder").args, ["--acp", "--model", "qwen3-coder"]);
+  assert.deepEqual(launch("kimi", all.kimi, "kimi-k2").args, ["--model", "kimi-k2", "acp"]);
+  assert.deepEqual(launch("copilot", all.copilot, "gpt-5").args, ["--acp", "--model", "gpt-5"]);
+  assert.deepEqual(launch("kimi", all.kimi).args, ["acp"]);
+});
+
+test("exec: any CLI — prompt in {prompt} or on stdin, stdout is the answer, streamed", async () => {
+  // {prompt} in args (stdin closed), with a model flag.
+  const echoArgs = { protocol: "exec" as const, command: process.execPath, args: ["-e", "console.log(JSON.stringify(process.argv.slice(1)))", "{prompt}"], modelArg: "--model" };
+  const turns: any[] = [];
+  const events: any[] = [];
+  const r1 = await runAgentCli({ name: "x", profile: echoArgs, prompt: "hello", model: "m1", cwd: os.tmpdir(), onTurn: (t) => turns.push(t), onEvent: (e) => events.push(e) });
+  assert.deepEqual(JSON.parse(r1.result as string), ["hello", "--model", "m1"]);
+  assert.equal(r1.model, "m1");
+  assert.deepEqual(turns.map((t) => t.role), ["USER", "ASSISTANT"]);
+  assert.ok(events.some((e) => e.kind === "message" && e.role === "assistant" && !e.final), "stdout streamed to the live transcript");
+  // No {prompt}: the prompt goes to stdin.
+  const upper = { protocol: "exec" as const, command: "sh", args: ["-c", "tr a-z A-Z"] };
+  assert.equal((await runAgentCli({ name: "x", profile: upper, prompt: "shout", cwd: os.tmpdir(), onTurn: () => {} })).result, "SHOUT");
+  // With a schema: the JSON in the output is the result.
+  const json = { protocol: "exec" as const, command: "sh", args: ["-c", 'cat >/dev/null; echo "Done. {\\"ok\\": true}"'] };
+  assert.deepEqual((await runAgentCli({ name: "x", profile: json, prompt: "p", schema: { type: "object" }, cwd: os.tmpdir(), onTurn: () => {} })).result, { ok: true });
+  // A non-zero exit fails the step with stderr.
+  const fail = { protocol: "exec" as const, command: "sh", args: ["-c", "echo quota exceeded >&2; exit 2"] };
+  await assert.rejects(runAgentCli({ name: "x", profile: fail, prompt: "p", cwd: os.tmpdir(), onTurn: () => {} }), /exited \(2\): quota exceeded/);
+});
+
+test("exec: a prompt with $& or $$ reaches the CLI as written", async () => {
+  const echo = { protocol: "exec" as const, command: process.execPath, args: ["-e", "console.log(process.argv[1])", "{prompt}"] };
+  assert.equal((await runAgentCli({ name: "x", profile: echo, prompt: "regex $& and shell $$ and $'", cwd: os.tmpdir(), onTurn: () => {} })).result, "regex $& and shell $$ and $'");
+});
+
+test("a relative command runs from the step's directory; a CLI installed after a miss is found", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "age-relcmd-"));
+  const script = path.join(dir, "ask.sh");
+  fs.writeFileSync(script, "#!/bin/sh\ncat | tail -n 0\necho from-script\n", { mode: 0o755 });
+  const mine = { protocol: "exec" as const, command: "./ask.sh" };
+  writeAgentsFile({ profiles: { mine } });
+  assert.equal(resolveAgent({ run: { "*": { use: "mine" } }, cwd: dir })!.name, "mine");
+  assert.throws(() => resolveAgent({ run: { "*": { use: "mine" } }, cwd: os.tmpdir() }), /isn't installed here/);
+  assert.equal((await runAgentCli({ name: "mine", profile: mine, prompt: "p", cwd: dir, onTurn: () => {} })).result, "from-script");
+  // Misses aren't cached: installing the CLI and retrying the step works without a restart.
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), "age-bin-"));
+  const PATH = process.env.PATH;
+  process.env.PATH = `${bin}:${PATH}`;
+  try {
+    assert.equal(which("age-late-cli"), undefined);
+    fs.copyFileSync(script, path.join(bin, "age-late-cli"));
+    assert.equal(which("age-late-cli"), path.join(bin, "age-late-cli"));
+  } finally {
+    process.env.PATH = PATH;
+  }
+  writeAgentsFile({});
+});
+
+test("nage agent add/remove: any CLI as a profile", () => {
+  writeAgentsFile({});
+  // ACP, with the model flag before its subcommand and env.
+  assert.deepEqual(parseAgentAdd(["mykimi", "--acp", "--model-arg", "-m", "--model-first", "--env", "A=1=2", "--", "kimi", "acp"]), {
+    name: "mykimi",
+    profile: { protocol: "acp", command: "kimi", args: ["acp"], modelArg: "-m", modelArgFirst: true, env: { A: "1=2" } },
+  });
+  // exec: options after -- belong to the agent's command (even --model).
+  const aider = parseAgentAdd(["aider", "--exec", "--description", "Aider", "--", "aider", "--yes", "--model", "x", "--message", "{prompt}"]);
+  assert.deepEqual(aider.profile, { protocol: "exec", command: "aider", args: ["--yes", "--model", "x", "--message", "{prompt}"], description: "Aider" });
+  for (const [bad, msg] of [
+    [["x", "--acp"], /goes after --/],
+    [["x", "--", "cmd"], /--acp.*--exec/],
+    [["x", "--acp", "--exec", "--", "c"], /--acp.*--exec/],
+    [["x", "--acp", "--bogus", "1", "--", "c"], /unknown option --bogus/],
+    [["-x", "--acp", "--", "c"], /a name/],
+  ] as const)
+    assert.throws(() => parseAgentAdd([...bad]), msg);
+  // Added profiles can be assigned and resolve; removing one says what still points at it.
+  addProfile("aider", { ...aider.profile, command: "/bin/sh" });
+  assignAgent({ rank: "junior", use: "aider" });
+  assert.equal(resolveAgent({ jobType: "junior:x" })!.name, "aider");
+  assert.match(removeProfile("aider"), /still assigned to rank junior/);
+  assert.throws(() => removeProfile("aider"), /no profile "aider"/);
+  // Shadowing a preset is allowed (your file wins) and removing it restores the preset.
+  assert.match(addProfile("qwen", { protocol: "exec", command: "qwen", args: ["-p", "{prompt}"] })!, /replaces the built-in "qwen"/);
+  assert.equal(allProfiles().qwen.protocol, "exec");
+  assert.match(removeProfile("qwen"), /built-in preset applies again/);
+  assert.equal(allProfiles().qwen.protocol, "acp");
+  writeAgentsFile({});
 });
