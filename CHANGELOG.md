@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.16.2...v0.17.0) (2026-11-11)
+
+
+### Features
+
+* run agent steps on any CLI, with qwen, kimi and copilot presets ([#10](https://github.com/nanobpm/nano-agent-graph-engine/issues/10)) ([328b5e0](https://github.com/nanobpm/nano-agent-graph-engine/commit/328b5e06b8ddfff4dea3453f643fed6083134f6d))
+
 ## [0.16.2](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.16.1...v0.16.2) (2026-11-11)
 
 
