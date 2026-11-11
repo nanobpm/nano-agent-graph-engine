@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.17.0...v0.17.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* cancelling an exec agent step kills its whole process group ([#12](https://github.com/nanobpm/nano-agent-graph-engine/issues/12)) ([83ad92a](https://github.com/nanobpm/nano-agent-graph-engine/commit/83ad92adce35451605d52e240a7531c144ddcfbc))
+
 ## [0.17.0](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.16.2...v0.17.0) (2026-11-11)
 
 
