@@ -464,6 +464,12 @@ registerNodeKind("forEach", {
       }
       node.completionCondition = compCond;
     }
+    if (opts?.name !== void 0) {
+      if (typeof opts.name !== "string" || opts.name.trim() === "") {
+        throw new Error(`forEach("${itemVar}") name must be a non-empty string`);
+      }
+      node.name = opts.name.trim();
+    }
     if (node.outputElement && !node.outputCollection) {
       throw new Error(`forEach("${itemVar}") outputElement needs an outputCollection to collect into`);
     }
@@ -480,7 +486,7 @@ registerNodeKind("forEach", {
       return [api.newEdge(only.name)];
     }
     const subId = `Sub_${api.nextGw()}`;
-    api.addSubProcess(subId, mi);
+    api.addSubProcess(subId, mi, node.name);
     api.connect(incoming, subId);
     api.pushScope(subId);
     const startId = `${subId}_start`;
@@ -1177,7 +1183,7 @@ function sh(command, opts = {}) {
     const child = spawn("bash", ["-c", command], {
       cwd: opts.cwd ?? jobProject() ?? process.env.AGE_PROJECT ?? process.cwd(),
       env: { ...process.env, ...opts.env },
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: [opts.input === void 0 ? "ignore" : "pipe", "pipe", "pipe"],
       timeout: opts.timeoutMs,
       signal: jobSignal()
     });
@@ -1193,7 +1199,11 @@ function sh(command, opts = {}) {
 ${stderr.slice(-2e3) || stdout.slice(-2e3)}`));
       } else resolve(r);
     });
-    child.stdin.end(opts.input ?? "");
+    if (child.stdin) {
+      child.stdin.on("error", () => {
+      });
+      child.stdin.end(opts.input);
+    }
   });
 }
 async function claude(prompt, opts = {}) {
@@ -1220,6 +1230,8 @@ async function claude(prompt, opts = {}) {
       "close",
       (code) => code === 0 ? resolve(stdout) : reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-2e3)}`))
     );
+    child.stdin.on("error", () => {
+    });
     child.stdin.end(prompt);
   });
   const msg = JSON.parse(out);

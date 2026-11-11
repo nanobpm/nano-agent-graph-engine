@@ -549,6 +549,12 @@ var init_forEach = __esm({
           }
           node2.completionCondition = compCond;
         }
+        if (opts?.name !== void 0) {
+          if (typeof opts.name !== "string" || opts.name.trim() === "") {
+            throw new Error(`forEach("${itemVar}") name must be a non-empty string`);
+          }
+          node2.name = opts.name.trim();
+        }
         if (node2.outputElement && !node2.outputCollection) {
           throw new Error(`forEach("${itemVar}") outputElement needs an outputCollection to collect into`);
         }
@@ -565,7 +571,7 @@ var init_forEach = __esm({
           return [api2.newEdge(only.name)];
         }
         const subId = `Sub_${api2.nextGw()}`;
-        api2.addSubProcess(subId, mi);
+        api2.addSubProcess(subId, mi, node2.name);
         api2.connect(incoming, subId);
         api2.pushScope(subId);
         const startId = `${subId}_start`;
@@ -1088,7 +1094,7 @@ var init_declarative = __esm({
           addTimerCatchEvent: (node2) => this.addTimerCatchEvent(node2),
           addGateway: (id, name2) => this.addGateway(id, name2),
           addParallelGateway: (id) => this.addParallelGateway(id),
-          addSubProcess: (id, mi) => this.addSubProcess(id, mi),
+          addSubProcess: (id, mi, name2) => this.addSubProcess(id, mi, name2),
           addPlainStart: (id) => this.addPlainStart(id),
           addPlainEnd: (id) => this.addPlainEnd(id),
           nextGw: () => this.gw++,
@@ -1220,11 +1226,11 @@ ${props.join("\n")}
       }
       /** An embedded sub-process whose body renders nested in its own scope, with the
        *  given multi-instance characteristics lifted onto it. */
-      addSubProcess(id, mi) {
+      addSubProcess(id, mi, name2) {
         const node2 = {
           id,
           scope: this.currentScope(),
-          render: (inc, outg) => `    <bpmn:subProcess id="${escapeXml(id)}">
+          render: (inc, outg) => `    <bpmn:subProcess id="${escapeXml(id)}"${name2 ? ` name="${escapeXml(name2)}"` : ""}>
 ` + incomingOutgoing(inc, outg) + mi + this.renderScope(id) + `
     </bpmn:subProcess>`
         };
@@ -29136,6 +29142,7 @@ import fs2 from "node:fs";
 import path2 from "node:path";
 import crypto3 from "node:crypto";
 import { Worker } from "node:worker_threads";
+import { createRequire } from "node:module";
 function threadUrl() {
   const js = new URL("./layout-thread.js", import.meta.url);
   return fs2.existsSync(js) ? js : new URL("./layout-thread.ts", import.meta.url);
@@ -29161,7 +29168,8 @@ function layoutV2(xml3, file2) {
   return p2;
 }
 async function layoutXml(xml3) {
-  const file2 = path2.join(cacheDir(), `${crypto3.createHash("sha256").update(xml3).digest("hex").slice(0, 32)}.bpmn`);
+  const file2 = path2.join(cacheDir(), `${crypto3.createHash("sha256").update(`${workflowVersion}
+${xml3}`).digest("hex").slice(0, 32)}.bpmn`);
   try {
     return fs2.readFileSync(file2, "utf8");
   } catch {
@@ -29187,13 +29195,23 @@ async function layoutXml(xml3) {
 function layoutFlow(flow) {
   return layoutXml(declarativeToBpmn(flow));
 }
-var budgetMs, cacheDir, pending;
+var workflowVersion, budgetMs, cacheDir, pending;
 var init_layout = __esm({
   "src/layout.ts"() {
     "use strict";
     init_dist();
     init_dist7();
     init_paths();
+    workflowVersion = (() => {
+      if ("0.19.0") return "0.19.0";
+      try {
+        let dir = path2.dirname(createRequire(import.meta.url).resolve("@nanobpm/workflow"));
+        while (!fs2.existsSync(path2.join(dir, "package.json")) && path2.dirname(dir) !== dir) dir = path2.dirname(dir);
+        return JSON.parse(fs2.readFileSync(path2.join(dir, "package.json"), "utf8")).version;
+      } catch {
+        return "unknown";
+      }
+    })();
     budgetMs = () => Number(process.env.AGE_LAYOUT_MS ?? 5e3);
     cacheDir = () => path2.join(engineDir(), "layout-cache");
     pending = /* @__PURE__ */ new Map();
@@ -29203,16 +29221,20 @@ var init_layout = __esm({
 // src/agents.ts
 var agents_exports = {};
 __export(agents_exports, {
+  AUTO_ORDER: () => AUTO_ORDER,
   BUILTIN_PROFILES: () => BUILTIN_PROFILES,
   HOST_PROFILE: () => HOST_PROFILE,
+  addProfile: () => addProfile,
   agentsFile: () => agentsFile,
   allProfiles: () => allProfiles,
   anyAgentInstalled: () => anyAgentInstalled,
   assignAgent: () => assignAgent,
   commandOf: () => commandOf,
   launch: () => launch,
+  parseAgentAdd: () => parseAgentAdd,
   rankOf: () => rankOf,
   readAgentsFile: () => readAgentsFile,
+  removeProfile: () => removeProfile,
   resolveAgent: () => resolveAgent,
   takeRunAgents: () => takeRunAgents,
   which: () => which,
@@ -29245,8 +29267,12 @@ function allProfiles(flowProfiles = {}, file2 = readAgentsFile()) {
   for (const [n, p2] of Object.entries(file2.profiles ?? {})) out[n] = { ...p2, source: "agents.json" };
   return out;
 }
-function which(command) {
+function which(command, cwd) {
   if (path3.isAbsolute(command)) return fs3.existsSync(command) ? command : void 0;
+  if (command.includes("/")) {
+    const f2 = path3.resolve(cwd ?? process.cwd(), command);
+    return fs3.existsSync(f2) ? f2 : void 0;
+  }
   if (found.has(command)) return found.get(command);
   const home = process.env.HOME ?? "";
   const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, `${home}/.opencode/bin`, "/opt/homebrew/bin", "/usr/local/bin"];
@@ -29258,7 +29284,7 @@ function which(command) {
       break;
     }
   }
-  found.set(command, hit);
+  if (hit) found.set(command, hit);
   return hit;
 }
 function resolveAgent(opts) {
@@ -29278,14 +29304,15 @@ function resolveAgent(opts) {
       if (mode === "author") skipped ??= `${name2} (unknown here)`;
       return void 0;
     }
-    if (mode !== "user" && !which(commandOf(name2, profile))) {
+    if (!which(commandOf(name2, profile), opts.cwd)) {
+      if (mode === "user") throw new Error(`agent CLI "${commandOf(name2, profile)}" isn't installed here (${name2}, from ${reason}); install it, or change the assignment (nage agent assign \u2026)`);
       if (mode === "author") skipped ??= `${name2} (not installed)`;
       return void 0;
     }
     return { name: name2, profile, model: userModel ?? model ?? profile.model, reason };
   };
   const rank = opts.jobType ? rankOf(opts.jobType) : void 0;
-  const r2 = pick3(ro.use, "run override", "user", ro.model) ?? pick3(rall.use, "run override", "user", rall.model) ?? pick3(sa.use, "your step assignment", "user", sa.model) ?? pick3(fa.use, "your flow assignment", "user", fa.model) ?? pick3(rank && file2.ranks?.[rank], `your rank ${rank}`, "user") ?? pick3(opts.use, "author (step)", "author", opts.model) ?? pick3(opts.flowDefault, "author (flow default)", "author", opts.use ? void 0 : opts.model) ?? pick3(file2.default, "your default", "user") ?? pick3(opts.host && HOST_PROFILE[opts.host], "host", "auto") ?? ["claude", "opencode", "nano-coder"].map((n) => pick3(n, "installed", "auto")).find(Boolean);
+  const r2 = pick3(ro.use, "run override", "user", ro.model) ?? pick3(rall.use, "run override", "user", rall.model) ?? pick3(sa.use, "your step assignment", "user", sa.model) ?? pick3(fa.use, "your flow assignment", "user", fa.model) ?? pick3(rank && file2.ranks?.[rank], `your rank ${rank}`, "user") ?? pick3(opts.use, "author (step)", "author", opts.model) ?? pick3(opts.flowDefault, "author (flow default)", "author", opts.use ? void 0 : opts.model) ?? pick3(file2.default, "your default", "user") ?? pick3(opts.host && HOST_PROFILE[opts.host], "host", "auto") ?? AUTO_ORDER.map((n) => pick3(n, "installed", "auto")).find(Boolean);
   return r2 && skipped ? { ...r2, skipped } : r2;
 }
 function takeRunAgents(args) {
@@ -29304,6 +29331,63 @@ function takeRunAgents(args) {
     (agents[step] ??= {})[m2[1] === "agent" ? "use" : "model"] = val;
   }
   return { agents: Object.keys(agents).length ? agents : void 0, rest: rest2 };
+}
+function parseAgentAdd(argv) {
+  const usage = "usage: nage agent add <name> --acp|--claude|--exec [--model-arg <flag>] [--model-first] [--model m] [--env K=V \u2026] [--description text] -- <command> [args\u2026]";
+  const dash = argv.indexOf("--");
+  if (dash < 0 || dash === argv.length - 1) throw new Error(`${usage}
+(the agent's command goes after --)`);
+  const [command, ...args] = argv.slice(dash + 1);
+  const opts = argv.slice(0, dash);
+  const name2 = opts.shift();
+  if (!name2 || name2.startsWith("-") || !/^[A-Za-z0-9][\w.-]*$/.test(name2)) throw new Error(`${usage}
+(a name: letters, digits, . _ -)`);
+  const protocols = ["acp", "claude", "exec"].filter((p2) => opts.includes(`--${p2}`));
+  if (protocols.length !== 1) throw new Error(`${usage}
+(say how to talk to it: --acp (Agent Client Protocol over stdio), --exec (prompt in, answer printed) or --claude (claude -p))`);
+  const profile = { protocol: protocols[0], command };
+  if (args.length) profile.args = args;
+  for (let i = 0; i < opts.length; i++) {
+    const o = opts[i];
+    if (o === `--${profile.protocol}`) continue;
+    if (o === "--model-first") {
+      profile.modelArgFirst = true;
+      continue;
+    }
+    const v2 = opts[++i];
+    if (v2 === void 0) throw new Error(`${o} needs a value
+${usage}`);
+    if (o === "--model-arg") profile.modelArg = v2;
+    else if (o === "--model") profile.model = v2;
+    else if (o === "--description") profile.description = v2;
+    else if (o === "--env") {
+      const eq = v2.indexOf("=");
+      if (eq < 1) throw new Error(`--env takes K=V, not "${v2}"`);
+      (profile.env ??= {})[v2.slice(0, eq)] = v2.slice(eq + 1);
+    } else throw new Error(`unknown option ${o}
+${usage}`);
+  }
+  if (profile.protocol === "claude" && profile.modelArg === void 0) profile.modelArg = "--model";
+  return { name: name2, profile };
+}
+function addProfile(name2, profile) {
+  const file2 = readAgentsFile();
+  (file2.profiles ??= {})[name2] = profile;
+  writeAgentsFile(file2);
+  return BUILTIN_PROFILES[name2] ? `note: replaces the built-in "${name2}" preset for you (nage agent remove ${name2} restores it)` : void 0;
+}
+function removeProfile(name2) {
+  const file2 = readAgentsFile();
+  if (!file2.profiles?.[name2]) throw new Error(`no profile "${name2}" in ${agentsFile()}${BUILTIN_PROFILES[name2] ? " (it's a built-in preset)" : ""}`);
+  delete file2.profiles[name2];
+  writeAgentsFile(file2);
+  if (BUILTIN_PROFILES[name2]) return `removed your "${name2}"; the built-in preset applies again`;
+  const users = [
+    file2.default === name2 && "the default",
+    ...Object.entries(file2.ranks ?? {}).filter(([, v2]) => v2 === name2).map(([r2]) => `rank ${r2}`),
+    ...Object.entries(file2.flows ?? {}).flatMap(([f2, a]) => [a.use === name2 && `flow ${f2}`, ...Object.entries(a.steps ?? {}).filter(([, c]) => c.use === name2).map(([st]) => `${f2}/${st}`)])
+  ].filter(Boolean);
+  return `removed ${name2}${users.length ? `; still assigned to ${users.join(", ")} \u2014 those steps will stop until you change it` : ""}`;
 }
 function assignAgent(a) {
   const file2 = readAgentsFile();
@@ -29338,20 +29422,24 @@ function commandOf(name2, p2) {
   return p2.command;
 }
 function anyAgentInstalled() {
-  const d2 = readAgentsFile().default;
-  if (d2) return true;
-  return ["claude", "opencode", "nano-coder"].some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
+  const file2 = readAgentsFile();
+  if (file2.default) return true;
+  const yours = Object.entries(file2.profiles ?? {}).some(([n, p2]) => !path3.isAbsolute(commandOf(n, p2)) && commandOf(n, p2).includes("/") || which(commandOf(n, p2)));
+  return yours || AUTO_ORDER.some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
 }
-function launch(name2, p2, model) {
-  const command = which(commandOf(name2, p2)) ?? commandOf(name2, p2);
+function launch(name2, p2, model, cwd) {
+  const command = which(commandOf(name2, p2), cwd) ?? commandOf(name2, p2);
   const args = [...p2.args ?? []];
   const env = { ...p2.env ?? {} };
   const m2 = model ?? p2.model;
-  if (m2 && p2.modelArg && p2.protocol === "acp") args.push(p2.modelArg, m2);
+  if (m2 && p2.modelArg && p2.protocol !== "claude") {
+    if (p2.modelArgFirst) args.unshift(p2.modelArg, m2);
+    else args.push(p2.modelArg, m2);
+  }
   if (m2 && p2.modelEnv) for (const [k2, v2] of Object.entries(p2.modelEnv)) env[k2] = v2.replaceAll("{model}", m2);
   return { command, args, env };
 }
-var BUILTIN_PROFILES, HOST_PROFILE, found;
+var BUILTIN_PROFILES, AUTO_ORDER, HOST_PROFILE, found;
 var init_agents = __esm({
   "src/agents.ts"() {
     "use strict";
@@ -29366,8 +29454,12 @@ var init_agents = __esm({
         description: "OpenCode over ACP (opencode acp)"
       },
       "nano-coder": { protocol: "acp", command: "nano-coder", args: ["--acp"], modelArg: "--model", description: "nano-coder over ACP (nano-coder --acp)" },
-      gemini: { protocol: "acp", command: "gemini", args: ["--experimental-acp"], modelArg: "--model", description: "Gemini CLI over ACP" }
+      gemini: { protocol: "acp", command: "gemini", args: ["--experimental-acp"], modelArg: "--model", description: "Gemini CLI over ACP" },
+      qwen: { protocol: "acp", command: "qwen", args: ["--acp"], modelArg: "--model", description: "Qwen Code over ACP (qwen --acp)" },
+      kimi: { protocol: "acp", command: "kimi", args: ["acp"], modelArg: "--model", modelArgFirst: true, description: "Kimi Code over ACP (kimi acp)" },
+      copilot: { protocol: "acp", command: "copilot", args: ["--acp"], modelArg: "--model", description: "GitHub Copilot CLI over ACP (copilot --acp)" }
     };
+    AUTO_ORDER = ["claude", "opencode", "nano-coder", "gemini", "qwen", "kimi", "copilot"];
     HOST_PROFILE = { "claude-code": "claude", "claude-desktop": "claude", "claude-ai": "claude", opencode: "opencode", "nano-coder": "nano-coder" };
     found = /* @__PURE__ */ new Map();
   }
@@ -31285,11 +31377,11 @@ var init_nanobpmn_engine = __esm({
 
 // src/wasm.ts
 import fs4 from "node:fs";
-import { createRequire } from "node:module";
+import { createRequire as createRequire2 } from "node:module";
 function wasmPath() {
   const local = new URL("./nanobpmn_engine_bg.wasm", import.meta.url);
   if (fs4.existsSync(local)) return local.pathname;
-  const req = createRequire(import.meta.url);
+  const req = createRequire2(import.meta.url);
   const pkg = req.resolve("@nanobpm/engine-wasm/readmodel");
   return pkg.replace(/nanobpmn_engine\.js$/, "nanobpmn_engine_bg.wasm");
 }
@@ -31453,7 +31545,7 @@ var init_resolve_hook = __esm({
 // src/typecheck.ts
 import fs6 from "node:fs";
 import path4 from "node:path";
-import { createRequire as createRequire2 } from "node:module";
+import { createRequire as createRequire3 } from "node:module";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 function typecheckKit() {
   const here = path4.dirname(fileURLToPath2(import.meta.url));
@@ -31462,7 +31554,7 @@ function typecheckKit() {
   return void 0;
 }
 function loadTs(kit) {
-  return tsCache ??= createRequire2(path4.join(kit, "ts.cjs"))("./ts.cjs");
+  return tsCache ??= createRequire3(path4.join(kit, "ts.cjs"))("./ts.cjs");
 }
 function typecheckFlows(files) {
   const kit = typecheckKit();
@@ -32752,7 +32844,55 @@ var init_acp = __esm({
 // src/agent-run.ts
 import { spawn as spawn3 } from "node:child_process";
 function runAgentCli(r2) {
-  return r2.profile.protocol === "claude" ? runClaude(r2) : runAcp(r2);
+  const p2 = r2.profile.protocol;
+  return p2 === "claude" ? runClaude(r2) : p2 === "exec" ? runExec(r2) : runAcp(r2);
+}
+async function runExec(r2) {
+  const { command, args, env } = launch(r2.name, r2.profile, r2.model, r2.cwd);
+  const text2 = `${r2.system ? `${r2.system}
+
+` : ""}${r2.prompt}${schemaNote(r2.schema)}`;
+  const inArgs = args.some((a) => a.includes("{prompt}"));
+  const argv = inArgs ? args.map((a) => a.replaceAll("{prompt}", () => text2)) : args;
+  r2.onTurn({ role: "USER", text: text2 });
+  r2.onEvent?.({ kind: "message", role: "user", text: text2, mode: "snapshot", final: true });
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    if (r2.signal?.aborted) return reject(r2.signal.reason ?? new Error("aborted"));
+    const group = process.platform !== "win32";
+    const child = spawn3(command, argv, { cwd: r2.cwd, env: { ...process.env, ...env, ...r2.env }, stdio: [inArgs ? "ignore" : "pipe", "pipe", "pipe"], detached: group });
+    const kill = () => {
+      try {
+        if (group && child.pid) process.kill(-child.pid, "SIGTERM");
+        else child.kill("SIGTERM");
+      } catch {
+      }
+    };
+    r2.signal?.addEventListener("abort", kill, { once: true });
+    let out = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (d2) => {
+      out += d2;
+      r2.onEvent?.({ kind: "message", role: "assistant", text: d2, messageId: "exec" });
+    });
+    child.stderr.on("data", (d2) => stderr = (stderr + d2).slice(-4e3));
+    child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
+    child.on("close", (code, sig) => {
+      r2.signal?.removeEventListener("abort", kill);
+      if (r2.signal?.aborted) return reject(r2.signal.reason ?? new Error("aborted"));
+      if (code !== 0) return reject(new Error(`${command} exited (${sig ?? code}): ${(stderr.trim() || out.trim()).slice(-2e3)}`));
+      const answer = out.trim();
+      r2.onEvent?.({ kind: "message", role: "assistant", text: answer, mode: "snapshot", messageId: "exec", final: true });
+      r2.onTurn({ role: "ASSISTANT", text: answer, model: r2.model ?? r2.profile.model, metrics: { durationMs: Date.now() - started } });
+      resolve({ result: r2.schema ? parseJson(answer) ?? answer : answer, model: r2.model ?? r2.profile.model });
+    });
+    if (!inArgs) {
+      child.stdin.on("error", () => {
+      });
+      child.stdin.end(text2);
+    }
+  });
 }
 function schemaNote(schema) {
   return schema ? `
@@ -32764,7 +32904,7 @@ ${JSON.stringify(schema)}
 ` : "";
 }
 async function runAcp(r2) {
-  const { command, args, env } = launch(r2.name, r2.profile, r2.model);
+  const { command, args, env } = launch(r2.name, r2.profile, r2.model, r2.cwd);
   let stderr = "";
   const t = spawnAcpTransport({
     command,
@@ -32773,9 +32913,13 @@ async function runAcp(r2) {
     env: { ...process.env, ...env, ...r2.env },
     onStderr: (c) => stderr = (stderr + c).slice(-4e3)
   });
+  t.child.stdin?.on("error", () => {
+  });
+  const closed = new Promise((resolve) => t.child.on("close", () => resolve()));
+  const diedError = () => new Error(`${command} exited (${t.child.signalCode ?? t.child.exitCode}) before finishing: ${stderr.trim().slice(-1500)}`);
   const exited = new Promise((_2, reject) => {
     t.child.on("error", (e) => reject(new Error(`${command}: ${e.message}`)));
-    t.child.on("exit", (code, sig) => reject(new Error(`${command} exited (${sig ?? code}) before finishing: ${stderr.trim().slice(-1500)}`)));
+    closed.then(() => reject(diedError()));
   });
   exited.catch(() => {
   });
@@ -32846,6 +32990,17 @@ async function runAcp(r2) {
       // Cumulative for the session, which is this step's alone.
       costUsd: cost?.currency === "USD" && cost.amount > 0 ? cost.amount : void 0
     };
+  } catch (e) {
+    if (!r2.signal?.aborted && t.child.pid !== void 0) {
+      await Promise.race([closed, new Promise((res) => setTimeout(res, 1e3))]);
+      if (t.child.exitCode !== null || t.child.signalCode !== null) throw diedError();
+    }
+    const data = e?.data;
+    if (data !== void 0 && data !== null && e instanceof Error) {
+      const d2 = typeof data === "string" ? data : typeof data.details === "string" ? data.details : typeof data.message === "string" ? data.message : JSON.stringify(data);
+      throw new Error(`${r2.name}: ${e.message}: ${d2.slice(0, 1500)}`);
+    }
+    throw e;
   } finally {
     flush();
     r2.signal?.removeEventListener("abort", stop);
@@ -32854,7 +33009,7 @@ async function runAcp(r2) {
   }
 }
 async function runClaude(r2) {
-  const { command, env } = launch(r2.name, r2.profile);
+  const { command, env } = launch(r2.name, r2.profile, void 0, r2.cwd);
   const args = ["-p", "--output-format", "stream-json", "--verbose", ...r2.onEvent ? ["--include-partial-messages"] : [], "--permission-mode", r2.permissionMode ?? "dontAsk", ...r2.profile.args ?? []];
   if (r2.allowedTools?.length) args.push("--allowedTools", r2.allowedTools.join(","));
   const model = r2.model ?? r2.profile.model;
@@ -32928,6 +33083,8 @@ async function runClaude(r2) {
       let result = final.structured_output ?? final.result;
       if (r2.schema && typeof result === "string") result = parseJson(result) ?? result;
       resolve({ result, costUsd: final.total_cost_usd, model: usedModel ?? model });
+    });
+    child.stdin.on("error", () => {
     });
     child.stdin.end(r2.prompt);
   });
@@ -34120,6 +34277,9 @@ var init_daemon = __esm({
       /** Who runs agent tasks: a headless `claude -p` ("cli"), or the
        *  chat/session agent through session_job_next ("session"). */
       agentMode = agentMode();
+      /** Session mode because a CLI failed (logged out, vanished), not because none is set up. */
+      agentModeForced = false;
+      agentModeAt = Date.now();
       dirty = false;
       timer;
       /** Lease tokens of agent jobs this engine activated (job key → token). Agent jobs are
@@ -34370,6 +34530,10 @@ var init_daemon = __esm({
       }
       /** Every job type this daemon serves itself. */
       servedTypes() {
+        if (this.agentMode === "session" && !this.agentModeForced && Date.now() - this.agentModeAt > 1e4) {
+          this.agentModeAt = Date.now();
+          this.agentMode = agentMode();
+        }
         const types2 = new Set(this.agentMode === "cli" ? this.agentTypeSet() : []);
         for (const f2 of this.flows.values()) for (const t of Object.keys(f2.handlers)) types2.add(t);
         return [...types2];
@@ -34386,7 +34550,7 @@ var init_daemon = __esm({
           const opts = flow.agents[t.name] ?? {};
           let resolved;
           try {
-            const r2 = resolveAgent({ flowId: flow.id, step: t.name, jobType: t.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run, host, file: file2 });
+            const r2 = resolveAgent({ flowId: flow.id, step: t.name, jobType: t.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run, host, file: file2, cwd: flow.projectDir });
             resolved = r2 ? { use: r2.name, model: r2.model ?? null, reason: r2.reason, skipped: r2.skipped } : { use: null, reason: "no agent CLI installed \u2014 goes to the chat assistant" };
           } catch (e) {
             resolved = { use: null, error: e?.message ?? String(e) };
@@ -34467,6 +34631,7 @@ var init_daemon = __esm({
         const msg = err.message;
         if (!this.isAgentType(job.type) || process.env.AGE_AGENT_MODE === "cli" || !/401|authenticat|not logged in|ENOENT/i.test(msg)) return false;
         this.agentMode = "session";
+        this.agentModeForced = true;
         try {
           this.engine.failJob(job.key, job.retries ?? 3, "handed to the session assistant", this.leases[job.key] ?? null);
           delete this.leases[job.key];
@@ -34487,8 +34652,9 @@ var init_daemon = __esm({
         const opts = flow.agents[task.name] ?? {};
         const instanceKey = String(job.instanceKey);
         const meta3 = this.instanceMeta[instanceKey];
-        const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta3?.agents, host: meta3?.host });
-        if (!agent) throw new Error("ENOENT: no agent CLI installed (claude, opencode, nano-coder) and no default in ~/.agent-graph/agents.json");
+        const cwd = opts.cwd ? path10.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, job.variables ?? {})) : this.projectOf(instanceKey);
+        const agent = resolveAgent({ flowId: flow.id, step: task.name, jobType: task.jobType, use: opts.use, model: opts.model, flowDefault: flow.defaultAgent, flowProfiles: flow.agentProfiles, run: meta3?.agents, host: meta3?.host, cwd });
+        if (!agent) throw new Error(`ENOENT: no agent CLI installed (${AUTO_ORDER.join(", ")}) and no default in ~/.agent-graph/agents.json`);
         const vars = job.variables ?? {};
         const ctx = opts.context ? Object.fromEntries(opts.context.map((k2) => [k2, vars[k2]])) : vars;
         const instructions = fillVars(fs11.readFileSync(promptPath, "utf8").trim(), vars);
@@ -34508,7 +34674,6 @@ ${vars.appendPrompt}
         const fullPrompt = opts.abortCheck && statusUrl ? prompt + abortBrief(statusUrl) : prompt;
         const resultFile = path10.join(os.tmpdir(), `age-result-${jobKey}-${process.pid}.json`);
         fs11.rmSync(resultFile, { force: true });
-        const cwd = opts.cwd ? path10.resolve(this.projectOf(instanceKey), fillVars(opts.cwd, vars)) : this.projectOf(instanceKey);
         const model = agent.model;
         const lease = this.leases[String(job.key)];
         const rec = lease ? new AgentRecorder(
@@ -55181,8 +55346,12 @@ import path12 from "node:path";
 function serverCommand() {
   const cli = fs13.realpathSync(process.argv[1]);
   if (/[\\/]_npx[\\/]/.test(cli)) {
-    const npx = path12.join(path12.dirname(process.execPath), process.platform === "win32" ? "npx.cmd" : "npx");
-    return { command: fs13.existsSync(npx) ? npx : "npx", args: ["-y", PACKAGE, "mcp"] };
+    const sep = process.platform === "win32" ? ";" : ":";
+    const system = process.platform === "win32" ? [path12.join(process.env.SystemRoot ?? "C:\\Windows", "System32")] : ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+    const env = { PATH: [path12.dirname(process.execPath), ...system].join(sep) };
+    const npxCli = path12.join(path12.dirname(process.execPath), process.platform === "win32" ? "node_modules/npm/bin/npx-cli.js" : "../lib/node_modules/npm/bin/npx-cli.js");
+    if (fs13.existsSync(npxCli)) return { command: process.execPath, args: [fs13.realpathSync(npxCli), "-y", PACKAGE, "mcp"], env };
+    return { command: "npx", args: ["-y", PACKAGE, "mcp"], env };
   }
   return { command: process.execPath, args: [cli, "mcp"] };
 }
@@ -55225,16 +55394,19 @@ function codexPlan(remove) {
   }
   let after = out.join("\n").replace(/\n{3,}$/, "\n\n");
   if (!remove) {
-    const { command, args } = serverCommand();
+    const { command, args, env } = serverCommand();
+    const envLine = env ? `env = { ${Object.entries(env).map(([k2, v2]) => `${k2} = ${tomlString(v2)}`).join(", ")} }
+` : "";
     after = `${after.replace(/\s*$/, "")}${after.trim() ? "\n\n" : ""}${header}
 command = ${tomlString(command)}
 args = [${args.map(tomlString).join(", ")}]
-`;
+${envLine}`;
   }
   return { file: file2, before: before || void 0, after, skillsDir: path12.join(path12.dirname(file2), "skills"), notes: [] };
 }
 function planFor(host, remove = false) {
-  const { command, args } = serverCommand();
+  const { command, args, env } = serverCommand();
+  const entry = env ? { command, args, env } : { command, args };
   switch (host) {
     case "claude-code":
       return {
@@ -55245,13 +55417,13 @@ function planFor(host, remove = false) {
         notes: remove ? [] : ["The plugin brings the MCP server, both skills, the hooks and the /flows mod. Restart Claude Code to load it."]
       };
     case "claude-desktop": {
-      const p2 = jsonPlan(claudeDesktopConfig(), "mcpServers", { command, args }, remove);
+      const p2 = jsonPlan(claudeDesktopConfig(), "mcpServers", entry, remove);
       p2.notes.push("Quit Claude Desktop (\u2318Q) and reopen it to load the server.");
       return p2;
     }
     case "opencode": {
       const dir = path12.join(process.env.XDG_CONFIG_HOME ?? path12.join(os2.homedir(), ".config"), "opencode");
-      const p2 = jsonPlan(path12.join(dir, "opencode.json"), "mcp", { type: "local", command: [command, ...args], enabled: true }, remove);
+      const p2 = jsonPlan(path12.join(dir, "opencode.json"), "mcp", { type: "local", command: [command, ...args], enabled: true, ...env ? { environment: env } : {} }, remove);
       p2.skillsDir = path12.join(dir, "skills");
       p2.notes.push("Check with `opencode mcp list`; restart the OpenCode app if it's running.");
       return p2;
@@ -55262,11 +55434,19 @@ function planFor(host, remove = false) {
       return p2;
     }
     case "cursor": {
-      const p2 = jsonPlan(path12.join(os2.homedir(), ".cursor", "mcp.json"), "mcpServers", { command, args }, remove);
+      const p2 = jsonPlan(path12.join(os2.homedir(), ".cursor", "mcp.json"), "mcpServers", entry, remove);
       p2.notes.push("Enable it under Cursor Settings \u2192 MCP if Cursor asks.");
       return p2;
     }
   }
+}
+function changedLines(before, after) {
+  const old = new Set(before.split("\n"));
+  const gone = new Set(after.split("\n"));
+  return [
+    ...before.split("\n").filter((l) => l.trim() && !gone.has(l)).map((l) => `- ${l}`),
+    ...after.split("\n").filter((l) => l.trim() && !old.has(l)).map((l) => `+ ${l}`)
+  ].join("\n");
 }
 function backup(file2) {
   if (fs13.existsSync(file2)) fs13.copyFileSync(file2, `${file2}.bak`);
@@ -55295,10 +55475,11 @@ function install(host, opts = {}) {
   const plan = planFor(host, opts.remove);
   const dry = !!opts.dryRun;
   if (plan.file && plan.after !== void 0) {
-    if (plan.after === plan.before) log(`${plan.file}: already up to date`);
+    if (plan.after === plan.before || plan.before !== void 0 && !changedLines(plan.before, plan.after))
+      log(`${plan.file}: already up to date`);
     else {
       log(`${dry ? "would write" : "write"} ${plan.file}${plan.before !== void 0 && !dry ? " (previous version: .bak)" : ""}`);
-      if (dry) log(plan.after);
+      if (dry) log(changedLines(plan.before ?? "", plan.after));
       else {
         backup(plan.file);
         fs13.mkdirSync(path12.dirname(plan.file), { recursive: true });
@@ -55425,6 +55606,12 @@ var HELP = `nage \u2014 Nano Agent Graph Engine
                                  or a route like /instances); prints the URL
   nage agent [list]              agent profiles (which CLI runs agent steps) and the default
   nage agent default <name>      set the default profile (~/.agent-graph/agents.json)
+  nage agent add <name> --acp|--claude|--exec [--model-arg <flag>] [--model-first] [--model m]
+                 [--env K=V \u2026] [--description text] -- <command> [args\u2026]
+                                 any agent CLI: --acp speaks ACP over stdio; --exec is any other
+                                 CLI (the prompt replaces {prompt} in args, else goes to stdin,
+                                 and what it prints is the answer); --claude is claude -p
+  nage agent remove <name>       remove a profile you added
   nage agent show <flow>         the flow's agent steps: who runs each, and why
   nage agent assign <flow>[/<step>] <cli|-> [--model m]
                                  run a flow's (or one step's) agent steps on your CLI/model,
@@ -55442,8 +55629,9 @@ var HELP = `nage \u2014 Nano Agent Graph Engine
   The engine keeps its state in ~/.agent-graph (AGE_STATE_DIR); ~/AgentGraph/flows are
   global flows, offered in every project (AGE_HOME).`;
 function arg(name2) {
+  const end = process.argv.indexOf("--");
   const i = process.argv.indexOf(name2);
-  if (i < 0) return void 0;
+  if (i < 0 || end >= 0 && i > end) return void 0;
   const v2 = process.argv[i + 1];
   process.argv.splice(i, 2);
   return v2;
@@ -55510,6 +55698,22 @@ async function main() {
         console.log(formatAgentPlan2(await c.agentPlan(flowId, "cli")));
         break;
       }
+      if (rest[0] === "add") {
+        const { parseAgentAdd: parseAgentAdd2, addProfile: addProfile2 } = await Promise.resolve().then(() => (init_agents(), agents_exports));
+        const { name: name2, profile } = parseAgentAdd2(rest.slice(1));
+        const note = addProfile2(name2, profile);
+        const cmd2 = commandOf2(name2, profile);
+        console.log(`added ${name2}: ${profile.protocol} ${[cmd2, ...profile.args ?? []].join(" ")}${which2(cmd2) ? "" : "  (not installed here yet)"} (${agentsFile2()})${note ? `
+${note}` : ""}`);
+        console.log(`use it: nage agent default ${name2} | nage agent assign <flow>[/<step>] ${name2} | nage start <flow> --agent ${name2}`);
+        break;
+      }
+      if (rest[0] === "remove") {
+        const { removeProfile: removeProfile2 } = await Promise.resolve().then(() => (init_agents(), agents_exports));
+        if (!rest[1]) throw new Error("usage: nage agent remove <name>");
+        console.log(removeProfile2(rest[1]));
+        break;
+      }
       if (rest[0] === "default") {
         const all = allProfiles2();
         if (!rest[1] || !all[rest[1]]) throw new Error(`usage: nage agent default <${Object.keys(all).join("|")}>`);
@@ -55517,14 +55721,20 @@ async function main() {
         console.log(`default agent: ${rest[1]} (${agentsFile2()})`);
         break;
       }
-      const dflt = resolveAgent2({});
+      let dflt;
+      let dfltError = "";
+      try {
+        dflt = resolveAgent2({});
+      } catch (e) {
+        dfltError = e.message;
+      }
       for (const [name2, p2] of Object.entries(allProfiles2())) {
         const cmd2 = commandOf2(name2, p2);
         const found2 = which2(cmd2);
         console.log(`${name2 === dflt?.name ? "*" : " "} ${name2.padEnd(14)} ${p2.protocol.padEnd(6)} ${[cmd2, ...p2.args ?? []].join(" ")}${p2.model ? `  model=${p2.model}` : ""}  [${p2.source}${found2 ? "" : ", not installed"}]`);
       }
       console.log(`
-* default (${dflt?.reason ?? "none installed"}). Add profiles or set "default" in ${agentsFile2()};`);
+* default (${dflt?.reason ?? (dfltError || "none installed")}). Add profiles or set "default" in ${agentsFile2()};`);
       console.log(`  a run started from a host (Claude Code, OpenCode) uses that host's CLI unless a default is set.`);
       break;
     }

@@ -1,6 +1,7 @@
 export interface AgentProfile {
     /** "acp": Agent Client Protocol over stdio. "claude": `claude -p` print mode. */
-    protocol: "acp" | "claude";
+    /** "exec": any CLI — the prompt replaces "{prompt}" in args (else goes to stdin) and stdout is the result. */
+    protocol: "acp" | "claude" | "exec";
     command: string;
     args?: string[];
     env?: Record<string, string>;
@@ -8,12 +9,16 @@ export interface AgentProfile {
     model?: string;
     /** How the model is passed: a flag (e.g. "--model") … */
     modelArg?: string;
+    /** Put the model flag before args rather than after (kimi: `kimi -m <model> acp`). */
+    modelArgFirst?: boolean;
     /** … or env vars, with "{model}" replaced (OpenCode: OPENCODE_CONFIG_CONTENT). */
     modelEnv?: Record<string, string>;
     /** Shown in `nage agents` and the explorer. */
     description?: string;
 }
 export declare const BUILTIN_PROFILES: Record<string, AgentProfile>;
+/** When nothing picks a CLI, the first of these that's installed runs the step. */
+export declare const AUTO_ORDER: string[];
 /** The CLI each host runs on: a run started from that host defaults to it. */
 export declare const HOST_PROFILE: Record<string, string>;
 /** A choice of CLI and/or model for an agent step. */
@@ -44,8 +49,10 @@ export declare function writeAgentsFile(f: AgentsFile): void;
 export declare function allProfiles(flowProfiles?: Record<string, AgentProfile>, file?: AgentsFile): Record<string, AgentProfile & {
     source: string;
 }>;
-/** Absolute path of a command, looking past the minimal PATH Desktop starts us with. */
-export declare function which(command: string): string | undefined;
+/** Absolute path of a command, looking past the minimal PATH Desktop starts us with. A
+ *  relative path ("./ask.sh") is relative to `cwd` (the step's working directory). Only hits
+ *  are cached: a CLI installed after an incident is found when the step is retried. */
+export declare function which(command: string, cwd?: string): string | undefined;
 export interface ResolvedAgent {
     name: string;
     profile: AgentProfile;
@@ -70,10 +77,12 @@ export interface ResolveInput {
     host?: string;
     /** Read instead of ~/.agent-graph/agents.json (tests, previews). */
     file?: AgentsFile;
+    /** The step's working directory, for profiles whose command is a relative path. */
+    cwd?: string;
 }
 /** Pick the profile and model for an agent step. Undefined when nothing usable is installed.
- *  The user's own choices (run, step, flow, rank, default) must name a known profile — a typo
- *  there is an error, not a silent fallback. The author's suggestions only apply when that
+ *  The user's own choices (run, step, flow, rank, default) must name a known profile whose CLI
+ *  is installed — a typo or a missing CLI there is an error, not a silent fallback. The author's suggestions only apply when that
  *  CLI is known and installed here, so a flow from someone on another CLI just runs on yours. */
 export declare function resolveAgent(opts: ResolveInput): ResolvedAgent | undefined;
 /** Pull `--agent [step=]profile` and `--model [step=]model` (repeatable) out of CLI args:
@@ -82,6 +91,15 @@ export declare function takeRunAgents(args: string[]): {
     agents?: RunAgents;
     rest: string[];
 };
+/** `nage agent add <name> --acp|--claude|--exec [options] -- <command> [args…]` → a profile. */
+export declare function parseAgentAdd(argv: string[]): {
+    name: string;
+    profile: AgentProfile;
+};
+/** Add (or replace) a profile in agents.json. Returns a note when it shadows a preset. */
+export declare function addProfile(name: string, profile: AgentProfile): string | undefined;
+/** Remove a profile from agents.json; says what still points at it. */
+export declare function removeProfile(name: string): string;
 /** Set (or clear, with use/model null) an assignment in agents.json. No step: the whole flow. */
 export declare function assignAgent(a: {
     flowId?: string;
@@ -95,7 +113,7 @@ export declare function commandOf(name: string, p: AgentProfile): string;
 /** Is any agent CLI usable here (else agent steps go to the chat assistant)? */
 export declare function anyAgentInstalled(): boolean;
 /** Command line + env for a profile run with a model. */
-export declare function launch(name: string, p: AgentProfile, model?: string): {
+export declare function launch(name: string, p: AgentProfile, model?: string, cwd?: string): {
     command: string;
     args: string[];
     env: Record<string, string>;

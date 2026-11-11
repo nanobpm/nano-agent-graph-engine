@@ -74,7 +74,7 @@ export interface AgentOptions extends Omit<ClaudeOptions, "cwd" | "timeoutMs"> {
      *  an "Abort if this run was cancelled" section telling it to `curl -fsS` that URL before
      *  pushing or other irreversible actions (the URL 404s once the step is cancelled). */
     abortCheck?: boolean;
-    /** Suggested agent profile: "claude", "opencode", "nano-coder", "gemini", or one from
+    /** Suggested agent profile: "claude", "opencode", "nano-coder", "gemini", "qwen", "kimi", "copilot", or one from
      *  `agentProfiles`. Applies only where that CLI is installed and the user hasn't assigned
      *  this flow, step or rank to something else; otherwise the user's default runs it. */
     use?: string;

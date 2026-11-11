@@ -12797,8 +12797,59 @@ async function layoutBpmn(bpmnXml) {
     }
     throw new Error('layoutBpmn requires the optional peer dependency "bpmn-auto-layout". Install it to generate diagram layout: npm i bpmn-auto-layout', { cause });
   }
-  const result = await layoutProcess2(bpmnXml);
+  const result = await layoutProcess2(seedExpandedSubProcesses(bpmnXml));
   return typeof result === "string" ? result : result.xml;
+}
+var DI_NS = {
+  bpmndi: "http://www.omg.org/spec/BPMN/20100524/DI",
+  dc: "http://www.omg.org/spec/DD/20100524/DC"
+};
+function xmlAttrs(tag, allowSpacedEquals = false) {
+  const attrs = /* @__PURE__ */ new Map();
+  const body = tag.replace(/^<[^\s/>]+/, "");
+  for (const m of body.matchAll(/([^\s=/>]+)(\s*)=(\s*)(?:"([^"]*)"|'([^']*)')/g)) {
+    if (!allowSpacedEquals && (m[2] !== "" || m[3] !== ""))
+      continue;
+    const name2 = m[1];
+    const value = m[4] ?? m[5];
+    if (name2 !== void 0 && value !== void 0 && !attrs.has(name2))
+      attrs.set(name2, value);
+  }
+  return attrs;
+}
+function xmlId(tag) {
+  const id = xmlAttrs(tag).get("id");
+  return id === void 0 || id === "" ? void 0 : id;
+}
+function maskNonMarkup(xml3) {
+  return xml3.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>/g, (m) => " ".repeat(m.length));
+}
+function seedExpandedSubProcesses(bpmnXml) {
+  const scan = maskNonMarkup(bpmnXml);
+  if (/<(?:\w+:)?BPMNDiagram\b/.test(scan))
+    return bpmnXml;
+  const planes = [];
+  for (const proc of scan.matchAll(/<bpmn:process\b[^>]*>[\s\S]*?<\/bpmn:process>/g)) {
+    const procId = xmlId(proc[0].slice(0, proc[0].indexOf(">") + 1));
+    if (procId === void 0)
+      continue;
+    const subs = [...proc[0].matchAll(/<bpmn:subProcess\b[^>]*>/g)].filter((m) => xmlAttrs(m[0]).get("triggeredByEvent") !== "true").map((m) => xmlId(m[0])).filter((id) => id !== void 0);
+    if (subs.length === 0)
+      continue;
+    const shapes = subs.map((id, i) => `<bpmndi:BPMNShape id="Seed_${i}_${id}_di" bpmnElement="${id}" isExpanded="true"><dc:Bounds x="0" y="0" width="100" height="80"/></bpmndi:BPMNShape>`);
+    planes.push(`<bpmndi:BPMNDiagram id="Seed_${procId}_diagram"><bpmndi:BPMNPlane id="Seed_${procId}_plane" bpmnElement="${procId}">` + shapes.join("") + `</bpmndi:BPMNPlane></bpmndi:BPMNDiagram>`);
+  }
+  if (planes.length === 0)
+    return bpmnXml;
+  const end = /<\/bpmn:definitions>\s*$/.exec(scan);
+  const defs = /<bpmn:definitions\b[^>]*>/.exec(scan);
+  if (end === null || defs === null)
+    return bpmnXml;
+  const defsAttrs = xmlAttrs(defs[0], true);
+  const missing = Object.entries(DI_NS).filter(([prefix2]) => !defsAttrs.has(`xmlns:${prefix2}`)).map(([prefix2, uri2]) => ` xmlns:${prefix2}="${uri2}"`).join("");
+  const insertAt = defs.index + "<bpmn:definitions".length;
+  const xml3 = bpmnXml.slice(0, insertAt) + missing + bpmnXml.slice(insertAt, end.index) + planes.join("") + bpmnXml.slice(end.index);
+  return xml3;
 }
 
 // src/layout-thread.ts

@@ -112,7 +112,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
     - `env`: extra environment variables for the agent CLI, values with `{{name}}` placeholders, e.g. `{ AGENT_WORKSPACE: "{{workDir}}" }`.
     - `abortCheck: true`: the agent gets `AGE_JOB_STATUS_URL` and a prompt section telling it to `curl -fsS` that URL before pushing or other irreversible actions. The URL 404s once the step is cancelled. A cancelled step's CLI is also killed.
     - **Result file**: every agent run gets `AGENT_RESULT_FILE`. A JSON object the agent writes there becomes the step's variables, and wins over JSON in its final message. That is the Nano Workforce harness contract, so nwf prompts work unchanged (`prompt: { resourceId: "prompts/x.md" }` finds `flows/prompts/x.md`).
-    - `use`: a *suggested* agent — `claude`, `opencode`, `nano-coder`, `gemini`, or a profile from `export const agentProfiles = defineAgentProfiles({...})`. Only applies where that CLI is installed and the user hasn't assigned the flow/step/rank; otherwise their default runs it (an unknown one is a warning, not an error). Usually leave it out.
+    - `use`: a *suggested* agent — `claude`, `opencode`, `nano-coder`, `gemini`, `qwen`, `kimi`, `copilot`, or a profile from `export const agentProfiles = defineAgentProfiles({...})`. Only applies where that CLI is installed and the user hasn't assigned the flow/step/rank; otherwise their default runs it (an unknown one is a warning, not an error). Usually leave it out.
   - **Flow default**: `export const defaultAgent = "…"` (also only a suggestion).
   - The user picks CLIs and models with `flow_agents` / `nage agent assign`, or per run (`flow_start` `agents`); don't edit the flow for that.
 - **`w.task(name, { jobType: "session", agent: true })`** is work for the live Claude Code session.
@@ -124,7 +124,7 @@ export const triage = defineFlow("triage", { Start: { in: Input }, fetch: { in: 
 - **First of**: `w.race({ timeout: { timer: { after: "PT1H" }, do: (b) => … }, reply: { signal: { correlationKey: "prKey" }, do: (b) => … } })` waits for whichever event comes first. A timer + signal race is a poll delay that a message can cut short.
 - **SLA on a step**: `w.task(…).boundary({ timer: "PT50M", onTimeout: (b) => b.run("sla", …) })` cancels the step when the timer fires and runs `onTimeout`, which then continues with the rest of the flow.
 - **Fixed branches**: `w.parallel([(b) => …, (b) => …])` runs every branch and joins them before continuing.
-- **Fan-out**: `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` runs one branch per list item, with results collected in order. Options: `sequential`, `completionCondition`. Up to 4 headless agent branches run at once.
+- **Fan-out**: `w.forEach("items", "item", (b) => …, { outputCollection: "results", outputElement: "notes" })` runs one branch per list item, with results collected in order. Options: `sequential`, `completionCondition`, and `name` to label a multi-step body (it's drawn as an expanded sub-process). Up to 4 headless agent branches run at once.
 - **Waits**:
   - `w.timer(name, { after: "PT1H" })` waits for a duration.
   - `w.startOn({ cycle: "R/PT24H" })` starts the flow on a timer.

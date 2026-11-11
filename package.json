@@ -1,6 +1,6 @@
 {
   "name": "@nanobpm/nano-agent-graph-engine",
-  "version": "0.15.0",
+  "version": "0.17.1",
   "description": "Durable BPMN process engine for Claude Code: code-first flows (defineFlow) that orchestrate scripts, Claude Code agents and people.",
   "license": "Apache-2.0",
   "repository": {
@@ -63,7 +63,7 @@
     "@nanobpm/agentic": "^0.16.0",
     "@nanobpm/engine-wasm": "^0.11.0",
     "@nanobpm/nano-app-schema": "^0.11.0",
-    "@nanobpm/workflow": "^0.18.0",
+    "@nanobpm/workflow": "^0.19.0",
     "@tailwindcss/cli": "^4.3.5",
     "@tanstack/react-query": "^5.107.1",
     "@types/node": "^26.6.6",
