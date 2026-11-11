@@ -14,7 +14,7 @@ const fakeClaude = path.join(root, "test/fixtures/fake-claude.mjs");
 process.env.AGE_STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "age-agents-"));
 delete process.env.AGE_CLAUDE_CMD;
 
-const { resolveAgent, writeAgentsFile, readAgentsFile, assignAgent, takeRunAgents, rankOf, launch, allProfiles, parseAgentAdd, addProfile, removeProfile } = await import("../src/agents.ts");
+const { resolveAgent, writeAgentsFile, readAgentsFile, assignAgent, takeRunAgents, rankOf, launch, allProfiles, parseAgentAdd, addProfile, removeProfile, which } = await import("../src/agents.ts");
 const { runAgentCli } = await import("../src/agent-run.ts");
 type AgentsFile = import("../src/agents.ts").AgentsFile;
 
@@ -143,7 +143,8 @@ test("profile resolution: run > your step > your flow > your rank > author (if i
 
 test("agents.json: user profiles win over a flow's; host CLI only when installed", () => {
   const flowProfiles = { claude: { protocol: "acp" as const, command: "evil" } };
-  writeAgentsFile({ default: "nano-coder", profiles: { claude: { protocol: "claude", command: "claude" } } });
+  // (nano-coder pointed at node, so this doesn't depend on which agent CLIs this machine has)
+  writeAgentsFile({ default: "nano-coder", profiles: { claude: { protocol: "claude", command: "claude" }, "nano-coder": { protocol: "acp", command: process.execPath } } });
   assert.equal(resolveAgent({ host: "opencode" })!.name, "nano-coder");
   assert.equal(allProfiles(flowProfiles).claude.command, "claude");
   assert.equal(allProfiles(flowProfiles).claude.source, "agents.json");
@@ -216,6 +217,34 @@ test("exec: any CLI — prompt in {prompt} or on stdin, stdout is the answer, st
   // A non-zero exit fails the step with stderr.
   const fail = { protocol: "exec" as const, command: "sh", args: ["-c", "echo quota exceeded >&2; exit 2"] };
   await assert.rejects(runAgentCli({ name: "x", profile: fail, prompt: "p", cwd: os.tmpdir(), onTurn: () => {} }), /exited \(2\): quota exceeded/);
+});
+
+test("exec: a prompt with $& or $$ reaches the CLI as written", async () => {
+  const echo = { protocol: "exec" as const, command: process.execPath, args: ["-e", "console.log(process.argv[1])", "{prompt}"] };
+  assert.equal((await runAgentCli({ name: "x", profile: echo, prompt: "regex $& and shell $$ and $'", cwd: os.tmpdir(), onTurn: () => {} })).result, "regex $& and shell $$ and $'");
+});
+
+test("a relative command runs from the step's directory; a CLI installed after a miss is found", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "age-relcmd-"));
+  const script = path.join(dir, "ask.sh");
+  fs.writeFileSync(script, "#!/bin/sh\ncat | tail -n 0\necho from-script\n", { mode: 0o755 });
+  const mine = { protocol: "exec" as const, command: "./ask.sh" };
+  writeAgentsFile({ profiles: { mine } });
+  assert.equal(resolveAgent({ run: { "*": { use: "mine" } }, cwd: dir })!.name, "mine");
+  assert.throws(() => resolveAgent({ run: { "*": { use: "mine" } }, cwd: os.tmpdir() }), /isn't installed here/);
+  assert.equal((await runAgentCli({ name: "mine", profile: mine, prompt: "p", cwd: dir, onTurn: () => {} })).result, "from-script");
+  // Misses aren't cached: installing the CLI and retrying the step works without a restart.
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), "age-bin-"));
+  const PATH = process.env.PATH;
+  process.env.PATH = `${bin}:${PATH}`;
+  try {
+    assert.equal(which("age-late-cli"), undefined);
+    fs.copyFileSync(script, path.join(bin, "age-late-cli"));
+    assert.equal(which("age-late-cli"), path.join(bin, "age-late-cli"));
+  } finally {
+    process.env.PATH = PATH;
+  }
+  writeAgentsFile({});
 });
 
 test("nage agent add/remove: any CLI as a profile", () => {

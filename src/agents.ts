@@ -123,10 +123,16 @@ export function allProfiles(flowProfiles: Record<string, AgentProfile> = {}, fil
   return out;
 }
 
-const found = new Map<string, string | undefined>();
-/** Absolute path of a command, looking past the minimal PATH Desktop starts us with. */
-export function which(command: string): string | undefined {
+const found = new Map<string, string>();
+/** Absolute path of a command, looking past the minimal PATH Desktop starts us with. A
+ *  relative path ("./ask.sh") is relative to `cwd` (the step's working directory). Only hits
+ *  are cached: a CLI installed after an incident is found when the step is retried. */
+export function which(command: string, cwd?: string): string | undefined {
   if (path.isAbsolute(command)) return fs.existsSync(command) ? command : undefined;
+  if (command.includes("/")) {
+    const f = path.resolve(cwd ?? process.cwd(), command);
+    return fs.existsSync(f) ? f : undefined;
+  }
   if (found.has(command)) return found.get(command);
   const home = process.env.HOME ?? "";
   const dirs = [...(process.env.PATH ?? "").split(":"), `${home}/.local/bin`, `${home}/.claude/local`, `${home}/.opencode/bin`, "/opt/homebrew/bin", "/usr/local/bin"];
@@ -138,7 +144,7 @@ export function which(command: string): string | undefined {
       break;
     }
   }
-  found.set(command, hit);
+  if (hit) found.set(command, hit);
   return hit;
 }
 
@@ -167,6 +173,8 @@ export interface ResolveInput {
   host?: string;
   /** Read instead of ~/.agent-graph/agents.json (tests, previews). */
   file?: AgentsFile;
+  /** The step's working directory, for profiles whose command is a relative path. */
+  cwd?: string;
 }
 
 /** Pick the profile and model for an agent step. Undefined when nothing usable is installed.
@@ -192,7 +200,7 @@ export function resolveAgent(opts: ResolveInput): ResolvedAgent | undefined {
       if (mode === "author") skipped ??= `${name} (unknown here)`;
       return undefined;
     }
-    if (!which(commandOf(name, profile))) {
+    if (!which(commandOf(name, profile), opts.cwd)) {
       // Your own choice of CLI isn't silently swapped for another (another subscription,
       // another model): the step stops with an incident that says what to install or change.
       // (Worded without "ENOENT", which would hand every agent step to the chat assistant.)
@@ -331,14 +339,17 @@ export function commandOf(name: string, p: AgentProfile): string {
 
 /** Is any agent CLI usable here (else agent steps go to the chat assistant)? */
 export function anyAgentInstalled(): boolean {
-  const d = readAgentsFile().default;
-  if (d) return true;
-  return AUTO_ORDER.some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
+  const file = readAgentsFile();
+  if (file.default) return true;
+  // Your own profiles count (an `nage agent add`ed CLI may be the only one here), as do
+  // relative commands, which are only resolved against a step's working directory.
+  const yours = Object.entries(file.profiles ?? {}).some(([n, p]) => !path.isAbsolute(commandOf(n, p)) && commandOf(n, p).includes("/") || which(commandOf(n, p)));
+  return yours || AUTO_ORDER.some((n) => which(commandOf(n, BUILTIN_PROFILES[n])));
 }
 
 /** Command line + env for a profile run with a model. */
-export function launch(name: string, p: AgentProfile, model?: string): { command: string; args: string[]; env: Record<string, string> } {
-  const command = which(commandOf(name, p)) ?? commandOf(name, p);
+export function launch(name: string, p: AgentProfile, model?: string, cwd?: string): { command: string; args: string[]; env: Record<string, string> } {
+  const command = which(commandOf(name, p), cwd) ?? commandOf(name, p);
   const args = [...(p.args ?? [])];
   const env: Record<string, string> = { ...(p.env ?? {}) };
   const m = model ?? p.model;

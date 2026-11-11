@@ -58,10 +58,10 @@ export function runAgentCli(r: AgentRun): Promise<AgentOutcome> {
 // the step with its stderr. No tool calls or token counts: the CLI's output is all we see.
 
 async function runExec(r: AgentRun): Promise<AgentOutcome> {
-  const { command, args, env } = launch(r.name, r.profile, r.model);
+  const { command, args, env } = launch(r.name, r.profile, r.model, r.cwd);
   const text = `${r.system ? `${r.system}\n\n` : ""}${r.prompt}${schemaNote(r.schema)}`;
   const inArgs = args.some((a) => a.includes("{prompt}"));
-  const argv = inArgs ? args.map((a) => a.replaceAll("{prompt}", text)) : args;
+  const argv = inArgs ? args.map((a) => a.replaceAll("{prompt}", () => text)) : args;
   r.onTurn({ role: "USER", text });
   r.onEvent?.({ kind: "message", role: "user", text, mode: "snapshot", final: true });
   const started = Date.now();
@@ -97,7 +97,7 @@ function schemaNote(schema?: Record<string, unknown>): string {
 // ── ACP ──────────────────────────────────────────────────────────────────────────
 
 async function runAcp(r: AgentRun): Promise<AgentOutcome> {
-  const { command, args, env } = launch(r.name, r.profile, r.model);
+  const { command, args, env } = launch(r.name, r.profile, r.model, r.cwd);
   let stderr = "";
   const t = spawnAcpTransport({
     command,
@@ -214,7 +214,7 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
 // ── claude -p (stream-json) ──────────────────────────────────────────────────────
 
 async function runClaude(r: AgentRun): Promise<AgentOutcome> {
-  const { command, env } = launch(r.name, r.profile);
+  const { command, env } = launch(r.name, r.profile, undefined, r.cwd);
   // --include-partial-messages: text deltas as they're generated, for the live transcript.
   const args = ["-p", "--output-format", "stream-json", "--verbose", ...(r.onEvent ? ["--include-partial-messages"] : []), "--permission-mode", r.permissionMode ?? "dontAsk", ...(r.profile.args ?? [])];
   if (r.allowedTools?.length) args.push("--allowedTools", r.allowedTools.join(","));
