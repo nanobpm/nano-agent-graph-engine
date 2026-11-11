@@ -144,11 +144,12 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
       costUsd: cost?.currency === "USD" && cost.amount > 0 ? cost.amount : undefined,
     };
   } catch (e) {
-    // When the CLI dies, the ACP client's own error ("… exited") can win the race; report
-    // the exit with the CLI's stderr instead, once its streams are drained.
-    if (t.child.exitCode !== null || t.child.signalCode !== null) {
-      await Promise.race([closed, new Promise((r) => setTimeout(r, 1000))]);
-      if (!r.signal?.aborted) throw diedError();
+    // When the CLI dies, the first error is often a symptom (EPIPE writing to it, the ACP
+    // client's "… exited") and can come before Node sees the exit. Give it a moment to
+    // close; if it did die, report that with its stderr.
+    if (!r.signal?.aborted) {
+      await Promise.race([closed, new Promise((res) => setTimeout(res, 1000))]);
+      if (t.child.exitCode !== null || t.child.signalCode !== null) throw diedError();
     }
     throw e;
   } finally {
