@@ -67,6 +67,9 @@ async function runAcp(r: AgentRun): Promise<AgentOutcome> {
     env: { ...(process.env as Record<string, string>), ...env, ...r.env },
     onStderr: (c) => (stderr = (stderr + c).slice(-4000)),
   });
+  // The transport writes to the CLI's stdin without an error listener; when the CLI has
+  // died, EPIPE would be an uncaught exception (crashing the daemon). Its exit reports it.
+  t.child.stdin?.on("error", () => {});
   // "close", not "exit": by then stderr is drained, so the error carries the CLI's last words.
   const closed = new Promise<void>((resolve) => t.child.on("close", () => resolve()));
   const diedError = () => new Error(`${command} exited (${t.child.signalCode ?? t.child.exitCode}) before finishing: ${stderr.trim().slice(-1500)}`);
