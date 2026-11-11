@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { createRequire } from "node:module";
 import { Worker } from "node:worker_threads";
 import { declarativeToBpmn } from "@nanobpm/workflow";
 // @ts-expect-error -- bpmn-auto-layout 1.x ships no types
@@ -16,6 +17,22 @@ import { engineDir } from "./paths.ts";
 const budgetMs = () => Number(process.env.AGE_LAYOUT_MS ?? 5_000);
 const cacheDir = () => path.join(engineDir(), "layout-cache");
 const pending = new Map<string, Promise<string>>();
+
+/** The installed @nanobpm/workflow version, or "0" when it cannot be read. The layout it
+ *  produces changes between releases (0.19 expands forEach sub-processes), so the cache
+ *  key below includes it: a dependency bump must not keep serving pre-upgrade diagrams. */
+function workflowVersion(): string {
+  try {
+    const req = createRequire(import.meta.url);
+    const pkg = req.resolve("@nanobpm/workflow/package.json");
+    return (JSON.parse(fs.readFileSync(pkg, "utf8")) as { version?: string }).version ?? "0";
+  } catch {
+    return "0";
+  }
+}
+
+/** Cache namespace: bump when the layout output changes for identical XML. */
+const cacheVersion = `wf-${workflowVersion()}`;
 
 function threadUrl(): URL {
   const js = new URL("./layout-thread.js", import.meta.url);
@@ -46,7 +63,8 @@ function layoutV2(xml: string, file: string): Promise<string> {
 }
 
 export async function layoutXml(xml: string): Promise<string> {
-  const file = path.join(cacheDir(), `${crypto.createHash("sha256").update(xml).digest("hex").slice(0, 32)}.bpmn`);
+  const key = crypto.createHash("sha256").update(cacheVersion).update("\0").update(xml).digest("hex").slice(0, 32);
+  const file = path.join(cacheDir(), `${key}.bpmn`);
   try {
     return fs.readFileSync(file, "utf8");
   } catch {
