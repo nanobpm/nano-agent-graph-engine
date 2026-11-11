@@ -407,8 +407,9 @@ If no notifications appear on macOS, check System Settings → Notifications for
 ## Parallelism and fan-out
 
 Flows fan out with `w.parallel([...])`, a fixed set of branches, and
-`w.forEach("files", "file", body, { outputCollection, outputElement })`, one branch per
-list item with the results collected in order. Both are BPMN parallel gateways and
+`w.forEach("files", "file", body, { outputCollection, outputElement, name })`, one branch per
+list item with the results collected in order. A multi-step body is a sub-process, drawn
+expanded with its steps inline (`name` labels it, e.g. "Review & challenge each file"). Both are BPMN parallel gateways and
 multi-instance activities, so the engine joins the branches and continues only when
 all are done, or when `completionCondition` holds.
 
