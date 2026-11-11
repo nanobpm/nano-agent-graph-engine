@@ -18,14 +18,30 @@ const budgetMs = () => Number(process.env.AGE_LAYOUT_MS ?? 5_000);
 const cacheDir = () => path.join(engineDir(), "layout-cache");
 const pending = new Map<string, Promise<string>>();
 
-/** The installed @nanobpm/workflow version, or "0" when it cannot be read. The layout it
- *  produces changes between releases (0.19 expands forEach sub-processes), so the cache
- *  key below includes it: a dependency bump must not keep serving pre-upgrade diagrams. */
-function workflowVersion(): string {
+/** Injected by scripts/build.mjs (esbuild `define`): the published bundle inlines
+ *  @nanobpm/workflow and ships it only as a devDependency, so it cannot be resolved at runtime. */
+declare const __WORKFLOW_VERSION__: string | undefined;
+
+/** The @nanobpm/workflow version that generates layouts. The layout it produces changes
+ *  between releases (0.19 expands forEach sub-processes), so the cache key below includes
+ *  it: a dependency bump must not keep serving pre-upgrade diagrams. Bundled builds use the
+ *  build-time constant; source runs (dev/tests) resolve the installed package. */
+export function workflowVersion(): string {
+  if (typeof __WORKFLOW_VERSION__ === "string" && __WORKFLOW_VERSION__) return __WORKFLOW_VERSION__;
   try {
-    const req = createRequire(import.meta.url);
-    const pkg = req.resolve("@nanobpm/workflow/package.json");
-    return (JSON.parse(fs.readFileSync(pkg, "utf8")) as { version?: string }).version ?? "0";
+    // "./package.json" is not in the package's exports map, so resolve its entry point
+    // and walk up to the package root instead.
+    let dir = path.dirname(createRequire(import.meta.url).resolve("@nanobpm/workflow"));
+    for (;;) {
+      const f = path.join(dir, "package.json");
+      if (fs.existsSync(f)) {
+        const pkg = JSON.parse(fs.readFileSync(f, "utf8")) as { name?: string; version?: string };
+        if (pkg.name === "@nanobpm/workflow") return pkg.version ?? "0";
+      }
+      const up = path.dirname(dir);
+      if (up === dir) return "0";
+      dir = up;
+    }
   } catch {
     return "0";
   }

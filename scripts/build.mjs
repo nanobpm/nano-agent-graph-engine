@@ -13,6 +13,10 @@ const dist = path.join(root, "dist");
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
 
+// layout.ts keys its cache by the workflow version; the bundle inlines @nanobpm/workflow
+// (a devDependency), so it can't be resolved at runtime — embed the version here.
+const workflowVersion = JSON.parse(fs.readFileSync(path.join(root, "node_modules/@nanobpm/workflow/package.json"), "utf8")).version;
+if (!workflowVersion) throw new Error("cannot read @nanobpm/workflow version");
 const banner = { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" };
 await build({
   entryPoints: { cli: "src/cli.ts", index: "src/index.ts", "step-thread": "src/step-thread.ts", "layout-thread": "src/layout-thread.ts" },
@@ -22,6 +26,7 @@ await build({
   format: "esm",
   target: "node22",
   banner,
+  define: { __WORKFLOW_VERSION__: JSON.stringify(workflowVersion) },
   // cli.js loads flows that import "agent-graph-engine" → dist/index.js (resolve hook).
   external: ["@nanobpm/nano-agent-graph-engine", "nano-agent-graph-engine", "agent-graph-engine"],
   logLevel: "warning",

@@ -34,3 +34,13 @@ test("layout cache key is versioned: a stale pre-upgrade entry is not a hit", as
   const again = await layoutXml(XML);
   assert.equal(typeof again, "string");
 });
+
+test("workflow version resolves to a real version (not the wf-0 fallback)", async () => {
+  const { workflowVersion } = await import("../src/layout.ts");
+  assert.match(workflowVersion(), /^\d+\.\d+\.\d+/);
+});
+
+test("build embeds the workflow version so bundles don't fall back to wf-0", () => {
+  const build = fs.readFileSync(path.join(import.meta.dirname, "../scripts/build.mjs"), "utf8");
+  assert.match(build, /__WORKFLOW_VERSION__:\s*JSON\.stringify\(workflowVersion\)/);
+});
