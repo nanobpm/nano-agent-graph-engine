@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.18.0...v0.18.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* bundle process-explorer with the trace duration fix (nano-bpm[#1557](https://github.com/nanobpm/nano-agent-graph-engine/issues/1557)) ([#19](https://github.com/nanobpm/nano-agent-graph-engine/issues/19)) ([59e638c](https://github.com/nanobpm/nano-agent-graph-engine/commit/59e638c5f062807fbd2b0a83b75155829a4b56bb))
+
 ## [0.18.0](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.17.1...v0.18.0) (2026-11-11)
 
 
