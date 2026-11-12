@@ -1,6 +1,6 @@
 {
   "name": "nano-agent-graph-engine",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Nano Agent Graph Engine: write durable flows in TypeScript (defineFlow), compile them to BPMN, and run them in a local engine that orchestrates scripts, headless agents, this session and you (user tasks).",
   "license": "Apache-2.0",
   "keywords": [
