@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export const NANO_BPM_REV = "9cf92ec556968958f6550d9ebe67613527737030";
+export const NANO_BPM_REV = "929f40887d22ae5345f67597c21450d1b178ec21";
 const REPO = process.env.NANO_BPM_REPO ?? "https://github.com/nanobpm/nano-bpm.git";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 // Under node_modules/.cache: npm leaves it alone, and test runners skip node_modules.
