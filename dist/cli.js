@@ -1042,6 +1042,41 @@ function requireStartAt(timer) {
 function declarativeToBpmn(flow) {
   return new Compiler(flow).compile();
 }
+function jsonSchemaType(f2) {
+  if (f2.list)
+    return "array";
+  switch (f2.type) {
+    case "string":
+    case "datetime":
+      return "string";
+    case "integer":
+      return "integer";
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+  }
+}
+function toolProps(tool, input2) {
+  const props = [toolProp("name", tool.name), toolProp("purpose", tool.purpose)];
+  if (tool.inputs !== void 0)
+    props.push(toolProp("inputs", tool.inputs));
+  if (tool.whenToUse !== void 0)
+    props.push(toolProp("when_to_use", tool.whenToUse));
+  if (tool.whenNotToUse !== void 0)
+    props.push(toolProp("when_not_to_use", tool.whenNotToUse));
+  if (tool.results !== void 0)
+    props.push(toolProp("results", tool.results));
+  input2?.fields.forEach((f2, idx) => {
+    const i = idx + 1;
+    props.push(toolProp(`input_${i}_name`, f2.name));
+    props.push(toolProp(`input_${i}_type`, jsonSchemaType(f2)));
+    if (f2.description !== void 0)
+      props.push(toolProp(`input_${i}_description`, f2.description));
+    props.push(toolProp(`input_${i}_required`, f2.optional ? "false" : "true"));
+  });
+  return props;
+}
 function incomingOutgoing(inc, outg) {
   return inc.map((f2) => `      <bpmn:incoming>${f2}</bpmn:incoming>
 `).join("") + outg.map((f2) => `      <bpmn:outgoing>${f2}</bpmn:outgoing>
@@ -1056,7 +1091,7 @@ function sequenceFlow(e) {
   }
   return `    <bpmn:sequenceFlow id="${e.id}" sourceRef="${e.from}" targetRef="${e.to}"${nm} />`;
 }
-var Compiler, envelopeProp, feel, feelEquals, incomingOnly, outgoingOnly;
+var Compiler, TOOL_START_MESSAGE_ID, toolProp, envelopeProp, feel, feelEquals, incomingOnly, outgoingOnly;
 var init_declarative = __esm({
   "node_modules/@nanobpm/workflow/dist/declarative.js"() {
     init_xml();
@@ -1068,6 +1103,9 @@ var init_declarative = __esm({
       edges = [];
       /** envelope name → its fields, deduped for lifting to a single nano:shape. */
       envelopes = /* @__PURE__ */ new Map();
+      /** Every `<bpmn:message>` id emitted, recorded by {@link emitMessages} (the
+       *  single source) so lifted shape ids can be checked against it. */
+      messageIds = /* @__PURE__ */ new Set();
       /** The stack of open sub-process scopes; `.at(-1)` is the current scope (a
        *  node/edge created now nests inside it). Empty at the top level. */
       scopeStack = [];
@@ -1268,12 +1306,22 @@ ${props.join("\n")}
         const t = this.flow.startTimer;
         const input2 = this.flow.input;
         this.recordEnvelope(input2);
-        const ext = input2 ? `      <bpmn:extensionElements>
+        const props = [
+          ...input2 ? [envelopeProp("in", input2.name)] : [],
+          ...this.flow.tool ? toolProps(this.flow.tool, input2) : []
+        ];
+        const ext = props.length ? `      <bpmn:extensionElements>
         <zeebe:properties>
-${envelopeProp("in", input2.name)}
+${props.join("\n")}
         </zeebe:properties>
       </bpmn:extensionElements>
 ` : "";
+        if (this.flow.tool) {
+          return `    <bpmn:startEvent id="Start">
+` + ext + `      ${outgoingOnly(outg)}
+      <bpmn:messageEventDefinition messageRef="${TOOL_START_MESSAGE_ID}" />
+    </bpmn:startEvent>`;
+        }
         if (!t) {
           if (!ext)
             return `    <bpmn:startEvent id="Start">${outgoingOnly(outg)}</bpmn:startEvent>`;
@@ -1306,6 +1354,7 @@ ${ext}      ${outgoingOnly(outg)}
         this.live = this.edges.filter((e) => e.to !== void 0);
         const bodyXml = this.renderScope(void 0);
         const messageXml = this.emitMessages();
+        this.assertShapeIdsDisjointFromMessages();
         const shapeXml = this.emitShapes();
         return `<?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:nano="https://nanobpm.io/schema/shapes/1.0" id="Definitions_${escapeXml(this.flow.id)}" targetNamespace="http://bpmn.io/schema/bpmn">
@@ -1319,10 +1368,15 @@ ${ext}      ${outgoingOnly(outg)}
        *  typed) its payload data envelope. */
       emitMessages() {
         const msgs = [];
+        if (this.flow.tool) {
+          this.messageIds.add(TOOL_START_MESSAGE_ID);
+          msgs.push(`  <bpmn:message id="${TOOL_START_MESSAGE_ID}" name="${escapeXml(messageName(this.flow.id, "Start"))}" />`);
+        }
         walkNodes(this.flow.steps, (n) => {
           if (n.kind !== "signal")
             return;
           const msgId = `Msg_${n.name}`;
+          this.messageIds.add(msgId);
           const payloadProp = n.payload ? `
       <zeebe:properties>
 ${envelopeProp("in", n.payload.name)}
@@ -1334,6 +1388,18 @@ ${envelopeProp("in", n.payload.name)}
   </bpmn:message>`);
         });
         return msgs.join("\n");
+      }
+      /** Every lifted envelope becomes `<nano:shape id=NAME>` and every message a
+       *  `<bpmn:message id="Msg_…">` (the tool start message and one per signal step,
+       *  anywhere in the tree). Any overlap is a duplicate id → an invalid document,
+       *  so check the COLLECTED shape set (step in/out, signal payloads, nested
+       *  steps — every envelope source) against the derived message ids, fail-closed. */
+      assertShapeIdsDisjointFromMessages() {
+        for (const name2 of this.envelopes.keys()) {
+          if (this.messageIds.has(name2)) {
+            throw new Error(`envelope "${name2}" collides with the generated <bpmn:message> id in flow "${this.flow.id}" \u2014 rename the envelope`);
+          }
+        }
       }
       /** Lift the referenced data envelopes into a `<nano:shapes>` container on the
        *  process extension elements, so the model carries the typed contracts and is
@@ -1358,6 +1424,8 @@ ${shapes.join("\n")}
     </bpmn:extensionElements>`;
       }
     };
+    TOOL_START_MESSAGE_ID = "Msg_Start";
+    toolProp = (key, value) => `          <zeebe:property name="io.camunda.tool:${key}" value="${escapeXml(value)}" />`;
     envelopeProp = (dir, value) => `          <zeebe:property name="io.nanobpm.dataEnvelope.${dir}" value="${escapeXml(value)}" />`;
     feel = (expr) => `=${expr}`;
     feelEquals = (subject, value) => `=${subject} = "${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
@@ -29203,7 +29271,7 @@ var init_layout = __esm({
     init_dist7();
     init_paths();
     workflowVersion = (() => {
-      if ("0.19.0") return "0.19.0";
+      if ("0.20.0") return "0.20.0";
       try {
         let dir = path2.dirname(createRequire(import.meta.url).resolve("@nanobpm/workflow"));
         while (!fs2.existsSync(path2.join(dir, "package.json")) && path2.dirname(dir) !== dir) dir = path2.dirname(dir);

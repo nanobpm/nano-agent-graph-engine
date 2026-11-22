@@ -910,7 +910,21 @@ function makeBuilder(id, out, ctx, isRoot = false) {
       throw new Error(`startOn() must be the first statement in flow "${id}"`);
     if (ctx.startTimer)
       throw new Error(`startOn() may be called only once in flow "${id}"`);
+    if (ctx.tool)
+      throw new Error(`startOn() cannot be combined with exposeAsTool() in flow "${id}"`);
     ctx.startTimer = t;
+  };
+  const setTool = (t) => {
+    if (!isRoot) {
+      throw new Error(`exposeAsTool() is only valid at the top level of flow "${id}" (not inside switch/branch/loop)`);
+    }
+    if (out.length !== 0)
+      throw new Error(`exposeAsTool() must precede every step in flow "${id}"`);
+    if (ctx.tool)
+      throw new Error(`exposeAsTool() may be called only once in flow "${id}"`);
+    if (ctx.startTimer)
+      throw new Error(`exposeAsTool() cannot be combined with startOn() in flow "${id}"`);
+    ctx.tool = t;
   };
   let builderRef;
   const api = {
@@ -935,10 +949,12 @@ function makeBuilder(id, out, ctx, isRoot = false) {
     contractEnvelopes(name) {
       return contractEnvelopes(ctx, name);
     },
-    setStartTimer
+    setStartTimer,
+    setTool
   };
   const methods = /* @__PURE__ */ Object.create(null);
   methods.startOn = startOnMethod(api);
+  methods.exposeAsTool = exposeAsToolMethod(api);
   for (const [kind, handlers] of eachNodeKind()) {
     if (!handlers.build)
       continue;
@@ -959,6 +975,7 @@ function makeBuilder(id, out, ctx, isRoot = false) {
 }
 var BUILTIN_BUILDER_METHODS = [
   "startOn",
+  "exposeAsTool",
   "run",
   "task",
   "signal",
@@ -1014,6 +1031,31 @@ function startOnMethod(api) {
     return api.self();
   };
 }
+var TOOL_TEXT_KEYS = ["inputs", "whenToUse", "whenNotToUse", "results"];
+function exposeAsToolMethod(api) {
+  return (opts) => {
+    if (opts === null || typeof opts !== "object") {
+      throw new Error(`exposeAsTool() needs an options object in flow "${api.id}"`);
+    }
+    for (const key of ["name", "purpose"]) {
+      const v = opts[key];
+      if (typeof v !== "string" || v.trim() === "") {
+        throw new Error(`exposeAsTool() needs a non-empty \`${key}\` in flow "${api.id}"`);
+      }
+    }
+    const tool = { name: opts.name.trim(), purpose: opts.purpose };
+    for (const key of TOOL_TEXT_KEYS) {
+      const v = opts[key];
+      if (v === void 0)
+        continue;
+      if (typeof v !== "string")
+        throw new Error(`exposeAsTool() \`${key}\` must be a string in flow "${api.id}"`);
+      tool[key] = v;
+    }
+    api.setTool(tool);
+    return api.self();
+  };
+}
 function defineFlow(id, second, third) {
   assertIdent("workflow id", id);
   if (typeof second !== "function" && (second === null || typeof second !== "object")) {
@@ -1040,11 +1082,32 @@ function defineFlow(id, second, third) {
   const flow = { kind: "declarative", id, steps, handlers };
   if (ctx.startTimer)
     flow.startTimer = ctx.startTimer;
+  if (ctx.tool)
+    flow.tool = ctx.tool;
   const input = startInput(id, contracts);
   if (input)
     flow.input = input;
+  if (ctx.tool)
+    assertToolExposure(id, input);
   return flow;
 }
+function assertToolExposure(id, input) {
+  if (id === TOOL_START_MESSAGE_ID) {
+    throw new Error(`exposeAsTool() in flow "${id}": the flow id "${TOOL_START_MESSAGE_ID}" collides with the generated start message id \u2014 rename the flow`);
+  }
+  if (input === void 0)
+    return;
+  if (input.name === TOOL_START_MESSAGE_ID) {
+    throw new Error(`exposeAsTool() in flow "${id}": the input envelope "${TOOL_START_MESSAGE_ID}" collides with the generated start message id (it lifts to a nano:shape with that id) \u2014 rename the envelope`);
+  }
+  for (const f of input.fields) {
+    if (f.name === TOOL_RESERVED_INPUT_FIELD) {
+      throw new Error(`exposeAsTool() in flow "${id}": the input field "${TOOL_RESERVED_INPUT_FIELD}" is reserved by the MCP tool surface (it is stripped from the process variables), so the field would never reach the flow \u2014 rename it`);
+    }
+  }
+}
+var TOOL_START_MESSAGE_ID = "Msg_Start";
+var TOOL_RESERVED_INPUT_FIELD = "businessId";
 var feel = (expr) => `=${expr}`;
 var feelEquals = (subject, value) => `=${subject} = "${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 function incomingOutgoing(inc, outg) {
@@ -1079,12 +1142,19 @@ function normaliseField(name, spec) {
   if (!SCALARS.has(raw.type)) {
     throw new Error(`envelope field "${name}": unknown type "${raw.type}" (expected one of ${[...SCALARS].join(", ")})`);
   }
-  return {
+  const field = {
     name,
     type: raw.type,
     optional: typeof spec === "object" && spec.optional === true,
     list: typeof spec === "object" && spec.list === true
   };
+  if (typeof spec === "object" && spec.description !== void 0) {
+    if (typeof spec.description !== "string") {
+      throw new Error(`envelope field "${name}": description must be a string`);
+    }
+    field.description = spec.description;
+  }
+  return field;
 }
 function envelope(name, fields) {
   assertIdent("envelope name", name);
