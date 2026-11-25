@@ -30881,27 +30881,24 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * The AgentHistory turns for `agent_instance_key`, as an
-       * `AgentInstanceHistorySearchQueryResult` JSON object (`{ items, page }`),
-       * in the engine's canonical `(loopIteration, producedAt, historyItemKey)`
-       * order. `filter_json` is `{ commitStatus? }` where `commitStatus` is a REST
-       * spelling or array of them; **omitting it defaults to COMMITTED only**
-       * (PENDING/DISCARDED surface only when asked for explicitly). Accepts the
-       * canonical REST envelope `{ "filter": { commitStatus? } }` as well as the
-       * top-level shorthand. Mirrors
-       * `POST /agent-instances/{agentInstanceKey}/history/search`.
+       * `searchAgentInstanceHistory` — mirrors
+       * `POST /agent-instances/{agentInstanceKey}/history/search`. `query_json`
+       * is the spec's `AgentInstanceHistorySearchQuery`, run through the shared
+       * `nanobpmn_search` pipeline (COMMITTED-only unless `commitStatus` asks
+       * otherwise; every filter operator, sort, limit/cursor paging). Returns the
+       * generated `AgentInstanceHistorySearchQueryResult` as JSON.
        * @param {string} agent_instance_key
-       * @param {string} filter_json
+       * @param {string} query_json
        * @returns {string}
        */
-      searchAgentInstanceHistory(agent_instance_key, filter_json) {
+      searchAgentInstanceHistory(agent_instance_key, query_json) {
         let deferred4_0;
         let deferred4_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
           const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          const ptr1 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr1 = passStringToWasm0(query_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len1 = WASM_VECTOR_LEN;
           wasm.testengine_searchAgentInstanceHistory(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -30924,23 +30921,22 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * The AgentInstances matching an optional filter, as an
-       * `AgentInstanceSearchQueryResult` JSON object (`{ items, page }`). The
-       * filter is `{ agentInstanceKey?, agentDefinitionKey?, processInstanceKey?,
-       * rootProcessInstanceKey?, processDefinitionKey?, status?, elementId?,
-       * tenantId? }` (`status` a REST spelling, e.g. `"INITIALIZING"`); an
-       * empty/absent filter returns every instance. Accepts the canonical REST
-       * envelope `{ "filter": { … } }` as well as the top-level shorthand.
-       * Mirrors `POST /agent-instances/search`.
-       * @param {string} filter_json
+       * `searchAgentInstances` — mirrors `POST /agent-instances/search`.
+       * `query_json` is the spec's `AgentInstanceSearchQuery` (`{ filter?, sort?,
+       * page? }`; empty ⇒ no query), parsed into the generated model and run
+       * through the SAME `nanobpmn_search` pipeline the gateway serves (every
+       * filter operator, sort, limit/cursor paging). Returns the generated
+       * `AgentInstanceSearchQueryResult` as JSON. A property the spec does not
+       * define is rejected, never silently ignored.
+       * @param {string} query_json
        * @returns {string}
        */
-      searchAgentInstances(filter_json) {
+      searchAgentInstances(query_json) {
         let deferred3_0;
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr0 = passStringToWasm0(query_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_searchAgentInstances(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -34180,7 +34176,7 @@ async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
         return t ? send(res, 200, t) : send(res, 404, { error: "no trace" });
       }
       if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/instances\/([^/]+)\/agents$/)))
-        return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ processInstanceKey: mm[1] }))).items);
+        return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ filter: { processInstanceKey: mm[1] } }))).items);
       if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/agents\/([^/]+)\/history$/)))
         return send(res, 200, JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items);
       if (req.method === "GET" && (mm = m2(/^\/api\/explorer\/agents\/([^/]+)\/transcript$/))) {
