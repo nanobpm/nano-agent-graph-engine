@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.4](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.18.3...v0.18.4) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** adopt @nanobpm/engine-wasm ^0.13.0 ([#25](https://github.com/nanobpm/nano-agent-graph-engine/issues/25)) ([82e97ac](https://github.com/nanobpm/nano-agent-graph-engine/commit/82e97acd407afe6dab00607cddb770e8168d8182))
+
 ## [0.18.3](https://github.com/nanobpm/nano-agent-graph-engine/compare/v0.18.2...v0.18.3) (2026-11-24)
 
 
