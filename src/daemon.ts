@@ -906,7 +906,7 @@ export async function serve(port = Number(process.env.AGE_PORT ?? 0)) {
       }
       // Agent sessions: the engine's AgentInstance read model (committed history only).
       if (req.method === "GET" && (mm = m(/^\/api\/explorer\/instances\/([^/]+)\/agents$/)))
-        return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ processInstanceKey: mm[1] }))).items);
+        return send(res, 200, JSON.parse(host.engine.searchAgentInstances(JSON.stringify({ filter: { processInstanceKey: mm[1] } }))).items);
       if (req.method === "GET" && (mm = m(/^\/api\/explorer\/agents\/([^/]+)\/history$/)))
         return send(res, 200, JSON.parse(host.engine.searchAgentInstanceHistory(mm[1], "{}")).items);
       // The same, by AgentInstance (what the explorer's agent panel knows): its job's stream.
