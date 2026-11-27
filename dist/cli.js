@@ -29588,6 +29588,10 @@ function __wbg_get_imports() {
       const ret = /* @__PURE__ */ new Date();
       return addHeapObject(ret);
     },
+    __wbg_new_358857d90afd5a2d: function(arg0, arg1) {
+      const ret = new Error(getStringFromWasm0(arg0, arg1));
+      return addHeapObject(ret);
+    },
     __wbg_new_f9d6489212f3b2b3: function(arg0) {
       const ret = new Date(getObject(arg0));
       return addHeapObject(ret);
@@ -29603,6 +29607,12 @@ function __wbg_get_imports() {
     __wbg_random_b0d98802be10ff20: function() {
       const ret = Math.random();
       return ret;
+    },
+    __wbg_set_8155bb79a948541b: function() {
+      return handleError(function(arg0, arg1, arg2) {
+        const ret = Reflect.set(getObject(arg0), getObject(arg1), getObject(arg2));
+        return ret;
+      }, arguments);
     },
     __wbindgen_cast_0000000000000001: function(arg0) {
       const ret = arg0;
@@ -29748,10 +29758,9 @@ var init_nanobpmn_engine = __esm({
         wasm.__wbg_testengine_free(ptr, 0);
       }
       /**
-       * Activate up to `max_jobs` `Created` jobs of `job_type`, locking them to
-       * `worker` until `now + timeout_ms`. Returns a JSON array of activated jobs
-       * (key, type, instance/element, retries, variables) for the dispatch loop to
-       * hand to worker handlers. The host owns the wall clock via `tickNow`.
+       * Activate up to `max_jobs` jobs of `job_type` through
+       * `POST /jobs/activation` (`timeout_ms` ≤ 0 ⇒ 30 s). Returns the activated
+       * jobs in the positional shape (`key`, `type`, `instanceKey`, …).
        * @param {string} job_type
        * @param {number} max_jobs
        * @param {number} timeout_ms
@@ -29820,9 +29829,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Assign a user task to `assignee`. When `allow_override` is false and the
-       * task already has an assignee the command is rejected (it must be
-       * unassigned first). Returns the snapshot.
+       * Assign a user task through `POST /user-tasks/{userTaskKey}/assignment`.
+       * Returns the snapshot.
        * @param {string} user_task_key
        * @param {string} assignee
        * @param {boolean} allow_override
@@ -29858,10 +29866,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Broadcast a signal by name to **every** open subscription that matches,
-       * across all instances, merging `variables_json` into each correlated
-       * instance. Signals correlate by name only and are not buffered. Returns
-       * the snapshot.
+       * Broadcast a signal through `POST /signals/broadcast`. Returns the
+       * snapshot.
        * @param {string} signal_name
        * @param {string} variables_json
        * @returns {string}
@@ -29896,9 +29902,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Cancel (terminate) a running process instance by key. Every token is
-       * discarded, pending jobs are canceled, and the instance transitions to
-       * `Terminated`. Returns the snapshot.
+       * Cancel a process instance through
+       * `POST /process-instances/{processInstanceKey}/cancellation`. Returns the
+       * snapshot.
        * @param {string} instance_key
        * @returns {string}
        */
@@ -29983,6 +29989,10 @@ var init_nanobpmn_engine = __esm({
        * (no tool activated). `variables_json` merges instance variables exactly
        * like `completeJob` — e.g. the agent's final
        * decision when it signals `completionConditionFulfilled`.
+       *
+       * @deprecated Use `handle("POST", "/jobs/{jobKey}/completion", …)` — the REST
+       * route this duplicates. Kept because the in-browser route still rejects a
+       * job `result` (`activateElements`), which this method supports.
        * @param {string} job_key
        * @param {string} variables_json
        * @param {string} agent_result_json
@@ -30023,9 +30033,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Complete a waiting job by key, merging `variables_json` (a JSON object
-       * string) into the instance. The job is activated first if it has not been
-       * already, so the UI can complete a freshly-created job directly.
+       * Complete a job through `POST /jobs/{jobKey}/completion`, merging
+       * `variables_json`. Without a lease token a `Created` job is activated
+       * first, so the UI can complete a freshly-created job. Returns the snapshot.
        * @param {string} job_key
        * @param {string} variables_json
        * @param {string | null} [lease_token]
@@ -30063,9 +30073,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Complete a waiting user task by key, merging `variables_json` into the
-       * instance before the parked token resumes. The task must be in the
-       * `Created` state. Returns the snapshot.
+       * Complete a user task through `POST /user-tasks/{userTaskKey}/completion`.
+       * Returns the snapshot.
        * @param {string} user_task_key
        * @param {string} variables_json
        * @returns {string}
@@ -30177,12 +30186,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Start a new instance of `process_id`, seeding it with the given variables
-       * (a JSON object string; pass `"{}"` or `""` for none). `version` selects a
-       * specific process **version** number (Zeebe by-id semantics); pass
-       * `undefined`/`null` (or a non-positive value) for the latest version.
-       * Returns the post-run [`Snapshot`] with a top-level `created` field holding
-       * the new instance key.
+       * Start an instance through `POST /process-instances`. `version` selects
+       * a process version (non-positive / absent ⇒ latest). Returns the
+       * snapshot with `created` holding the new instance key.
        * @param {string} process_id
        * @param {string} variables_json
        * @param {number | null} [version]
@@ -30351,15 +30357,10 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Parse and deploy a BPMN **or** DMN resource — the one entry point accepts
-       * both (issue #1158). A BPMN process resource deploys as before and returns
-       * `{ "processIds": [...], "snapshot": {...} }`. A DMN decision resource (no
-       * `<process>` element) is routed to decision deployment and returns the same
-       * shape as the `deployDecision` method
-       * (`{ "decisionRequirementsId": ..., "decisionRequirementsKey": ..., "version": N, "decisions": [{ "decisionId", "decisionName", "decisionKey", "version" }], "snapshot": {...} }`),
-       * so a `zeebe:calledDecision` on a business rule task can finally resolve.
-       * On failure it throws a JS error carrying the parse/deploy message for the
-       * format the document most resembles.
+       * Parse and deploy a BPMN **or** DMN resource through
+       * `POST /deployments`. A BPMN resource returns
+       * `{ "processIds": [...], "snapshot": {...} }`; a DMN resource (one that
+       * declares the DMN namespace) returns the `deployDecision` shape.
        * @param {string} xml
        * @returns {string}
        */
@@ -30391,12 +30392,10 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Parse and deploy a DMN decision-requirements resource explicitly. Registers
-       * every `<decision>` it contains (by id) so a business rule task's
-       * `zeebe:calledDecision` resolves and `evaluateDecision` can run it. Returns a
-       * JSON object
-       * `{ "decisionRequirementsId": ..., "decisionRequirementsKey": ..., "version": N, "decisions": [{ "decisionId", "decisionName", "decisionKey", "version" }], "snapshot": {...} }`
-       * on success, or throws a JS error carrying the parse/deploy failure message.
+       * Deploy a DMN decision-requirements resource through `POST /deployments`.
+       * Returns `{ "decisionRequirementsId", "decisionRequirementsKey",
+       * "version", "decisions": [{ "decisionId", "decisionName", "decisionKey",
+       * "version" }], "snapshot" }`.
        * @param {string} xml
        * @returns {string}
        */
@@ -30428,17 +30427,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Deploy a single `form-js` `.form` resource (the verbatim form-js JSON
-       * document). Mirrors the native deploy decomposition, which registers a
-       * `.form` resource as a [`Command::DeployForms`] (stored, not executed) so
-       * `getFormByKey` can serve its schema. The form-js document's `id` is the
-       * form identifier used for versioning/lookup — a body without a non-empty
-       * string `id` is a client error (native parity). The deploy resource name is
-       * derived as `<id>.form`.
-       *
-       * Returns a JSON object
-       * `{ "formKey": "...", "formId": "...", "version": N, "resourceName": "...", "snapshot": {...} }`
-       * on success, or throws a JS error carrying the parse/deploy failure message.
+       * Deploy a `form-js` `.form` resource (named `<id>.form`) through
+       * `POST /deployments`. Returns `{ "formKey", "formId", "version",
+       * "resourceName", "snapshot" }`.
        * @param {string} schema
        * @returns {string}
        */
@@ -30470,17 +30461,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Deploy a single generic resource (any deployed file that is not a
-       * BPMN/DMN/form — e.g. a Markdown agent prompt) under `resource_name` with
-       * the given verbatim `content`. Mirrors the native deploy decomposition,
-       * which registers such a file as a [`Command::DeployGenericResources`]
-       * (stored, not executed) so `getResourceByKey` can serve its content. The
-       * `resource_id` is the filename (`resource_name`), matching Zeebe's default
-       * resource transformer.
-       *
-       * Returns a JSON object
-       * `{ "resourceKey": "...", "resourceId": "...", "version": N, "resourceName": "...", "snapshot": {...} }`
-       * on success, or throws a JS error carrying the deploy failure message.
+       * Deploy a resource under `resource_name` through `POST /deployments`
+       * (classified by its extension, as the gateway does). Returns
+       * `{ "resourceKey", "resourceId", "version", "resourceName", "snapshot" }`.
        * @param {string} resource_name
        * @param {string} content
        * @returns {string}
@@ -30590,8 +30573,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Fail a waiting job by key with the given remaining `retries` and message.
-       * With no retries left this raises an incident (visible in the snapshot).
+       * Fail a job through `POST /jobs/{jobKey}/failure` with the remaining
+       * `retries` and `message` (activating a `Created` job first when no lease
+       * token is given). Returns the snapshot.
        * @param {string} job_key
        * @param {number} retries
        * @param {string} message
@@ -30630,9 +30614,40 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * The latest deployed form for `form_key`, as a `FormResult` JSON object
-       * (`{ tenantId, formId, schema, version, formKey }`), or JSON `null` when no
-       * form with that key exists. Mirrors `GET /forms/{formKey}`.
+       * `GET /agent-instances/{agentInstanceKey}`: the `AgentInstanceResult`
+       * JSON, or `null` on 404.
+       * @param {string} agent_instance_key
+       * @returns {string}
+       */
+      getAgentInstance(agent_instance_key) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(agent_instance_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_getAgentInstance(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * `GET /forms/{formKey}`: the `FormResult` JSON, or `null` on 404.
        * @param {string} form_key
        * @returns {string}
        */
@@ -30664,9 +30679,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * The generic resource for `resource_key`, as a `ResourceResult` JSON object,
-       * or JSON `null` when no resource with that key exists. Mirrors
-       * `GET /resources/{resourceKey}`.
+       * `GET /resources/{resourceKey}`: the `ResourceResult` JSON, or `null` on
+       * 404.
        * @param {string} resource_key
        * @returns {string}
        */
@@ -30695,6 +30709,45 @@ var init_nanobpmn_engine = __esm({
         } finally {
           wasm.__wbindgen_add_to_stack_pointer(16);
           wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * `handle` — the transport-free REST driver (#992): serve one Camunda v2
+       * REST request as the gateway would. `method` is the HTTP method, `path`
+       * the request target (with or without the `/v2` prefix; a query string is
+       * honoured), `headers_json` a JSON object of header name → value (empty ⇒
+       * none; `content-type` carries a multipart deployment's boundary) and
+       * `body` the request body. Returns `{ "status", "headers", "body" }` as
+       * JSON; never throws — a rejection is an RFC 9457 ProblemDetail response
+       * whose status/title/detail come from the shared engine-error mapping.
+       * @param {string} method
+       * @param {string} path
+       * @param {string} headers_json
+       * @param {string} body
+       * @returns {string}
+       */
+      handle(method, path15, headers_json, body2) {
+        let deferred5_0;
+        let deferred5_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(method, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          const ptr1 = passStringToWasm0(path15, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len1 = WASM_VECTOR_LEN;
+          const ptr2 = passStringToWasm0(headers_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len2 = WASM_VECTOR_LEN;
+          const ptr3 = passStringToWasm0(body2, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len3 = WASM_VECTOR_LEN;
+          wasm.testengine_handle(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          deferred5_0 = r0;
+          deferred5_1 = r1;
+          return getStringFromWasm0(r0, r1);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred5_0, deferred5_1, 1);
         }
       }
       /**
@@ -30803,6 +30856,54 @@ var init_nanobpmn_engine = __esm({
         return ret;
       }
       /**
+       * Publish a message with a Zeebe `timeToLive` (ms) and optional
+       * `messageId` (#1874, #1969): it correlates to any instance waiting on it
+       * now, and with a positive TTL is additionally BUFFERED until the virtual
+       * clock passes `now + ttl_ms`, so a subscription opened later still
+       * correlates it. A `ttl_ms` of `0` never buffers. A `message_id` still
+       * buffered for the same name and correlation key is rejected (an error,
+       * as Zeebe's `ALREADY_EXISTS`). Returns the snapshot.
+       * @param {string} message_name
+       * @param {string} correlation_key
+       * @param {string} variables_json
+       * @param {number} ttl_ms
+       * @param {string | null} [message_id]
+       * @returns {string}
+       */
+      publishMessage(message_name, correlation_key, variables_json, ttl_ms, message_id) {
+        let deferred6_0;
+        let deferred6_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(message_name, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          const ptr1 = passStringToWasm0(correlation_key, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len1 = WASM_VECTOR_LEN;
+          const ptr2 = passStringToWasm0(variables_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len2 = WASM_VECTOR_LEN;
+          var ptr3 = isLikeNone(message_id) ? 0 : passStringToWasm0(message_id, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          var len3 = WASM_VECTOR_LEN;
+          wasm.testengine_publishMessage(retptr, this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ttl_ms, ptr3, len3);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr5 = r0;
+          var len5 = r1;
+          if (r3) {
+            ptr5 = 0;
+            len5 = 0;
+            throw takeObject(r2);
+          }
+          deferred6_0 = ptr5;
+          deferred6_1 = len5;
+          return getStringFromWasm0(ptr5, len5);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred6_0, deferred6_1, 1);
+        }
+      }
+      /**
        * Restore a complete trace returned by `events()`, using the core journal
        * decoder and replay engine. Replaces this simulation only after decoding succeeds.
        * @param {string} events_json
@@ -30881,12 +30982,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * `searchAgentInstanceHistory` — mirrors
-       * `POST /agent-instances/{agentInstanceKey}/history/search`. `query_json`
-       * is the spec's `AgentInstanceHistorySearchQuery`, run through the shared
-       * `nanobpmn_search` pipeline (COMMITTED-only unless `commitStatus` asks
-       * otherwise; every filter operator, sort, limit/cursor paging). Returns the
-       * generated `AgentInstanceHistorySearchQueryResult` as JSON.
+       * `POST /agent-instances/{agentInstanceKey}/history/search`: returns the
+       * `AgentInstanceHistorySearchQueryResult`.
        * @param {string} agent_instance_key
        * @param {string} query_json
        * @returns {string}
@@ -30921,13 +31018,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * `searchAgentInstances` — mirrors `POST /agent-instances/search`.
-       * `query_json` is the spec's `AgentInstanceSearchQuery` (`{ filter?, sort?,
-       * page? }`; empty ⇒ no query), parsed into the generated model and run
-       * through the SAME `nanobpmn_search` pipeline the gateway serves (every
-       * filter operator, sort, limit/cursor paging). Returns the generated
-       * `AgentInstanceSearchQueryResult` as JSON. A property the spec does not
-       * define is rejected, never silently ignored.
+       * `POST /agent-instances/search`: returns the
+       * `AgentInstanceSearchQueryResult`.
        * @param {string} query_json
        * @returns {string}
        */
@@ -30959,20 +31051,49 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * All process instances, as a `ProcessInstanceSearchQueryResult` JSON object
-       * (`{ items: [...], page: {...} }`). The request body is shape-validated like
-       * `POST /process-instances/search`, but filter/sort/page fields are not yet
-       * honoured — every instance is returned. Do not rely on gateway-side
-       * filtering through this method yet.
-       * @param {string} filter_json
+       * `POST /incidents/search`: returns the `IncidentSearchQueryResult`.
+       * @param {string} query_json
        * @returns {string}
        */
-      searchProcessInstances(filter_json) {
+      searchIncidents(query_json) {
         let deferred3_0;
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr0 = passStringToWasm0(query_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const len0 = WASM_VECTOR_LEN;
+          wasm.testengine_searchIncidents(retptr, this.__wbg_ptr, ptr0, len0);
+          var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+          var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+          var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+          var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+          var ptr2 = r0;
+          var len2 = r1;
+          if (r3) {
+            ptr2 = 0;
+            len2 = 0;
+            throw takeObject(r2);
+          }
+          deferred3_0 = ptr2;
+          deferred3_1 = len2;
+          return getStringFromWasm0(ptr2, len2);
+        } finally {
+          wasm.__wbindgen_add_to_stack_pointer(16);
+          wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+        }
+      }
+      /**
+       * `POST /process-instances/search`: returns the
+       * `ProcessInstanceSearchQueryResult`.
+       * @param {string} query_json
+       * @returns {string}
+       */
+      searchProcessInstances(query_json) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+          const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+          const ptr0 = passStringToWasm0(query_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_searchProcessInstances(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -30995,19 +31116,18 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * The user tasks matching an optional `{ state? }` filter, as a
-       * `UserTaskSearchQueryResult` JSON object (`{ items: [...], page: {...} }`).
-       * The `state` filter (e.g. `"CREATED"`) is honoured through the read model,
-       * not hardcoded. Mirrors `POST /user-tasks/search`.
-       * @param {string} filter_json
+       * `POST /user-tasks/search`: `query_json` is the spec's
+       * `UserTaskSearchQuery` (empty ⇒ none); returns the
+       * `UserTaskSearchQueryResult`.
+       * @param {string} query_json
        * @returns {string}
        */
-      searchUserTasks(filter_json) {
+      searchUserTasks(query_json) {
         let deferred3_0;
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr0 = passStringToWasm0(query_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
           wasm.testengine_searchUserTasks(retptr, this.__wbg_ptr, ptr0, len0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
@@ -31030,23 +31150,20 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * All variables, as a `VariableSearchQueryResult` JSON object
-       * (`{ items: [...], page: {...} }`). The request body is shape-validated like
-       * `POST /variables/search`, but filter/sort/page fields are not yet honoured —
-       * every variable is returned. Values longer than `VARIABLE_VALUE_PREVIEW_LEN`
-       * are truncated with `isTruncated: true`; shorter values pass through intact
-       * with `isTruncated: false`. There is no `truncateValues` opt-out yet.
-       * @param {string} filter_json
+       * `POST /variables/search?truncateValues=…` (default `true`): returns the
+       * `VariableSearchQueryResult`.
+       * @param {string} query_json
+       * @param {boolean | null} [truncate_values]
        * @returns {string}
        */
-      searchVariables(filter_json) {
+      searchVariables(query_json, truncate_values) {
         let deferred3_0;
         let deferred3_1;
         try {
           const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-          const ptr0 = passStringToWasm0(filter_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
+          const ptr0 = passStringToWasm0(query_json, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
           const len0 = WASM_VECTOR_LEN;
-          wasm.testengine_searchVariables(retptr, this.__wbg_ptr, ptr0, len0);
+          wasm.testengine_searchVariables(retptr, this.__wbg_ptr, ptr0, len0, isLikeNone(truncate_values) ? 16777215 : truncate_values ? 1 : 0);
           var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
           var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
           var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -31067,10 +31184,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Merge variables into a scope (a process-instance key or an element-instance
-       * key). When `local` is true the values are written strictly into the target
-       * scope; otherwise they propagate upward to the nearest ancestor scope that
-       * defines each name (Zeebe `SetVariables` semantics). Returns the snapshot.
+       * Merge variables into a scope through
+       * `PUT /element-instances/{elementInstanceKey}/variables`. Returns the
+       * snapshot.
        * @param {string} scope_key
        * @param {string} variables_json
        * @param {boolean} local
@@ -31135,11 +31251,9 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Throw a BPMN business error from a waiting job by key. If the job's
-       * activity has a matching error boundary/event-subprocess catch it is
-       * interrupted and the error-handling path runs; otherwise an incident is
-       * raised. The job is activated first if needed, so the UI can throw an
-       * error directly from a freshly-created job. Returns the snapshot.
+       * Throw a BPMN error from a job through `POST /jobs/{jobKey}/error`
+       * (activating a `Created` job first when no lease token is given).
+       * Returns the snapshot.
        * @param {string} job_key
        * @param {string} error_code
        * @param {string} error_message
@@ -31213,8 +31327,8 @@ var init_nanobpmn_engine = __esm({
         }
       }
       /**
-       * Clear a user task's assignee. The task must be in the `Created` state.
-       * Returns the snapshot.
+       * Clear a user task's assignee through
+       * `DELETE /user-tasks/{userTaskKey}/assignee`. Returns the snapshot.
        * @param {string} user_task_key
        * @returns {string}
        */
@@ -31362,6 +31476,10 @@ var init_nanobpmn_engine = __esm({
        * `dueDate` / `followUpDate` (ISO-8601 string, or `null`/`""` to clear),
        * `priority` (0..=100). Only present keys are changed. The task must be in
        * the `Created` state. Returns the snapshot.
+       *
+       * @deprecated Use `handle("PATCH", "/user-tasks/{userTaskKey}", …)` — the REST
+       * route this duplicates. Kept because the route cannot clear a date (a REST
+       * `null` preserves it), which this changeset (`null`/`""`) supports.
        * @param {string} user_task_key
        * @param {string} changeset_json
        * @returns {string}
